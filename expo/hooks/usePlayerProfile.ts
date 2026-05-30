@@ -353,29 +353,6 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       });
 
       try {
-        // Check for existing completed result for this puzzle
-        const { data: existingResult, error: resultLookupError } = await supabase
-          .from("game_results")
-          .select("result_id")
-          .eq("user_id", auth.user.id)
-          .eq("puzzle_id", snapshot.puzzle_id)
-          .eq("mode", snapshot.mode)
-          .eq("difficulty", snapshot.difficulty)
-          .limit(1)
-          .maybeSingle();
-
-        if (resultLookupError) updateDiagnostics({ lastError: resultLookupError.message });
-
-        if (existingResult) {
-          await supabase.from("puzzle_sessions")
-            .update({ status: "completed", updated_at: new Date().toISOString() })
-            .eq("user_id", auth.user.id)
-            .eq("session_id", sessionId);
-          setActiveSessions((prev) => prev.filter((s) => s.session_id !== sessionId));
-          updateDiagnostics({ lastSessionSaveSucceeded: true, lastSessionSaveError: null });
-          return sessionId;
-        }
-
         const { error } = await supabase.from("puzzle_sessions").upsert({
           session_id: sessionId,
           user_id: auth.user.id,
@@ -428,6 +405,38 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }
     return sessionId;
   }, [auth.isSignedIn, auth.user, loadGuestSessions, persistGuestSessions, updateDiagnostics]);
+
+  const verifyOwnedInProgressSession = useCallback(async (sessionId: string): Promise<PuzzleSessionRow> => {
+    if (!auth.user || !isSupabaseConfigured) throw new Error("Could not save official result. Missing auth user.");
+
+    const { data, error } = await supabase
+      .from("puzzle_sessions")
+      .select("*")
+      .eq("session_id", sessionId)
+      .maybeSingle();
+
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      throw new Error(error.message);
+    }
+
+    const session = data as PuzzleSessionRow | null;
+    logDevDiagnostic("official session verify", {
+      authUserId: auth.user.id,
+      activeSessionId: sessionId,
+      found: Boolean(session),
+      rowUserId: session?.user_id ?? null,
+      status: session?.status ?? null,
+      puzzleId: session?.puzzle_id ?? null,
+      mode: session?.mode ?? null,
+      difficulty: session?.difficulty ?? null,
+    });
+
+    if (!session) throw new Error("Official result not saved: missing session.");
+    if (session.user_id !== auth.user.id) throw new Error("Official result not saved: session belongs to a different user.");
+    if (session.status !== "in_progress") throw new Error(`Official result not saved: session status is ${session.status}.`);
+    return session;
+  }, [auth.user, updateDiagnostics]);
 
   const deleteSessionById = useCallback(async (sessionId: string): Promise<void> => {
     if (auth.isSignedIn && auth.user && isSupabaseConfigured) {
@@ -625,6 +634,15 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       throw new Error(message);
     }
 
+    logDevDiagnostic("official result submit start", {
+      authUserId: auth.user.id,
+      activeSessionId: sessionId,
+      puzzleId: result.puzzle_id,
+      mode: result.mode,
+      difficulty: result.difficulty,
+    });
+    await verifyOwnedInProgressSession(sessionId);
+
     const previousProfile = profile;
     const { data, error } = await measureAsync("official result submit duration", () => supabase.rpc("submit_puzzle_result", {
       p_session_id: sessionId,
@@ -648,7 +666,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     setActiveSessions((prev) => prev.filter((session) => session.session_id !== sessionId));
     await loadBackendProfile();
     return summary;
-  }, [auth.isSignedIn, auth.user, loadBackendProfile, profile, recordPuzzleResult, summaryFromOfficialPayload, updateDiagnostics]);
+  }, [auth.isSignedIn, auth.user, loadBackendProfile, profile, recordPuzzleResult, summaryFromOfficialPayload, updateDiagnostics, verifyOwnedInProgressSession]);
 
   const updateDisplayName = useCallback((username: string): SaveResult => {
     const trimmed = username.trim();

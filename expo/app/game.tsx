@@ -12,7 +12,6 @@ import NumberPad from "@/components/NumberPad";
 import PauseModal from "@/components/PauseModal";
 import SudokuGrid from "@/components/SudokuGrid";
 import { C } from "@/constants/colors";
-import { stats } from "@/constants/mockData";
 import type { Difficulty } from "@/constants/mockData";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
@@ -126,6 +125,7 @@ export default function GameScreen() {
   const [completionSummary, setCompletionSummary] = useState<ProfileUpdateSummary | null>(null);
   const [officialScore, setOfficialScore] = useState<number | null>(null);
   const [officialLeaderboardEligible, setOfficialLeaderboardEligible] = useState<boolean | null>(null);
+  const [officialSubmitError, setOfficialSubmitError] = useState<string | null>(null);
   const [processedResultId, setProcessedResultId] = useState<string | null>(null);
   const [isSubmittingResult, setIsSubmittingResult] = useState<boolean>(false);
   const [leaveOpen, setLeaveOpen] = useState<boolean>(false);
@@ -389,39 +389,66 @@ export default function GameScreen() {
   }, []);
 
   const selectedValue = game.selected ? game.board[game.selected.r][game.selected.c] : 0;
+  const completionOfficialStatus: "guest" | "pending" | "saved" | "failed" = auth.isSignedIn
+    ? isSubmittingResult
+      ? "pending"
+      : completionSummary
+      ? "saved"
+      : officialSubmitError
+      ? "failed"
+      : "pending"
+    : "guest";
 
   useEffect(() => {
     if (!game.result || processedResultId?.startsWith(`${game.result.puzzle_id}:`) || isSubmittingResult) return;
     setIsSubmittingResult(true);
     setOfficialScore(null);
     setOfficialLeaderboardEligible(null);
+    setOfficialSubmitError(null);
     const outcome = effectiveMode === "duel" || effectiveMode === "ranked" ? "win" : undefined;
     cancelPendingSave();
     isSubmittingResultRef.current = true;
     isCompletedRef.current = true;
-    const completedSessionId = currentSessionIdRef.current ?? undefined;
-    const resultWithSession = { ...game.result, session_id: completedSessionId };
-    setProcessedResultId(`${game.result.puzzle_id}:${completedSessionId ?? "no-session"}`);
-    if (auth.isSignedIn && completedSessionId) {
-      void submitOfficialPuzzleResult(resultWithSession, game.board, { sessionId: completedSessionId })
+    setProcessedResultId(`${game.result.puzzle_id}:${currentSessionIdRef.current ?? "pending-session"}`);
+    if (auth.isSignedIn) {
+      void saveSession(true)
+        .then((saved) => {
+          const completedSessionId = currentSessionIdRef.current ?? undefined;
+          if (!saved || !completedSessionId) {
+            throw new Error("Could not save official result. Missing puzzle session.");
+          }
+          const resultWithSession = { ...game.result, session_id: completedSessionId };
+          setProcessedResultId(`${game.result.puzzle_id}:${completedSessionId}`);
+          logDevDiagnostic("official completion handoff", {
+            authUserId: auth.user?.id ?? null,
+            activeSessionId: completedSessionId,
+            puzzleId: game.result?.puzzle_id,
+            mode: game.result?.mode,
+            difficulty: game.result?.difficulty,
+          });
+          return submitOfficialPuzzleResult(resultWithSession, game.board, { sessionId: completedSessionId });
+        })
         .then((summary) => {
           setCompletionSummary(summary);
           const officialResult = summary.updatedProfile.recent_results[0];
           setOfficialScore(officialResult?.final_score ?? null);
           setOfficialLeaderboardEligible(officialResult?.eligible_for_leaderboard ?? false);
+          currentSessionIdRef.current = null;
+          setHasSavedOnce(false);
         })
         .catch((error: unknown) => {
           const message = error instanceof Error ? error.message : "Could not save official result. Try again.";
-          Alert.alert("Official result not saved", message);
+          setOfficialSubmitError(message);
+          setOfficialLeaderboardEligible(false);
         })
         .finally(() => {
-          currentSessionIdRef.current = null;
-          setHasSavedOnce(false);
           setIsSubmittingResult(false);
         });
       return;
     }
 
+    const completedSessionId = currentSessionIdRef.current ?? undefined;
+    const resultWithSession = { ...game.result, session_id: completedSessionId };
     const summary = recordPuzzleResult(resultWithSession, outcome, { sessionId: completedSessionId });
     setCompletionSummary(summary);
     setOfficialScore(summary.updatedProfile.recent_results[0]?.final_score ?? null);
@@ -431,19 +458,19 @@ export default function GameScreen() {
       setHasSavedOnce(false);
       setIsSubmittingResult(false);
     });
-  }, [auth.isSignedIn, cancelPendingSave, closeSessionForPuzzle, effectiveMode, game.board, game.result, isSubmittingResult, processedResultId, recordPuzzleResult, submitOfficialPuzzleResult]);
+  }, [auth.isSignedIn, auth.user?.id, cancelPendingSave, closeSessionForPuzzle, effectiveMode, game.board, game.result, isSubmittingResult, processedResultId, recordPuzzleResult, saveSession, submitOfficialPuzzleResult]);
 
   const cleanupCompletedSession = useCallback(() => {
     cancelPendingSave();
     isSubmittingResultRef.current = true;
     isCompletedRef.current = true;
-    if (game.result) {
+    if (game.result && !auth.isSignedIn) {
       void closeSessionForPuzzle(game.result.puzzle_id, currentSessionIdRef.current ?? undefined);
     }
     currentSessionIdRef.current = null;
     setHasSavedOnce(false);
     clearTransientUiRef.current();
-  }, [cancelPendingSave, closeSessionForPuzzle, game.result]);
+  }, [auth.isSignedIn, cancelPendingSave, closeSessionForPuzzle, game.result]);
 
   const handleCompletionNext = useCallback(() => {
     const completedPuzzleId = game.result?.puzzle_id ?? game.puzzleId;
@@ -451,6 +478,7 @@ export default function GameScreen() {
     setCompletionSummary(null);
     setOfficialScore(null);
     setOfficialLeaderboardEligible(null);
+    setOfficialSubmitError(null);
     setProcessedResultId(null);
     if (effectiveMode === "classic") {
       router.replace({
@@ -652,11 +680,13 @@ export default function GameScreen() {
         mistakes={game.mistakes}
         hintsUsed={game.hintsUsed}
         undoCount={game.undoCount}
-        leaderboardEligible={auth.isSignedIn ? officialLeaderboardEligible ?? false : game.result?.eligible_for_leaderboard ?? false}
-        score={game.score}
-        streak={completionSummary?.updatedProfile.current_streak ?? stats.currentStreak + 1}
+        leaderboardEligible={completionOfficialStatus === "saved" ? officialLeaderboardEligible ?? false : !auth.isSignedIn ? game.result?.eligible_for_leaderboard ?? false : false}
+        score={officialScore ?? game.score}
+        streak={completionSummary?.updatedProfile.current_streak ?? 0}
         difficulty={game.difficulty}
         mode={MODE_LABEL[effectiveMode]}
+        officialStatus={completionOfficialStatus}
+        officialError={officialSubmitError}
         xpEarned={completionSummary?.xpEarned ?? 0}
         levelUpMessage={completionSummary?.didLevelUp ? `Level up! ${completionSummary.previousLevel} → ${completionSummary.newLevel}` : null}
         unlockedBadges={completionSummary?.unlockedBadges.map((badge) => ({ name: badge.name, icon: badge.icon })) ?? []}
@@ -666,6 +696,7 @@ export default function GameScreen() {
           cleanupCompletedSession();
           setOfficialScore(null);
           setOfficialLeaderboardEligible(null);
+          setOfficialSubmitError(null);
           setIsFocused(false);
           router.replace("/(tabs)");
         }}
@@ -673,6 +704,7 @@ export default function GameScreen() {
           cleanupCompletedSession();
           setOfficialScore(null);
           setOfficialLeaderboardEligible(null);
+          setOfficialSubmitError(null);
           setIsFocused(false);
           router.replace("/(tabs)");
         }}
