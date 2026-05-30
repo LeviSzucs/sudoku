@@ -1,0 +1,716 @@
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useIsFocused } from "@react-navigation/native";
+import { ChevronLeft, Pause, Play as PlayIcon } from "lucide-react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AppState, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import CompletionModal from "@/components/CompletionModal";
+import GameControls from "@/components/GameControls";
+import GameStatsBar from "@/components/GameStatsBar";
+import NumberPad from "@/components/NumberPad";
+import PauseModal from "@/components/PauseModal";
+import SudokuGrid from "@/components/SudokuGrid";
+import { C } from "@/constants/colors";
+import { stats } from "@/constants/mockData";
+import type { Difficulty } from "@/constants/mockData";
+import { useAuth } from "@/hooks/useAuth";
+import { usePlayerProfile } from "@/hooks/usePlayerProfile";
+import useSudokuGame, { type GameMode, type SessionSnapshot } from "@/hooks/useSudokuGame";
+import type { ProfileUpdateSummary } from "@/lib/playerProfile";
+import { fetchClassicPuzzle, fetchDailyPuzzle, type RawPuzzleData } from "@/lib/sudoku";
+
+const MODE_LABEL: Record<GameMode, string> = {
+  daily: "Daily",
+  classic: "Classic",
+  duel: "Daily Duel",
+  ranked: "Ranked",
+};
+
+/** Auto-save interval in seconds */
+const AUTO_SAVE_INTERVAL_MS = 10_000;
+/** Minimum interval between consecutive saves to avoid hammering Supabase */
+const MIN_SAVE_INTERVAL_MS = 2_000;
+
+export default function GameScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { width, height } = useWindowDimensions();
+
+  const params = useLocalSearchParams<{
+    mode?: string;
+    difficulty?: string;
+    puzzleId?: string;
+    sessionId?: string;
+  }>();
+  const mode = (params.mode as GameMode) ?? "daily";
+  const difficulty = ((params.difficulty as Difficulty) ?? "Medium") as Difficulty;
+  const sessionIdParam = params.sessionId as string | undefined;
+
+  const auth = useAuth();
+  const { findSessionSnapshot, upsertSession, deleteSessionById, closeSessionForPuzzle } = usePlayerProfile();
+  const effectiveMode: GameMode = auth.isGuest && mode === "ranked" ? "classic" : mode;
+
+  // ── Resolve restore snapshot synchronously ────────────────────────
+  const restoreSnapshot = useMemo<SessionSnapshot | undefined>(() => {
+    if (!sessionIdParam) return undefined;
+    return findSessionSnapshot(sessionIdParam) ?? undefined;
+  }, [sessionIdParam, findSessionSnapshot]);
+
+  // ── Fetch puzzle data from backend ────────────────────────────────
+  const [puzzleData, setPuzzleData] = useState<RawPuzzleData | undefined>(undefined);
+  const [puzzleLoadError, setPuzzleLoadError] = useState<string | null>(null);
+  const [isLoadingPuzzle, setIsLoadingPuzzle] = useState<boolean>(!restoreSnapshot);
+
+  useEffect(() => {
+    if (restoreSnapshot) {
+      setIsLoadingPuzzle(false);
+      return;
+    }
+    let cancelled = false;
+    async function load(): Promise<void> {
+      setIsLoadingPuzzle(true);
+      setPuzzleLoadError(null);
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        if (effectiveMode === "daily") {
+          const data = await fetchDailyPuzzle(today, "daily");
+          if (!cancelled) setPuzzleData(data);
+        } else if (effectiveMode === "duel") {
+          const data = await fetchDailyPuzzle(today, "daily_duel");
+          if (!cancelled) setPuzzleData(data);
+        } else {
+          // classic or ranked
+          const data = await fetchClassicPuzzle(auth.user?.id ?? null, difficulty);
+          if (!cancelled) setPuzzleData(data);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          const msg = err instanceof Error ? err.message : "Puzzle could not be loaded.";
+          setPuzzleLoadError(msg);
+        }
+      } finally {
+        if (!cancelled) setIsLoadingPuzzle(false);
+      }
+    }
+    void load();
+    return () => { cancelled = true; };
+  }, [effectiveMode, difficulty, auth.user?.id, restoreSnapshot]);
+
+  const game = useSudokuGame({
+    mode: effectiveMode,
+    difficulty,
+    puzzleId: params.puzzleId,
+    restoreSnapshot,
+    puzzleData,
+  });
+  const { recordPuzzleResult } = usePlayerProfile();
+  const [completionSummary, setCompletionSummary] = useState<ProfileUpdateSummary | null>(null);
+  const [processedResultId, setProcessedResultId] = useState<string | null>(null);
+  const [isSubmittingResult, setIsSubmittingResult] = useState<boolean>(false);
+  const [leaveOpen, setLeaveOpen] = useState<boolean>(false);
+  const [rankedHintMessage, setRankedHintMessage] = useState<boolean>(false);
+  const navIsFocused = useIsFocused();
+  const [isFocused, setIsFocused] = useState<boolean>(true);
+
+  // Track the current session ID for updates
+  const currentSessionIdRef = useRef<string | null>(sessionIdParam ?? null);
+  const [hasSavedOnce, setHasSavedOnce] = useState<boolean>(!!sessionIdParam);
+  const isSubmittingResultRef = useRef<boolean>(false);
+  const isCompletedRef = useRef<boolean>(false);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSaveTimeRef = useRef<number>(0);
+  const pendingSaveRef = useRef<boolean>(false);
+  const saveErrorRef = useRef<string | null>(null);
+
+  // ── Stable refs for game callbacks (avoids re-render loops) ──────
+  const getSnapshotRef = useRef(game.getSessionSnapshot);
+  getSnapshotRef.current = game.getSessionSnapshot;
+  const clearTransientUiRef = useRef(game.clearTransientUi);
+  clearTransientUiRef.current = game.clearTransientUi;
+  // Ref for the latest game state for useFocusEffect cleanup
+  const gameStateRef = useRef({ paused: false, completed: false, gameOver: false });
+  gameStateRef.current = { paused: game.paused, completed: game.completed, gameOver: game.gameOver };
+
+  useEffect(() => {
+    isSubmittingResultRef.current = isSubmittingResult;
+  }, [isSubmittingResult]);
+
+  useEffect(() => {
+    isCompletedRef.current = game.completed || game.gameOver;
+  }, [game.completed, game.gameOver]);
+
+  const cancelPendingSave = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+  }, []);
+
+  // ── Stable saveSession — background only; never reactivates completed games ─
+
+  const saveSession = useCallback(async (force = false): Promise<boolean> => {
+    if (!force && (isSubmittingResultRef.current || isCompletedRef.current)) return false;
+    const snapshot = getSnapshotRef.current();
+    if (!snapshot.puzzle_id) return false;
+
+    // Rate-limit saves: skip if saved recently and not forced
+    const now = Date.now();
+    if (!force && now - lastSaveTimeRef.current < MIN_SAVE_INTERVAL_MS) return true;
+
+    pendingSaveRef.current = true;
+    try {
+      const sid = await upsertSession(snapshot, currentSessionIdRef.current ?? undefined);
+      if (!force && (isSubmittingResultRef.current || isCompletedRef.current)) {
+        pendingSaveRef.current = false;
+        return false;
+      }
+      currentSessionIdRef.current = sid;
+      lastSaveTimeRef.current = Date.now();
+      saveErrorRef.current = null;
+      setHasSavedOnce(true);
+      pendingSaveRef.current = false;
+      return true;
+    } catch (err: unknown) {
+      saveErrorRef.current = err instanceof Error ? err.message : "Save failed";
+      pendingSaveRef.current = false;
+      return false;
+    }
+  }, [upsertSession]);
+
+  const scheduleSaveSession = useCallback((delayMs = 500) => {
+    if (isSubmittingResultRef.current || isCompletedRef.current) return;
+    cancelPendingSave();
+    saveTimeoutRef.current = setTimeout(() => {
+      saveTimeoutRef.current = null;
+      void saveSession();
+    }, delayMs);
+  }, [cancelPendingSave, saveSession]);
+
+  // ── IMMEDIATE session creation when puzzle starts ────────────────
+
+  useEffect(() => {
+    // Only create session for new (non-restore) puzzles
+    if (sessionIdParam || game.paused || game.completed || game.gameOver) return;
+    // Create initial session immediately with starting board
+    void saveSession(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Auto-save effect (every AUTO_SAVE_INTERVAL_MS while playing) ─
+
+  useEffect(() => {
+    if (game.paused || game.completed || game.gameOver) return;
+    const id = setInterval(() => {
+      void saveSession();
+    }, AUTO_SAVE_INTERVAL_MS);
+    return () => clearInterval(id);
+    // saveSession is stable (only depends on upsertSession)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.paused, game.completed, game.gameOver]);
+
+  // ── Save on state changes (debounced) ────────────────────────────
+
+  const lastBoardSnapshot = useRef<string>("");
+  useEffect(() => {
+    if (game.paused || game.completed || game.gameOver) return;
+    const currentSnapshot = JSON.stringify(game.board);
+    if (currentSnapshot !== lastBoardSnapshot.current) {
+      lastBoardSnapshot.current = currentSnapshot;
+      // Schedule save with short debounce on first change, longer on subsequent
+      const delay = !hasSavedOnce ? 100 : 500;
+      scheduleSaveSession(delay);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.board, game.paused, game.completed, game.gameOver, hasSavedOnce, scheduleSaveSession]);
+
+  // Save detailed progress changes in the background without blocking gameplay
+  useEffect(() => {
+    if (game.paused || game.completed || game.gameOver || isSubmittingResult) return;
+    if (!hasSavedOnce) return;
+    scheduleSaveSession(500);
+  }, [game.notes, game.mistakes, game.hintsUsed, game.undoCount, game.seconds, game.paused, game.completed, game.gameOver, hasSavedOnce, isSubmittingResult, scheduleSaveSession]);
+
+  // ── AppState listener: save when app goes to background ──────────
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "background" || nextState === "inactive") {
+        if (!game.paused && !game.completed && !game.gameOver) {
+          void saveSession(true);
+        }
+      }
+    });
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.paused, game.completed, game.gameOver]);
+
+  // ── Save on pause ────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (game.paused && !game.completed && !game.gameOver) {
+      void saveSession(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.paused, game.completed, game.gameOver]);
+
+  // ── Save on screen blur (useFocusEffect) ─────────────────────────
+
+  useFocusEffect(
+    useCallback(() => {
+      setIsFocused(true);
+      return () => {
+        setIsFocused(false);
+        setLeaveOpen(false);
+        const state = gameStateRef.current;
+        if (!state.paused && !state.completed && !state.gameOver) {
+          void saveSession(true);
+        }
+        clearTransientUiRef.current();
+      };
+    }, [saveSession])
+  );
+
+  const closeAllAndBack = useCallback(() => {
+    setLeaveOpen(false);
+    setIsFocused(false);
+    clearTransientUiRef.current();
+    router.replace("/(tabs)");
+  }, [router]);
+
+  const onBackPress = useCallback(() => {
+    if (game.completed || game.gameOver) {
+      router.back();
+      return;
+    }
+    setLeaveOpen(true);
+  }, [game.completed, game.gameOver, router]);
+
+  // ── Leave handler: force-save before navigating ──────────────────
+
+  const [isLeaving, setIsLeaving] = useState<boolean>(false);
+  const handleLeave = useCallback(async () => {
+    if (!game.completed && !game.gameOver) {
+      cancelPendingSave();
+      setIsLeaving(true);
+      const saved = await saveSession(true);
+      if (!saved && !isSubmittingResultRef.current && !isCompletedRef.current) {
+        // Save failed — give user a chance to retry
+        // For now, still allow leaving (progress may be lost)
+        console.warn("[Game] Force-save failed on leave, progress may be lost");
+      }
+      setIsLeaving(false);
+    }
+    closeAllAndBack();
+  }, [cancelPendingSave, game.completed, game.gameOver, saveSession, closeAllAndBack]);
+
+  const reserved = 50 + 58 + 60 + 64 + 40 + insets.top + Math.max(insets.bottom, 12);
+  const boardSize = Math.max(
+    248,
+    Math.min(width - 16, Math.floor(height - reserved))
+  );
+
+  const dateLabel = useMemo(() => {
+    const d = new Date();
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }, []);
+
+  const selectedValue = game.selected ? game.board[game.selected.r][game.selected.c] : 0;
+
+  useEffect(() => {
+    if (!game.result || processedResultId?.startsWith(`${game.result.puzzle_id}:`) || isSubmittingResult) return;
+    setIsSubmittingResult(true);
+    const outcome = effectiveMode === "duel" || effectiveMode === "ranked" ? "win" : undefined;
+    cancelPendingSave();
+    isSubmittingResultRef.current = true;
+    isCompletedRef.current = true;
+    const completedSessionId = currentSessionIdRef.current ?? undefined;
+    const resultWithSession = { ...game.result, session_id: completedSessionId };
+    const summary = recordPuzzleResult(resultWithSession, outcome, { sessionId: completedSessionId });
+    setCompletionSummary(summary);
+    setProcessedResultId(`${game.result.puzzle_id}:${completedSessionId ?? "no-session"}`);
+    void closeSessionForPuzzle(game.result.puzzle_id, completedSessionId).finally(() => {
+      currentSessionIdRef.current = null;
+      setHasSavedOnce(false);
+      setIsSubmittingResult(false);
+    });
+  }, [cancelPendingSave, closeSessionForPuzzle, effectiveMode, game.result, isSubmittingResult, processedResultId, recordPuzzleResult]);
+
+  const cleanupCompletedSession = useCallback(() => {
+    cancelPendingSave();
+    isSubmittingResultRef.current = true;
+    isCompletedRef.current = true;
+    if (game.result) {
+      void closeSessionForPuzzle(game.result.puzzle_id, currentSessionIdRef.current ?? undefined);
+    }
+    currentSessionIdRef.current = null;
+    setHasSavedOnce(false);
+    clearTransientUiRef.current();
+  }, [cancelPendingSave, closeSessionForPuzzle, game.result]);
+
+  useEffect(() => {
+    return () => cancelPendingSave();
+  }, [cancelPendingSave]);
+
+  const handleHint = useCallback(() => {
+    if (!game.hintAllowed && effectiveMode === "ranked") {
+      setRankedHintMessage(true);
+      setTimeout(() => setRankedHintMessage(false), 1800);
+      return;
+    }
+    game.hint();
+  }, [effectiveMode, game]);
+
+  if (!isFocused && !navIsFocused) {
+    return <View style={{ flex: 1, backgroundColor: C.bg }} />;
+  }
+
+  // ── Puzzle loading state ──────────────────────────────────────────
+  if (isLoadingPuzzle && !restoreSnapshot) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg, alignItems: "center", justifyContent: "center", padding: 32 }}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <Text style={{ fontSize: 16, fontWeight: "700", color: C.ink, marginBottom: 8 }}>Loading puzzle…</Text>
+        <Text style={{ fontSize: 13, color: C.muted, textAlign: "center" }}>Fetching the best puzzle for you</Text>
+      </View>
+    );
+  }
+
+  // ── Puzzle load error ─────────────────────────────────────────────
+  if (puzzleLoadError && !restoreSnapshot) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg, alignItems: "center", justifyContent: "center", padding: 32 }}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <Text style={{ fontSize: 16, fontWeight: "700", color: C.danger, marginBottom: 8 }}>Puzzle could not be loaded</Text>
+        <Text style={{ fontSize: 13, color: C.muted, textAlign: "center", marginBottom: 20 }}>{puzzleLoadError}</Text>
+        <Pressable
+          style={{ backgroundColor: C.ink, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 }}
+          onPress={() => router.back()}
+        >
+          <Text style={{ color: "#FBF8F2", fontWeight: "700", fontSize: 14 }}>Go back</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <View style={[styles.topBar, { paddingTop: insets.top + 4 }]}>
+        <Pressable hitSlop={10} onPress={onBackPress} style={styles.topBtn}>
+          <ChevronLeft color={C.ink} size={26} />
+        </Pressable>
+        <View style={{ alignItems: "center" }}>
+          <Text style={styles.title}>
+            {MODE_LABEL[effectiveMode]} · {game.difficulty}
+          </Text>
+          <Text style={styles.dateLabel}>{dateLabel.toUpperCase()}</Text>
+        </View>
+        <Pressable hitSlop={10} onPress={game.togglePause} style={styles.topBtn}>
+          {game.paused ? (
+            <PlayIcon color={C.ink} size={22} fill={C.ink} />
+          ) : (
+            <Pause color={C.ink} size={22} />
+          )}
+        </Pressable>
+      </View>
+
+      <GameStatsBar
+        mistakes={game.mistakes}
+        score={game.score}
+        seconds={game.seconds}
+      />
+
+      <View style={styles.boardWrap}>
+        <View style={{ position: "relative" }}>
+          <SudokuGrid
+            initial={game.initial}
+            board={game.board}
+            notes={game.notes}
+            selected={game.selected}
+            errors={game.errors}
+            boardSize={boardSize}
+            onSelect={game.select}
+          />
+          {game.paused && !game.gameOver ? (
+            <View style={[styles.pauseOverlay, { width: boardSize, height: boardSize }]}>
+              <Pressable onPress={game.resume} style={styles.pauseCenter}>
+                <PlayIcon color={C.ink} size={28} fill={C.ink} />
+                <Text style={styles.pauseText}>Resume</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
+      </View>
+
+      <View style={{ marginTop: 10 }}>
+        <GameControls
+          notesMode={game.notesMode}
+          hintAllowed={game.hintAllowed}
+          hintsUsed={game.hintsUsed}
+          onUndo={game.undo}
+          onErase={game.erase}
+          onToggleNotes={game.toggleNotes}
+          onHint={handleHint}
+        />
+      </View>
+
+      {rankedHintMessage ? (
+        <View style={styles.hintToast}>
+          <Text style={styles.hintToastText}>Hints are disabled in Ranked.</Text>
+        </View>
+      ) : null}
+
+      <View
+        style={{
+          paddingHorizontal: 8,
+          marginTop: 10,
+          marginBottom: Math.max(12, insets.bottom + 4),
+        }}
+      >
+        <NumberPad
+          onPressNumber={game.enterNumber}
+          counts={game.counts}
+          disabled={game.paused || game.completed || game.gameOver}
+          highlighted={selectedValue !== 0 ? selectedValue : undefined}
+        />
+      </View>
+
+      <PauseModal
+        visible={game.paused && !game.gameOver && !game.completed}
+        variant="pause"
+        time={game.seconds}
+        mistakes={game.mistakes}
+        onResume={game.resume}
+        onRestart={() => {
+          if (currentSessionIdRef.current) {
+            void deleteSessionById(currentSessionIdRef.current);
+          }
+          game.resume();
+          game.restart();
+          currentSessionIdRef.current = null;
+          setHasSavedOnce(false);
+        }}
+        onExit={handleLeave}
+      />
+      <PauseModal
+        visible={isFocused && game.gameOver}
+        variant="gameover"
+        time={game.seconds}
+        mistakes={game.mistakes}
+        onRestart={() => {
+          if (currentSessionIdRef.current) {
+            void deleteSessionById(currentSessionIdRef.current);
+          }
+          game.restart();
+          currentSessionIdRef.current = null;
+          setHasSavedOnce(false);
+        }}
+        onExit={() => {
+          setIsFocused(false);
+          clearTransientUiRef.current();
+          router.replace("/(tabs)");
+        }}
+      />
+
+      <LeaveConfirmModal
+        visible={isFocused && leaveOpen && !game.completed && !game.gameOver}
+        isSaving={isLeaving}
+        onKeepPlaying={() => setLeaveOpen(false)}
+        onLeave={() => void handleLeave()}
+      />
+
+      <CompletionModal
+        visible={isFocused && game.completed}
+        time={game.seconds}
+        mistakes={game.mistakes}
+        hintsUsed={game.hintsUsed}
+        undoCount={game.undoCount}
+        leaderboardEligible={game.result?.eligible_for_leaderboard ?? false}
+        score={game.score}
+        streak={completionSummary?.updatedProfile.current_streak ?? stats.currentStreak + 1}
+        difficulty={game.difficulty}
+        mode={MODE_LABEL[effectiveMode]}
+        xpEarned={completionSummary?.xpEarned ?? 0}
+        levelUpMessage={completionSummary?.didLevelUp ? `Level up! ${completionSummary.previousLevel} → ${completionSummary.newLevel}` : null}
+        unlockedBadges={completionSummary?.unlockedBadges.map((badge) => ({ name: badge.name, icon: badge.icon })) ?? []}
+        onNext={() => {
+          cleanupCompletedSession();
+          setCompletionSummary(null);
+          setProcessedResultId(null);
+          game.restart();
+        }}
+        onShare={() => {}}
+        onHome={() => {
+          cleanupCompletedSession();
+          setIsFocused(false);
+          router.replace("/(tabs)");
+        }}
+        onClose={() => {
+          cleanupCompletedSession();
+          setIsFocused(false);
+          router.replace("/(tabs)");
+        }}
+      />
+    </View>
+  );
+}
+
+function LeaveConfirmModal({
+  visible,
+  isSaving,
+  onKeepPlaying,
+  onLeave,
+}: {
+  visible: boolean;
+  isSaving?: boolean;
+  onKeepPlaying: () => void;
+  onLeave: () => void;
+}) {
+  if (!visible) return null;
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onKeepPlaying}>
+      <View style={leaveStyles.backdrop}>
+        <View style={leaveStyles.card}>
+          <Text style={leaveStyles.kicker}>LEAVE PUZZLE?</Text>
+          <Text style={leaveStyles.title}>
+            {isSaving ? "Saving progress…" : "Your progress will be saved"}
+          </Text>
+          <Text style={leaveStyles.sub}>
+            {isSaving
+              ? "Please wait a moment."
+              : "You can resume this puzzle later from Continue."}
+          </Text>
+          <Pressable
+            style={[leaveStyles.primary, isSaving && { opacity: 0.5 }]}
+            onPress={onKeepPlaying}
+            disabled={isSaving}
+          >
+            <Text style={leaveStyles.primaryText}>Keep playing</Text>
+          </Pressable>
+          <Pressable
+            style={[leaveStyles.secondary, isSaving && { opacity: 0.5 }]}
+            onPress={onLeave}
+            disabled={isSaving}
+          >
+            <Text style={leaveStyles.secondaryText}>
+              {isSaving ? "Saving…" : "Leave"}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const leaveStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "#15171CB8",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  card: {
+    width: "100%",
+    maxWidth: 380,
+    backgroundColor: C.card,
+    borderRadius: 24,
+    padding: 24,
+    alignItems: "center",
+  },
+  kicker: { fontSize: 11, color: C.muted, fontWeight: "800", letterSpacing: 1.6 },
+  title: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: C.ink,
+    marginTop: 8,
+    letterSpacing: -0.4,
+    textAlign: "center",
+  },
+  sub: {
+    fontSize: 13,
+    color: C.muted,
+    marginTop: 6,
+    textAlign: "center",
+    paddingHorizontal: 8,
+  },
+  primary: {
+    width: "100%",
+    backgroundColor: C.ink,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 18,
+  },
+  primaryText: { color: "#FBF8F2", fontSize: 15, fontWeight: "700" },
+  secondary: {
+    width: "100%",
+    backgroundColor: C.bgElevated,
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  secondaryText: { color: C.ink, fontSize: 14, fontWeight: "700" },
+});
+
+const styles = StyleSheet.create({
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  topBtn: { padding: 4 },
+  title: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: C.ink,
+    letterSpacing: -0.2,
+  },
+  dateLabel: {
+    fontSize: 10,
+    color: C.muted,
+    fontWeight: "700",
+    letterSpacing: 1.4,
+    marginTop: 2,
+  },
+  boardWrap: {
+    alignItems: "center",
+    marginTop: 10,
+  },
+  pauseOverlay: {
+    position: "absolute",
+    backgroundColor: C.bg + "F0",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 6,
+  },
+  pauseCenter: { alignItems: "center", gap: 8 },
+  pauseText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: C.ink,
+    letterSpacing: 0.3,
+  },
+  hintToast: {
+    alignSelf: "center",
+    marginTop: 8,
+    backgroundColor: C.ink,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+  },
+  hintToastText: {
+    color: "#FBF8F2",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+});

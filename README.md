@@ -1,2 +1,0 @@
-# sudoku
-Created by Rork
