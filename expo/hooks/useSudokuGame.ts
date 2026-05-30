@@ -231,8 +231,41 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
   const moveSequence = useRef<number>(restoreSnapshot?.move_history?.length ?? 0);
   const secondsRef = useRef<number>(restoreSnapshot?.elapsed_seconds ?? 0);
   const moveCountRef = useRef<number>(restoreSnapshot?.move_history?.length ?? 0);
+  const hydratedGameKeyRef = useRef<string | null>(null);
+  const hydrateCountRef = useRef<number>(0);
+  const timerTickCountRef = useRef<number>(0);
+  const hydrationKey = `${restoreSnapshot ? "restore" : "new"}:${resolvedPuzzleId}:${puzzleData?.puzzle_id ?? "fallback"}`;
 
   useEffect(() => {
+    logDevDiagnostic("useSudokuGame init", {
+      puzzleId: resolvedPuzzleId,
+      mode,
+      difficulty,
+      restored: Boolean(restoreSnapshot),
+      hydrationKey,
+    });
+    return () => {
+      logDevDiagnostic("useSudokuGame cleanup", {
+        puzzleId: resolvedPuzzleId,
+        mode,
+        difficulty,
+        hydrationKey,
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (hydratedGameKeyRef.current === hydrationKey) return;
+    hydratedGameKeyRef.current = hydrationKey;
+    hydrateCountRef.current += 1;
+    logDevDiagnostic("session hydrate", {
+      count: hydrateCountRef.current,
+      hydrationKey,
+      puzzleId: resolvedPuzzleId,
+      restored: Boolean(restoreSnapshot),
+    });
+
     const nextBoard = restoreSnapshot?.board_state ?? givens.map((r) => [...r]);
     setBoard(nextBoard);
     setNotes(restoreSnapshot?.notes_state ?? makeEmptyNotes());
@@ -253,13 +286,19 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
     moveSequence.current = restoreSnapshot?.move_history?.length ?? 0;
     moveCountRef.current = restoreSnapshot?.move_history?.length ?? 0;
     secondsRef.current = restoreSnapshot?.elapsed_seconds ?? 0;
-  }, [resolvedPuzzleId, restoreSnapshot, givens]);
+  }, [givens, hydrationKey, resolvedPuzzleId, restoreSnapshot]);
 
   // Timer
   useEffect(() => {
     if (paused || completed || gameOver) return;
     const id = setInterval(() => setSeconds((s) => {
       const next = s + 1;
+      timerTickCountRef.current += 1;
+      logDevDiagnostic("timer tick", {
+        count: timerTickCountRef.current,
+        puzzleId: resolvedPuzzleId,
+        seconds: next,
+      });
       secondsRef.current = next;
       return next;
     }), 1000);

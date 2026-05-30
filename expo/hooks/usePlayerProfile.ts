@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "@/hooks/useAuth";
 import type { PuzzleResult, SessionSnapshot } from "@/hooks/useSudokuGame";
-import { measureAsync } from "@/lib/performanceDiagnostics";
+import { logDevDiagnostic, measureAsync } from "@/lib/performanceDiagnostics";
 import { BADGE_DEFINITIONS, applyPuzzleResult, createInitialPlayerProfile, createSimulatedResult, getRankFromRp, initialsFromName, normalizeProfile, type AchievementBadge, type BadgeCategory, type PlayerProfile, type ProfileSettings, type ProfileUpdateSummary, type RankOutcome, type RecentResult } from "@/lib/playerProfile";
 import { isSupabaseConfigured, supabase, type GameResultRow, type PlayerStatsRow, type ProfileRow, type PuzzleSessionRow, type UserAchievementRow, type UserSettingsRow } from "@/lib/supabase";
 
@@ -177,6 +177,18 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     setDiagnostics((current) => ({ ...current, sessionStatus: auth.mode, userId: auth.user?.id ?? null, ...patch }));
   }, [auth.mode, auth.user?.id]);
 
+  useEffect(() => {
+    logDevDiagnostic("activePuzzleSession changes", {
+      count: activeSessions.length,
+      sessions: activeSessions.map((session) => ({
+        sessionId: session.session_id,
+        puzzleId: session.puzzle_id,
+        status: session.status,
+        elapsedSeconds: session.elapsed_seconds,
+      })),
+    });
+  }, [activeSessions]);
+
   const persistLocal = useCallback((next: PlayerProfile) => {
     const normalized = normalizeProfile(next);
     setProfile(normalized);
@@ -305,6 +317,12 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
 
   const upsertSession = useCallback(async (snapshot: SessionSnapshot, existingSessionId?: string): Promise<string> => {
     const attemptedAt = new Date().toISOString();
+    logDevDiagnostic("upsertSession called", {
+      existingSessionId: existingSessionId ?? null,
+      puzzleId: snapshot.puzzle_id,
+      elapsedSeconds: snapshot.elapsed_seconds,
+      boardFilled: snapshot.board_state.flat().filter((value) => value !== 0).length,
+    });
     updateDiagnostics({ lastSessionSaveAttemptedAt: attemptedAt });
 
     // Build the local session row regardless of backend success

@@ -17,7 +17,7 @@ import type { Difficulty } from "@/constants/mockData";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import useSudokuGame, { type GameMode, type SessionSnapshot } from "@/hooks/useSudokuGame";
-import { measureAsync } from "@/lib/performanceDiagnostics";
+import { logDevDiagnostic, measureAsync } from "@/lib/performanceDiagnostics";
 import type { ProfileUpdateSummary } from "@/lib/playerProfile";
 import { fetchClassicPuzzle, fetchDailyPuzzle, fetchPuzzleById, formatTime, type RawPuzzleData } from "@/lib/sudoku";
 
@@ -45,6 +45,7 @@ export default function GameScreen() {
     sessionId?: string;
     excludePuzzleId?: string;
   }>();
+  const paramsSignature = JSON.stringify(params);
   const mode = (params.mode as GameMode) ?? "daily";
   const difficulty = ((params.difficulty as Difficulty) ?? "Medium") as Difficulty;
   const sessionIdParam = params.sessionId as string | undefined;
@@ -55,15 +56,27 @@ export default function GameScreen() {
   const effectiveMode: GameMode = auth.isGuest && mode === "ranked" ? "classic" : mode;
 
   // ── Resolve restore snapshot synchronously ────────────────────────
+  const restoreSessionIdRef = useRef<string | undefined>(undefined);
+  const restoreSnapshotRef = useRef<SessionSnapshot | undefined>(undefined);
   const restoreSnapshot = useMemo<SessionSnapshot | undefined>(() => {
-    if (!sessionIdParam) return undefined;
-    return findSessionSnapshot(sessionIdParam) ?? undefined;
+    if (!sessionIdParam) {
+      restoreSessionIdRef.current = undefined;
+      restoreSnapshotRef.current = undefined;
+      return undefined;
+    }
+    if (restoreSessionIdRef.current !== sessionIdParam || !restoreSnapshotRef.current) {
+      restoreSessionIdRef.current = sessionIdParam;
+      restoreSnapshotRef.current = findSessionSnapshot(sessionIdParam) ?? undefined;
+    }
+    return restoreSnapshotRef.current;
   }, [sessionIdParam, findSessionSnapshot]);
+  const restorePuzzleId = restoreSnapshot?.puzzle_id;
+  const restoreDifficulty = restoreSnapshot?.difficulty;
 
   // ── Fetch puzzle data from backend ────────────────────────────────
   const [puzzleData, setPuzzleData] = useState<RawPuzzleData | undefined>(undefined);
   const [puzzleLoadError, setPuzzleLoadError] = useState<string | null>(null);
-  const [isLoadingPuzzle, setIsLoadingPuzzle] = useState<boolean>(!restoreSnapshot);
+  const [isLoadingPuzzle, setIsLoadingPuzzle] = useState<boolean>(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,8 +85,11 @@ export default function GameScreen() {
       setPuzzleLoadError(null);
       try {
         const today = new Date().toISOString().slice(0, 10);
-        if (restoreSnapshot) {
-          const data = await measureAsync("puzzle fetch restore", () => fetchPuzzleById(restoreSnapshot.puzzle_id, restoreSnapshot.difficulty));
+        if (sessionIdParam) {
+          if (!restorePuzzleId || !restoreDifficulty) {
+            throw new Error("Saved puzzle could not be found.");
+          }
+          const data = await measureAsync("puzzle fetch restore", () => fetchPuzzleById(restorePuzzleId, restoreDifficulty));
           if (!cancelled) setPuzzleData(data);
         } else if (effectiveMode === "daily") {
           const data = await measureAsync("puzzle fetch daily", () => fetchDailyPuzzle(today, "daily"));
@@ -97,7 +113,7 @@ export default function GameScreen() {
     }
     void load();
     return () => { cancelled = true; };
-  }, [effectiveMode, difficulty, auth.user?.id, restoreSnapshot, excludePuzzleId]);
+  }, [effectiveMode, difficulty, auth.user?.id, sessionIdParam, restorePuzzleId, restoreDifficulty, excludePuzzleId]);
 
   const game = useSudokuGame({
     mode: effectiveMode,
@@ -116,6 +132,8 @@ export default function GameScreen() {
   const [rankedHintMessage, setRankedHintMessage] = useState<boolean>(false);
   const navIsFocused = useIsFocused();
   const [isFocused, setIsFocused] = useState<boolean>(true);
+  const renderCountRef = useRef<number>(0);
+  renderCountRef.current += 1;
 
   // Track the current session ID for updates
   const currentSessionIdRef = useRef<string | null>(sessionIdParam ?? null);
@@ -127,6 +145,37 @@ export default function GameScreen() {
   const pendingSaveRef = useRef<boolean>(false);
   const saveErrorRef = useRef<string | null>(null);
   const initialSessionCreatedForRef = useRef<string | null>(sessionIdParam ?? null);
+  const autosaveCountRef = useRef<number>(0);
+
+  useEffect(() => {
+    logDevDiagnostic("GameScreen mount", {
+      sessionId: sessionIdParam ?? null,
+      routeParams: paramsSignature,
+    });
+    return () => {
+      logDevDiagnostic("GameScreen unmount", {
+        sessionId: sessionIdParam ?? null,
+        routeParams: paramsSignature,
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    logDevDiagnostic("GameScreen render", {
+      count: renderCountRef.current,
+      sessionId: sessionIdParam ?? null,
+      puzzleId: game.puzzleId,
+      restorePuzzleId: restorePuzzleId ?? null,
+      loading: isLoadingPuzzle,
+    });
+  });
+
+  useEffect(() => {
+    logDevDiagnostic("route params changed", {
+      routeParams: paramsSignature,
+    });
+  }, [paramsSignature]);
 
   // ── Stable refs for game callbacks (avoids re-render loops) ──────
   const getSnapshotRef = useRef(game.getSessionSnapshot);
@@ -136,6 +185,9 @@ export default function GameScreen() {
   // Ref for the latest game state for useFocusEffect cleanup
   const gameStateRef = useRef({ paused: false, completed: false, gameOver: false });
   gameStateRef.current = { paused: game.paused, completed: game.completed, gameOver: game.gameOver };
+  const gameIdentityRef = useRef({ puzzleId: game.puzzleId });
+  gameIdentityRef.current = { puzzleId: game.puzzleId };
+  const saveSessionRef = useRef<(force?: boolean) => Promise<boolean>>(async () => false);
 
   useEffect(() => {
     isSubmittingResultRef.current = isSubmittingResult;
@@ -165,6 +217,13 @@ export default function GameScreen() {
 
     pendingSaveRef.current = true;
     try {
+      autosaveCountRef.current += 1;
+      logDevDiagnostic("session autosave", {
+        count: autosaveCountRef.current,
+        force,
+        sessionId: currentSessionIdRef.current,
+        puzzleId: snapshot.puzzle_id,
+      });
       const sid = await measureAsync("session save duration", () => upsertSession(snapshot, currentSessionIdRef.current ?? undefined));
       if (!force && (isSubmittingResultRef.current || isCompletedRef.current)) {
         pendingSaveRef.current = false;
@@ -182,6 +241,10 @@ export default function GameScreen() {
       return false;
     }
   }, [upsertSession]);
+
+  useEffect(() => {
+    saveSessionRef.current = saveSession;
+  }, [saveSession]);
 
   const scheduleSaveSession = useCallback((delayMs = 500) => {
     if (isSubmittingResultRef.current || isCompletedRef.current) return;
@@ -263,17 +326,25 @@ export default function GameScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      logDevDiagnostic("GameScreen focus setup", {
+        sessionId: currentSessionIdRef.current,
+        puzzleId: gameIdentityRef.current.puzzleId,
+      });
       setIsFocused(true);
       return () => {
+        logDevDiagnostic("GameScreen focus cleanup", {
+          sessionId: currentSessionIdRef.current,
+          puzzleId: gameIdentityRef.current.puzzleId,
+        });
         setIsFocused(false);
         setLeaveOpen(false);
         const state = gameStateRef.current;
         if (!state.paused && !state.completed && !state.gameOver) {
-          void saveSession(true);
+          void saveSessionRef.current(true);
         }
         clearTransientUiRef.current();
       };
-    }, [saveSession])
+    }, [])
   );
 
   const closeAllAndBack = useCallback(() => {

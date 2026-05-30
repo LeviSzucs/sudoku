@@ -1,7 +1,8 @@
-import React, { memo, useMemo } from "react";
+import React, { memo, useEffect, useMemo, useRef } from "react";
 import { StyleSheet, View } from "react-native";
 import { C } from "@/constants/colors";
 import { isGivenCell } from "@/lib/givenCells";
+import { logDevDiagnostic } from "@/lib/performanceDiagnostics";
 import type { Board, NotesBoard } from "@/lib/sudoku";
 import SudokuCell from "./SudokuCell";
 
@@ -24,9 +25,28 @@ function isPeer(a: { r: number; c: number }, r: number, c: number): boolean {
 }
 
 function SudokuGridBase({ initial, board, notes, selected, errors, boardSize, onSelect }: Props) {
+  const renderCountRef = useRef<number>(0);
+  renderCountRef.current += 1;
   const cellSize = boardSize / 9;
   const selectedValue = selected ? board[selected.r][selected.c] : 0;
   const rows = useMemo(() => Array.from({ length: 9 }, (_, i) => i), []);
+
+  useEffect(() => {
+    logDevDiagnostic("SudokuGrid mount", { boardSize });
+    return () => {
+      logDevDiagnostic("SudokuGrid unmount", { boardSize });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    logDevDiagnostic("SudokuGrid render", {
+      count: renderCountRef.current,
+      boardSize,
+      selected,
+      errorCount: errors.size,
+    });
+  });
 
   return (
     <View style={[styles.board, { width: boardSize, height: boardSize }]}>
