@@ -1,6 +1,7 @@
 import React, { memo, useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 import { C } from "@/constants/colors";
+import { isGivenCell } from "@/lib/givenCells";
 import type { Board, NotesBoard } from "@/lib/sudoku";
 import SudokuCell from "./SudokuCell";
 
@@ -33,7 +34,7 @@ function SudokuGridBase({ initial, board, notes, selected, errors, boardSize, on
         <View key={r} style={styles.row}>
           {rows.map((c) => {
             const value = board[r][c];
-            const given = initial[r][c] !== 0;
+            const given = isGivenCell(initial[r][c]);
             const isSelected = selected?.r === r && selected?.c === c;
             const peer = selected ? isPeer(selected, r, c) : false;
             const sameValue = value !== 0 && value === selectedValue && !isSelected;

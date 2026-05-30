@@ -1,5 +1,5 @@
 import { Eraser, Lightbulb, Pencil, RotateCcw } from "lucide-react-native";
-import React from "react";
+import React, { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { C } from "@/constants/colors";
 
@@ -13,7 +13,7 @@ interface Props {
   onHint: () => void;
 }
 
-export default function GameControls({
+function GameControls({
   notesMode,
   hintAllowed,
   hintsUsed,
@@ -118,3 +118,5 @@ const styles = StyleSheet.create({
     color: "#FBF8F2",
   },
 });
+
+export default memo(GameControls);

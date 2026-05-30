@@ -36,26 +36,26 @@ const FALLBACK_PUZZLES: Record<Difficulty, SudokuPuzzle> = {
     difficulty: "Easy",
     mode: "classic",
     givens: parse(
-      "530070000" +
-        "600195000" +
-        "098000060" +
-        "800060003" +
-        "400803001" +
-        "700020006" +
-        "060000280" +
-        "000419005" +
-        "000080079"
+      "507040201" +
+      "804301090" +
+      "060708050" +
+      "050070108" +
+      "102080509" +
+      "308205070" +
+      "040807010" +
+      "080160905" +
+      "209030807"
     ),
     solution: parse(
-      "534678912" +
-        "672195348" +
-        "198342567" +
-        "859761423" +
-        "426853791" +
-        "713924856" +
-        "961537284" +
-        "287419635" +
-        "345286179"
+      "537649281" +
+      "824351796" +
+      "961728453" +
+      "456973128" +
+      "172486539" +
+      "398215674" +
+      "645897312" +
+      "783162945" +
+      "219534867"
     ),
   },
   Medium: {
@@ -63,26 +63,26 @@ const FALLBACK_PUZZLES: Record<Difficulty, SudokuPuzzle> = {
     difficulty: "Medium",
     mode: "classic",
     givens: parse(
-      "000260701" +
-        "680070090" +
-        "190004500" +
-        "820100040" +
-        "004602900" +
-        "050003028" +
-        "009300074" +
-        "040050036" +
-        "703018000"
+      "209060000" +
+      "040203090" +
+      "080409000" +
+      "403050908" +
+      "106090000" +
+      "070301040" +
+      "090608000" +
+      "807030402" +
+      "504070800"
     ),
     solution: parse(
-      "435269781" +
-        "682571493" +
-        "197834562" +
-        "826195347" +
-        "374682915" +
-        "951743628" +
-        "519326874" +
-        "248957136" +
-        "763418259"
+      "239567184" +
+      "641283597" +
+      "785419326" +
+      "423756918" +
+      "156894273" +
+      "978321645" +
+      "392648751" +
+      "817935462" +
+      "564172839"
     ),
   },
   Hard: {
@@ -90,26 +90,26 @@ const FALLBACK_PUZZLES: Record<Difficulty, SudokuPuzzle> = {
     difficulty: "Hard",
     mode: "classic",
     givens: parse(
-      "000000907" +
-        "000420180" +
-        "000705026" +
-        "100904000" +
-        "050000040" +
-        "000507009" +
-        "920108000" +
-        "034059000" +
-        "507000000"
+      "000004060" +
+      "080207010" +
+      "000000402" +
+      "802010709" +
+      "500000040" +
+      "040605080" +
+      "000000608" +
+      "608050304" +
+      "400000020"
     ),
     solution: parse(
-      "462831957" +
-        "795426183" +
-        "381795426" +
-        "173984265" +
-        "659312748" +
-        "248567319" +
-        "926178534" +
-        "834259671" +
-        "517643892"
+      "129534867" +
+      "384267915" +
+      "756189432" +
+      "862413759" +
+      "573928146" +
+      "941675283" +
+      "295341678" +
+      "618752394" +
+      "437896521"
     ),
   },
   Expert: {
@@ -117,26 +117,26 @@ const FALLBACK_PUZZLES: Record<Difficulty, SudokuPuzzle> = {
     difficulty: "Expert",
     mode: "classic",
     givens: parse(
-      "100007090" +
-        "030020008" +
-        "009600500" +
-        "005300900" +
-        "010080002" +
-        "600004000" +
-        "300000010" +
-        "040000007" +
-        "007000300"
+      "060903020" +
+      "000000000" +
+      "304050706" +
+      "700000000" +
+      "010709060" +
+      "030000000" +
+      "008030605" +
+      "100000000" +
+      "040807090"
     ),
     solution: parse(
-      "162857493" +
-        "534129678" +
-        "879643521" +
-        "425316789" +
-        "913785642" +
-        "687294135" +
-        "356478912" +
-        "241935867" +
-        "798261354"
+      "861973524" +
+      "257684139" +
+      "394152786" +
+      "789316452" +
+      "415729863" +
+      "632548917" +
+      "978231645" +
+      "126495378" +
+      "543867291"
     ),
   },
   Master: {
@@ -144,40 +144,32 @@ const FALLBACK_PUZZLES: Record<Difficulty, SudokuPuzzle> = {
     difficulty: "Master",
     mode: "classic",
     givens: parse(
-      "000000010" +
-        "400000000" +
-        "020000000" +
-        "000050407" +
-        "008000300" +
-        "001090000" +
-        "300400200" +
-        "050100000" +
-        "000806000"
+      "060801020" +
+      "000000001" +
+      "108040600" +
+      "000000000" +
+      "080207010" +
+      "000000000" +
+      "605070100" +
+      "000000000" +
+      "090405060"
     ),
     solution: parse(
-      "693784512" +
-        "487512936" +
-        "125963874" +
-        "932651487" +
-        "568247391" +
-        "741398625" +
-        "319475268" +
-        "856129743" +
-        "274836159"
+      "563891427" +
+      "974526831" +
+      "128743659" +
+      "756189342" +
+      "489237516" +
+      "312654978" +
+      "635972184" +
+      "241368795" +
+      "897415263"
     ),
   },
 };
 
 function parse(s: string): Board {
-  const b: Board = [];
-  for (let r = 0; r < 9; r++) {
-    const row: number[] = [];
-    for (let c = 0; c < 9; c++) {
-      row.push(parseInt(s[r * 9 + c] ?? "0", 10));
-    }
-    b.push(row);
-  }
-  return b;
+  return parseTextToBoard(s);
 }
 
 // ── Backend-driven puzzle fetching ──────────────────────────────────
@@ -199,12 +191,53 @@ export function puzzleRowToData(row: PuzzleRow): RawPuzzleData {
   };
 }
 
+export async function fetchPuzzleById(puzzleId: string | null | undefined, difficulty: Difficulty): Promise<RawPuzzleData> {
+  if (puzzleId && isSupabaseConfigured) {
+    const { data, error } = await supabase
+      .from("puzzles")
+      .select("*")
+      .eq("puzzle_id", puzzleId)
+      .maybeSingle();
+
+    if (!error && data) {
+      return puzzleRowToData(data as PuzzleRow);
+    }
+
+    if (error) {
+      console.warn(`[Puzzle] puzzle_id lookup failed: ${error.message}. Falling back.`);
+    }
+  }
+
+  return {
+    puzzle_id: FALLBACK_PUZZLES[difficulty].puzzle_id,
+    difficulty,
+    givens: FALLBACK_PUZZLES[difficulty].givens.map((r) => [...r]),
+    solution: FALLBACK_PUZZLES[difficulty].solution.map((r) => [...r]),
+  };
+}
+
 /** Fetch a classic puzzle from the backend RPC, falling back to hardcoded. */
 export async function fetchClassicPuzzle(
   userId: string | null,
-  difficulty: Difficulty
+  difficulty: Difficulty,
+  excludedPuzzleId?: string | null
 ): Promise<RawPuzzleData> {
   if (isSupabaseConfigured && userId) {
+    if (excludedPuzzleId) {
+      const { data: replacementPuzzles, error: replacementError } = await supabase
+        .from("puzzles")
+        .select("*")
+        .eq("difficulty", difficulty)
+        .eq("is_active", true)
+        .neq("puzzle_id", excludedPuzzleId)
+        .order("rating_score", { ascending: true })
+        .limit(1);
+
+      if (!replacementError && replacementPuzzles && replacementPuzzles.length > 0) {
+        return puzzleRowToData(replacementPuzzles[0] as PuzzleRow);
+      }
+    }
+
     const { data, error } = await supabase.rpc("get_classic_puzzle", {
       p_user_id: userId,
       p_difficulty: difficulty,
@@ -243,6 +276,20 @@ export async function fetchClassicPuzzle(
 
     if (!queryError && puzzles && puzzles.length > 0) {
       return puzzleRowToData(puzzles[0] as PuzzleRow);
+    }
+
+    if (excludedPuzzleId) {
+      const { data: fallbackPuzzles, error: fallbackQueryError } = await supabase
+        .from("puzzles")
+        .select("*")
+        .eq("difficulty", difficulty)
+        .eq("is_active", true)
+        .limit(1)
+        .order("rating_score", { ascending: true });
+
+      if (!fallbackQueryError && fallbackPuzzles && fallbackPuzzles.length > 0) {
+        return puzzleRowToData(fallbackPuzzles[0] as PuzzleRow);
+      }
     }
   }
 

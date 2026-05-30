@@ -19,6 +19,13 @@ interface Props {
 const mono =
   Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }) ?? "monospace";
 
+function notesEqual(a: number[], b: number[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 function SudokuCellBase({
   row,
   col,
@@ -115,4 +122,16 @@ const styles = StyleSheet.create({
   notesCell: { flex: 1, alignItems: "center", justifyContent: "center" },
 });
 
-export default memo(SudokuCellBase);
+export default memo(SudokuCellBase, (prev, next) => (
+  prev.row === next.row &&
+  prev.col === next.col &&
+  prev.value === next.value &&
+  prev.given === next.given &&
+  prev.selected === next.selected &&
+  prev.peer === next.peer &&
+  prev.sameValue === next.sameValue &&
+  prev.hasError === next.hasError &&
+  prev.size === next.size &&
+  prev.onSelect === next.onSelect &&
+  notesEqual(prev.notes, next.notes)
+));

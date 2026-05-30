@@ -4,6 +4,7 @@
  */
 
 import type { Board } from "@/lib/sudoku";
+import { givenCellToBoardValue, isEmptyGiven, isGivenCell } from "@/lib/givenCells";
 
 /** A puzzle row from Supabase (81-char text fields). */
 export interface PuzzleRow {
@@ -29,7 +30,7 @@ export function parseTextToBoard(s: string): Board {
     const row: number[] = [];
     for (let c = 0; c < 9; c++) {
       const ch = s[r * 9 + c] ?? "0";
-      row.push(ch >= "1" && ch <= "9" ? parseInt(ch, 10) : 0);
+      row.push(givenCellToBoardValue(ch));
     }
     board.push(row);
   }
@@ -61,10 +62,10 @@ export function validatePuzzle(givens: string, solution: string): PuzzleValidati
     return { valid: false, errors, warnings };
   }
 
-  // Givens must contain only digits 1-9 or zeros
-  const validGivensChars = /^[0-9]{81}$/;
+  // Givens must contain only digits 1-9 or editable blanks represented by 0 or .
+  const validGivensChars = /^[0-9.]{81}$/;
   if (!validGivensChars.test(givens)) {
-    errors.push("Givens must contain only digits 0-9.");
+    errors.push("Givens must contain only digits 0-9 or blanks represented as dots.");
     return { valid: false, errors, warnings };
   }
 
@@ -118,18 +119,21 @@ export function validatePuzzle(givens: string, solution: string): PuzzleValidati
   // ── Givens vs Solution consistency ──
   for (let r = 0; r < 9; r++) {
     for (let c = 0; c < 9; c++) {
+      const givenRaw = givens[r * 9 + c];
       const givenVal = givenBoard[r][c];
       const solVal = solBoard[r][c];
-      if (givenVal !== 0 && givenVal !== solVal) {
+      if (isGivenCell(givenRaw) && givenVal !== solVal) {
         errors.push(
           `Given value at row ${r + 1}, col ${c + 1} (${givenVal}) does not match solution (${solVal}).`
         );
+      } else if (!isGivenCell(givenRaw) && !isEmptyGiven(givenRaw)) {
+        errors.push(`Givens has invalid editable value at row ${r + 1}, col ${c + 1}.`);
       }
     }
   }
 
   // ── Difficulty hints (warnings only) ──
-  const givenCount = givens.replace(/0/g, "").length;
+  const givenCount = Array.from(givens).filter(isGivenCell).length;
   if (givenCount < 17) {
     warnings.push(`Only ${givenCount} givens — puzzle may not have a unique solution.`);
   }

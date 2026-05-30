@@ -1,4 +1,4 @@
-import React from "react";
+import React, { memo, useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 import NumberPadButton from "./NumberPadButton";
 
@@ -10,16 +10,17 @@ interface Props {
   height?: number;
 }
 
-export default function NumberPad({
+function NumberPad({
   onPressNumber,
   counts,
   disabled,
   highlighted,
   height,
 }: Props) {
+  const values = useMemo(() => [1, 2, 3, 4, 5, 6, 7, 8, 9], []);
   return (
     <View style={[styles.row, height ? { height } : null]}>
-      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+      {values.map((n) => (
         <NumberPadButton
           key={n}
           value={n}
@@ -41,3 +42,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
 });
+
+export default memo(NumberPad);

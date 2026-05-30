@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "@/hooks/useAuth";
 import type { PuzzleResult, SessionSnapshot } from "@/hooks/useSudokuGame";
+import { measureAsync } from "@/lib/performanceDiagnostics";
 import { BADGE_DEFINITIONS, applyPuzzleResult, createInitialPlayerProfile, createSimulatedResult, getRankFromRp, initialsFromName, normalizeProfile, type AchievementBadge, type BadgeCategory, type PlayerProfile, type ProfileSettings, type ProfileUpdateSummary, type RankOutcome, type RecentResult } from "@/lib/playerProfile";
 import { isSupabaseConfigured, supabase, type GameResultRow, type PlayerStatsRow, type ProfileRow, type PuzzleSessionRow, type UserAchievementRow, type UserSettingsRow } from "@/lib/supabase";
 
@@ -24,6 +25,26 @@ type SessionStatus = "in_progress" | "completed" | "failed" | "abandoned";
 
 interface RecordPuzzleResultOptions {
   sessionId?: string;
+}
+
+export interface OfficialResultPayload {
+  result_id: string;
+  session_id: string;
+  puzzle_id: string;
+  mode: PuzzleResult["mode"];
+  difficulty: PuzzleResult["difficulty"];
+  elapsed_seconds: number;
+  mistakes: number;
+  hints_used: number;
+  undo_count: number;
+  final_score: number;
+  xp_earned: number;
+  leaderboard_eligible: boolean;
+  ranked_eligible?: boolean;
+  completed_at?: string;
+  badges_unlocked?: AchievementBadge[];
+  updated_profile_stats?: Partial<PlayerStatsRow> | null;
+  already_finalized?: boolean;
 }
 
 interface GuestSessionEntry {
@@ -106,7 +127,16 @@ function statsPayload(profile: PlayerProfile): Partial<PlayerStatsRow> {
 }
 
 function resultFromRow(row: GameResultRow): RecentResult {
-  return { puzzle_id: row.puzzle_id ?? "unknown", mode: row.mode as RecentResult["mode"], difficulty: row.difficulty as RecentResult["difficulty"], completed: row.completed, elapsed_seconds: row.elapsed_seconds, mistakes: row.mistakes, hints_used: row.hints_used, undo_count: row.undo_count, move_count: 0, final_score: row.final_score, eligible_for_leaderboard: row.eligible_for_leaderboard, eligible_for_ranked: row.eligible_for_ranked, completed_at: row.completed_at, xp_earned: row.xp_earned, result_outcome: row.won === true ? "win" : row.won === false ? "loss" : undefined };
+  return { session_id: row.session_id ?? undefined, puzzle_id: row.puzzle_id ?? "unknown", mode: row.mode as RecentResult["mode"], difficulty: row.difficulty as RecentResult["difficulty"], completed: row.completed, elapsed_seconds: row.elapsed_seconds, mistakes: row.mistakes, hints_used: row.hints_used, undo_count: row.undo_count, move_count: 0, final_score: row.final_score, eligible_for_leaderboard: row.eligible_for_leaderboard, eligible_for_ranked: row.eligible_for_ranked, completed_at: row.completed_at, xp_earned: row.xp_earned, result_outcome: row.won === true ? "win" : row.won === false ? "loss" : undefined };
+}
+
+function deterministicResultId(userId: string, result: PuzzleResult, sessionId: string | null): string {
+  if (sessionId) return `${userId}_${sessionId}`;
+  return `${userId}_${result.puzzle_id}_${result.mode}_${result.difficulty}_${result.completed_at}`;
+}
+
+function isUniqueViolation(error: { code?: string; message?: string } | null): boolean {
+  return error?.code === "23505" || error?.message?.toLowerCase().includes("duplicate") === true;
 }
 
 function achievementFromRow(row: UserAchievementRow): AchievementBadge | null {
@@ -305,14 +335,6 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       });
 
       try {
-        // Mark all other active sessions as completed (single active session enforcement)
-        void supabase.from("puzzle_sessions")
-          .update({ status: "completed" })
-          .eq("user_id", auth.user.id)
-          .eq("status", "in_progress")
-          .neq("session_id", sessionId)
-          .then(() => {});
-
         // Check for existing completed result for this puzzle
         const { data: existingResult, error: resultLookupError } = await supabase
           .from("game_results")
@@ -426,7 +448,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       let query = supabase.from("puzzle_sessions")
         .update({ status, updated_at: new Date().toISOString() })
         .eq("user_id", auth.user.id)
-        .in("status", ["in_progress", "active"]);
+        .eq("status", "in_progress");
       query = sessionId ? query.eq("session_id", sessionId) : query.eq("puzzle_id", puzzleId);
       const { error } = await query;
       if (error) updateDiagnostics({ lastError: error.message });
@@ -440,29 +462,175 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     updateDiagnostics({ activeSessionCount: next.length, latestSessionStatus: status });
   }, [auth.isSignedIn, auth.user, loadGuestSessions, persistGuestSessions, updateDiagnostics]);
 
+  const getInProgressClassicSession = useCallback(async (): Promise<PuzzleSessionRow | null> => {
+    const localClassicSession = activeSessions.find((session) => session.mode === "classic" && session.status === "in_progress") ?? null;
+    if (!auth.isSignedIn || !auth.user || !isSupabaseConfigured) return localClassicSession;
+
+    const { data, error } = await supabase
+      .from("puzzle_sessions")
+      .select("*")
+      .eq("user_id", auth.user.id)
+      .eq("mode", "classic")
+      .eq("status", "in_progress")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return localClassicSession;
+    }
+
+    const session = (data as PuzzleSessionRow | null) ?? null;
+    if (session) {
+      setActiveSessions((prev) => [session, ...prev.filter((entry) => entry.session_id !== session.session_id && entry.status === "in_progress")]);
+    }
+    return session;
+  }, [activeSessions, auth.isSignedIn, auth.user, updateDiagnostics]);
+
   // ── Puzzle result recording ──────────────────────────────────────
 
   const recordPuzzleResult = useCallback((result: PuzzleResult, outcome?: RankOutcome, options?: RecordPuzzleResultOptions): ProfileUpdateSummary => {
-    const summary = applyPuzzleResult(profile, result, outcome);
-    persist(summary.updatedProfile);
+    const sessionId = options?.sessionId ?? result.session_id ?? null;
+    const existingResult = sessionId ? profile.recent_results.find((recent) => recent.session_id === sessionId) : undefined;
+    const summary: ProfileUpdateSummary = existingResult ? { xpEarned: existingResult.xp_earned, didLevelUp: false, previousLevel: profile.account_level, newLevel: profile.account_level, unlockedBadges: [], updatedProfile: profile } : applyPuzzleResult(profile, result, outcome);
+    if (!existingResult) persist(summary.updatedProfile);
     setLastUpdate(summary);
+    if (existingResult) {
+      void closeSessionForPuzzle(result.puzzle_id, sessionId ?? undefined);
+      return summary;
+    }
     if (auth.isSignedIn && auth.user && isSupabaseConfigured) {
-      const sessionId = options?.sessionId ?? result.session_id ?? null;
-      const row = { result_id: `${auth.user.id}_${sessionId ?? result.puzzle_id}_${Date.now()}`, user_id: auth.user.id, session_id: sessionId, puzzle_id: result.puzzle_id, mode: result.mode, difficulty: result.difficulty, completed: result.completed, won: outcome === "win" ? true : outcome === "loss" ? false : null, elapsed_seconds: result.elapsed_seconds, mistakes: result.mistakes, hints_used: result.hints_used, undo_count: result.undo_count, final_score: result.final_score, xp_earned: summary.xpEarned, rp_change: summary.updatedProfile.rank_points - profile.rank_points, eligible_for_leaderboard: result.eligible_for_leaderboard, eligible_for_ranked: result.eligible_for_ranked, completed_at: result.completed_at };
-      void (async () => {
-        const { error: resultError } = await supabase.from("game_results").insert(row);
-        if (resultError) throw resultError;
+      const row = { result_id: deterministicResultId(auth.user.id, result, sessionId), user_id: auth.user.id, session_id: sessionId, puzzle_id: result.puzzle_id, mode: result.mode, difficulty: result.difficulty, completed: result.completed, won: outcome === "win" ? true : outcome === "loss" ? false : null, elapsed_seconds: result.elapsed_seconds, mistakes: result.mistakes, hints_used: result.hints_used, undo_count: result.undo_count, final_score: result.final_score, xp_earned: summary.xpEarned, rp_change: summary.updatedProfile.rank_points - profile.rank_points, eligible_for_leaderboard: result.eligible_for_leaderboard, eligible_for_ranked: result.eligible_for_ranked, completed_at: result.completed_at };
+      void measureAsync("result save duration", async () => {
+        const { error: resultError } = await supabase.from("game_results").upsert(row, { onConflict: "result_id" });
+        if (resultError) {
+          if (!sessionId || !isUniqueViolation(resultError)) throw resultError;
+
+          const { data: existingResult, error: lookupError } = await supabase
+            .from("game_results")
+            .select("result_id")
+            .eq("user_id", auth.user!.id)
+            .eq("session_id", sessionId)
+            .maybeSingle();
+          if (lookupError) throw lookupError;
+          if (!existingResult?.result_id) throw new Error("Duplicate result exists for this session but could not be reused.");
+
+          const { result_id: _resultId, ...resultUpdate } = row;
+          const { error: updateError } = await supabase
+            .from("game_results")
+            .update(resultUpdate)
+            .eq("user_id", auth.user!.id)
+            .eq("result_id", existingResult.result_id);
+          if (updateError) throw updateError;
+        }
         await closeSessionForPuzzle(result.puzzle_id, sessionId ?? undefined);
         const { error: statsError } = await supabase.from("player_stats").upsert({ user_id: auth.user!.id, ...statsPayload(summary.updatedProfile) });
         if (statsError) throw statsError;
         await syncAchievements(summary.updatedProfile);
         await loadBackendProfile();
-      })().catch((error: unknown) => updateDiagnostics({ lastError: error instanceof Error ? error.message : "Unable to save result." }));
+      }).catch((error: unknown) => updateDiagnostics({ lastError: error instanceof Error ? error.message : "Unable to save result." }));
     } else if (auth.isGuest) {
       void closeSessionForPuzzle(result.puzzle_id, options?.sessionId ?? result.session_id);
     }
     return summary;
   }, [auth.isSignedIn, auth.isGuest, auth.user, closeSessionForPuzzle, loadBackendProfile, persist, profile, syncAchievements, updateDiagnostics]);
+
+  const summaryFromOfficialPayload = useCallback((payload: OfficialResultPayload, previousProfile: PlayerProfile): ProfileUpdateSummary => {
+    const stats = payload.updated_profile_stats;
+    const officialResult: RecentResult = {
+      session_id: payload.session_id,
+      puzzle_id: payload.puzzle_id,
+      mode: payload.mode,
+      difficulty: payload.difficulty,
+      completed: true,
+      elapsed_seconds: payload.elapsed_seconds,
+      mistakes: payload.mistakes,
+      hints_used: payload.hints_used,
+      undo_count: payload.undo_count,
+      move_count: 0,
+      final_score: payload.final_score,
+      eligible_for_leaderboard: payload.leaderboard_eligible,
+      eligible_for_ranked: payload.ranked_eligible ?? false,
+      completed_at: payload.completed_at ?? new Date().toISOString(),
+      xp_earned: payload.xp_earned,
+    };
+    const previousLevel = previousProfile.account_level;
+    const unlockedBadges = payload.badges_unlocked ?? [];
+    const badgeMap = new Map(previousProfile.badges_unlocked.map((badge) => [badge.badge_id, badge]));
+    for (const badge of unlockedBadges) badgeMap.set(badge.badge_id, { ...badgeMap.get(badge.badge_id), ...badge, unlocked: true } as AchievementBadge);
+    const nextProfile = normalizeProfile({
+      ...previousProfile,
+      total_mastery_xp: stats?.total_mastery_xp ?? previousProfile.total_mastery_xp + payload.xp_earned,
+      account_level: stats?.account_level ?? previousProfile.account_level,
+      rank_points: stats?.rank_points ?? previousProfile.rank_points,
+      current_streak: stats?.current_streak ?? previousProfile.current_streak,
+      longest_streak: stats?.longest_streak ?? previousProfile.longest_streak,
+      puzzles_completed: stats?.puzzles_completed ?? previousProfile.puzzles_completed + 1,
+      flawless_puzzles: stats?.flawless_puzzles ?? previousProfile.flawless_puzzles + (payload.mistakes === 0 ? 1 : 0),
+      total_mistakes: stats?.total_mistakes ?? previousProfile.total_mistakes + payload.mistakes,
+      total_hints_used: stats?.total_hints_used ?? previousProfile.total_hints_used + payload.hints_used,
+      best_times_by_difficulty: {
+        ...previousProfile.best_times_by_difficulty,
+        Easy: stats?.best_easy_time ?? previousProfile.best_times_by_difficulty.Easy,
+        Medium: stats?.best_medium_time ?? previousProfile.best_times_by_difficulty.Medium,
+        Hard: stats?.best_hard_time ?? previousProfile.best_times_by_difficulty.Hard,
+        Expert: stats?.best_expert_time ?? previousProfile.best_times_by_difficulty.Expert,
+        Master: stats?.best_master_time ?? previousProfile.best_times_by_difficulty.Master,
+      },
+      recent_results: [officialResult, ...previousProfile.recent_results.filter((result) => result.session_id !== payload.session_id)].slice(0, 50),
+      badges_unlocked: Array.from(badgeMap.values()),
+    });
+    return {
+      xpEarned: payload.xp_earned,
+      didLevelUp: nextProfile.account_level > previousLevel,
+      previousLevel,
+      newLevel: nextProfile.account_level,
+      unlockedBadges,
+      updatedProfile: nextProfile,
+    };
+  }, []);
+
+  const submitOfficialPuzzleResult = useCallback(async (
+    result: PuzzleResult,
+    finalBoard: number[][],
+    options?: RecordPuzzleResultOptions
+  ): Promise<ProfileUpdateSummary> => {
+    const sessionId = options?.sessionId ?? result.session_id;
+    if (!auth.isSignedIn) {
+      return recordPuzzleResult(result, undefined, options);
+    }
+
+    if (!auth.user || !isSupabaseConfigured || !sessionId) {
+      const message = !sessionId ? "Could not save official result. Missing puzzle session." : "Could not save official result. Try again.";
+      updateDiagnostics({ lastError: message });
+      throw new Error(message);
+    }
+
+    const previousProfile = profile;
+    const { data, error } = await measureAsync("official result submit duration", () => supabase.rpc("submit_puzzle_result", {
+      p_session_id: sessionId,
+      p_final_board: finalBoard,
+      p_elapsed_seconds: result.elapsed_seconds,
+      p_mistakes: result.mistakes,
+      p_hints_used: result.hints_used,
+      p_undo_count: result.undo_count,
+      p_completed_at: result.completed_at,
+    }));
+
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      throw new Error(error.message);
+    }
+
+    const payload = data as OfficialResultPayload;
+    const summary = summaryFromOfficialPayload(payload, previousProfile);
+    setLastUpdate(summary);
+    setProfile(summary.updatedProfile);
+    setActiveSessions((prev) => prev.filter((session) => session.session_id !== sessionId));
+    await loadBackendProfile();
+    return summary;
+  }, [auth.isSignedIn, auth.user, loadBackendProfile, profile, recordPuzzleResult, summaryFromOfficialPayload, updateDiagnostics]);
 
   const updateDisplayName = useCallback((username: string): SaveResult => {
     const trimmed = username.trim();
@@ -506,14 +674,9 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
 
   const repairCompletedSessions = useCallback(async (): Promise<SaveResult> => {
     if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Repair requires a signed-in user." };
-    const { data: sessions, error: sessionsError } = await supabase.from("puzzle_sessions").select("session_id,puzzle_id,mode,difficulty,status").eq("user_id", auth.user.id).in("status", ["active", "in_progress"]);
+    const { data: sessions, error: sessionsError } = await supabase.from("puzzle_sessions").select("session_id,puzzle_id,mode,difficulty,status").eq("user_id", auth.user.id).eq("status", "in_progress");
     if (sessionsError) return { ok: false, error: sessionsError.message };
     const inProgress = (sessions ?? []) as Pick<PuzzleSessionRow, "session_id" | "puzzle_id" | "mode" | "difficulty" | "status">[];
-    const activeIds = inProgress.filter((session) => session.status === "active").map((session) => session.session_id);
-    if (activeIds.length > 0) {
-      const { error: normalizeError } = await supabase.from("puzzle_sessions").update({ status: "in_progress", updated_at: new Date().toISOString() }).eq("user_id", auth.user.id).in("session_id", activeIds);
-      if (normalizeError) return { ok: false, error: normalizeError.message };
-    }
     const puzzleIds = inProgress.map((session) => session.puzzle_id).filter((id): id is string => typeof id === "string" && id.length > 0);
     if (puzzleIds.length === 0) return { ok: true };
     const { data: results, error: resultsError } = await supabase.from("game_results").select("session_id,puzzle_id,mode,difficulty").eq("user_id", auth.user.id).in("puzzle_id", puzzleIds);
@@ -534,17 +697,17 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     profile, isLoaded, loadError, lastUpdate,
     activeSessions: auth.isSignedIn ? activeSessions : activeGuestSessions.map(guestSessionToPuzzleSessionRow),
     diagnostics, hasActiveSession,
-    recordPuzzleResult, simulateResult, simulateRankedWin, simulateRankedLoss,
+    recordPuzzleResult, submitOfficialPuzzleResult, simulateResult, simulateRankedWin, simulateRankedLoss,
     resetLocalProfile, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
     repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, clearLastUpdate,
-    upsertSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot,
+    upsertSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession,
   }), [
     activeGuestSessions, activeSessions, auth.isSignedIn,
     clearLastUpdate, diagnostics, hasActiveSession, isLoaded, lastUpdate, loadError, profile,
-    recordPuzzleResult, repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
+    recordPuzzleResult, submitOfficialPuzzleResult, repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
     simulateRankedLoss, simulateRankedWin, simulateResult,
     testSupabaseRead, testSupabaseWrite,
     updateDisplayName, updateNotificationSettings, updatePrivacySettings,
-    upsertSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot,
+    upsertSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession,
   ]);
 });

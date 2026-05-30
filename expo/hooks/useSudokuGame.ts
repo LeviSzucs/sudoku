@@ -15,6 +15,8 @@ import {
   type RawPuzzleData,
 } from "@/lib/sudoku";
 import type { Difficulty } from "@/constants/mockData";
+import { isEditableGivenCell, isGivenCell } from "@/lib/givenCells";
+import { logDevDiagnostic, measureInteraction } from "@/lib/performanceDiagnostics";
 
 export type GameMode = "daily" | "classic" | "duel" | "ranked";
 
@@ -172,6 +174,32 @@ function getFallbackSolution(difficulty: Difficulty): Board {
   return p.solution.map((r) => [...r]);
 }
 
+function firstEditableCell(givens: Board): { r: number; c: number } | null {
+  for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) if (isEditableGivenCell(givens[r][c])) return { r, c };
+  return null;
+}
+
+function cellBlockReason({
+  selected,
+  paused,
+  completed,
+  gameOver,
+  givenValue,
+}: {
+  selected: { r: number; c: number } | null;
+  paused: boolean;
+  completed: boolean;
+  gameOver: boolean;
+  givenValue?: number;
+}): string | null {
+  if (!selected) return "no selected cell";
+  if (paused) return "game paused";
+  if (completed) return "puzzle completed";
+  if (gameOver) return "game over";
+  if (isGivenCell(givenValue)) return "fixed given cell";
+  return null;
+}
+
 export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnapshot, puzzleData }: Options): UseSudokuGame {
   // ── Resolve puzzle data ───────────────────────────────────────────
   const givens: Board = useMemo(
@@ -186,10 +214,7 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
 
   const [board, setBoard] = useState<Board>(() => restoreSnapshot?.board_state ?? givens.map((r) => [...r]));
   const [notes, setNotes] = useState<NotesBoard>(() => restoreSnapshot?.notes_state ?? makeEmptyNotes());
-  const [selected, setSelected] = useState<{ r: number; c: number } | null>(() => {
-    for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) if (givens[r][c] === 0) return { r, c };
-    return null;
-  });
+  const [selected, setSelected] = useState<{ r: number; c: number } | null>(() => firstEditableCell(givens));
   const [errors, setErrors] = useState<Set<string>>(new Set());
   const [mistakes, setMistakes] = useState<number>(restoreSnapshot?.mistakes ?? 0);
   const [hintsUsed, setHintsUsed] = useState<number>(restoreSnapshot?.hints_used ?? 0);
@@ -204,16 +229,45 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
   const [moveHistory, setMoveHistory] = useState<MoveHistoryEntry[]>(restoreSnapshot?.move_history ?? []);
   const history = useRef<HistoryEntry[]>([]);
   const moveSequence = useRef<number>(restoreSnapshot?.move_history?.length ?? 0);
+  const secondsRef = useRef<number>(restoreSnapshot?.elapsed_seconds ?? 0);
+  const moveCountRef = useRef<number>(restoreSnapshot?.move_history?.length ?? 0);
+
+  useEffect(() => {
+    const nextBoard = restoreSnapshot?.board_state ?? givens.map((r) => [...r]);
+    setBoard(nextBoard);
+    setNotes(restoreSnapshot?.notes_state ?? makeEmptyNotes());
+    setSelected(() => firstEditableCell(givens));
+    setErrors(new Set());
+    setMistakes(restoreSnapshot?.mistakes ?? 0);
+    setHintsUsed(restoreSnapshot?.hints_used ?? 0);
+    setUndoCount(restoreSnapshot?.undo_count ?? 0);
+    setSeconds(restoreSnapshot?.elapsed_seconds ?? 0);
+    setNotesMode(false);
+    setPaused(false);
+    setCompleted(false);
+    setGameOver(false);
+    setFinalScore(null);
+    setResult(null);
+    setMoveHistory(restoreSnapshot?.move_history ?? []);
+    history.current = [];
+    moveSequence.current = restoreSnapshot?.move_history?.length ?? 0;
+    moveCountRef.current = restoreSnapshot?.move_history?.length ?? 0;
+    secondsRef.current = restoreSnapshot?.elapsed_seconds ?? 0;
+  }, [resolvedPuzzleId, restoreSnapshot, givens]);
 
   // Timer
   useEffect(() => {
     if (paused || completed || gameOver) return;
-    const id = setInterval(() => setSeconds((s) => s + 1), 1000);
+    const id = setInterval(() => setSeconds((s) => {
+      const next = s + 1;
+      secondsRef.current = next;
+      return next;
+    }), 1000);
     return () => clearInterval(id);
   }, [paused, completed, gameOver]);
 
   const addMove = useCallback(
-    (move: Omit<MoveHistoryEntry, "move_id" | "timestamp_seconds" | "mode">, elapsedSeconds: number = seconds) => {
+    (move: Omit<MoveHistoryEntry, "move_id" | "timestamp_seconds" | "mode">, elapsedSeconds: number = secondsRef.current) => {
       moveSequence.current += 1;
       const nextMove: MoveHistoryEntry = {
         move_id: `${resolvedPuzzleId}-${moveSequence.current}`,
@@ -222,9 +276,10 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
         ...move,
       };
       setMoveHistory((prev) => [...prev, nextMove]);
+      moveCountRef.current += 1;
       return nextMove;
     },
-    [mode, resolvedPuzzleId, seconds]
+    [mode, resolvedPuzzleId]
   );
 
   const completePuzzle = useCallback(
@@ -300,9 +355,22 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
   }, [board, errors]);
 
   const select = useCallback((r: number, c: number) => {
-    if (completed || gameOver) return;
-    setSelected({ r, c });
-  }, [completed, gameOver]);
+    measureInteraction("cell tap to selectedCell update", () => {
+      if (completed || gameOver) return;
+      const givenValue = givens[r]?.[c];
+      const boardValue = board[r]?.[c];
+      logDevDiagnostic("cell tap", {
+        row: r,
+        col: c,
+        givenValue,
+        boardValue,
+        isGiven: isGivenCell(givenValue),
+        isEditable: isEditableGivenCell(givenValue),
+        selectedCell: { r, c },
+      });
+      setSelected({ r, c });
+    });
+  }, [board, completed, gameOver, givens]);
 
   const clearTransientUi = useCallback(() => {
     setSelected(null);
@@ -312,163 +380,194 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
 
   const enterNumber = useCallback(
     (n: number) => {
-      if (!selected || paused || completed || gameOver) return;
-      const { r, c } = selected;
-      if (givens[r][c] !== 0) return;
-      if (board[r][c] === n && !notesMode) return;
+      measureInteraction("number press to board update", () => {
+        const givenValue = selected ? givens[selected.r]?.[selected.c] : undefined;
+        const blockedReason = cellBlockReason({ selected, paused, completed, gameOver, givenValue });
+        if (blockedReason) {
+          logDevDiagnostic("number press blocked", {
+            selectedCell: selected,
+            attemptedNumber: n,
+            blockedReason,
+          });
+          return;
+        }
+        if (!selected) return;
+        const { r, c } = selected;
+        if (board[r][c] === n && !notesMode) return;
+        logDevDiagnostic("number press accepted", {
+          selectedCell: selected,
+          attemptedNumber: n,
+          givenValue,
+          previousBoardValue: board[r][c],
+        });
 
-      pushHistory(r, c);
+        pushHistory(r, c);
 
-      if (notesMode) {
-        const previousNotes = [...notes[r][c]];
-        const nextNotes = notes.map((row) => row.map((cell) => [...cell]));
-        const cellNotes = nextNotes[r][c];
-        const idx = cellNotes.indexOf(n);
-        if (idx >= 0) cellNotes.splice(idx, 1);
-        else cellNotes.push(n);
-        setNotes(nextNotes);
+        if (notesMode) {
+          const previousNotes = [...notes[r][c]];
+          const nextNotes = notes.map((row) => row.map((cell) => [...cell]));
+          const cellNotes = nextNotes[r][c];
+          const idx = cellNotes.indexOf(n);
+          if (idx >= 0) cellNotes.splice(idx, 1);
+          else cellNotes.push(n);
+          setNotes(nextNotes);
+          addMove({
+            type: "note",
+            row: r,
+            column: c,
+            previous_value: previousNotes,
+            new_value: [...cellNotes],
+          });
+          return;
+        }
+
+        const previousValue = board[r][c];
+        const nextBoard = board.map((row) => [...row]);
+        nextBoard[r][c] = n;
+        const wasCorrect = n === solution[r][c];
+        const nextMistakes = wasCorrect ? mistakes : mistakes + 1;
+        setBoard(nextBoard);
+        setNotes((prev) => {
+          const next = prev.map((row) => row.map((cell) => [...cell]));
+          next[r][c] = [];
+          return next;
+        });
+
+        if (!wasCorrect) {
+          setErrors((prev) => new Set(prev).add(`${r},${c}`));
+          setMistakes(nextMistakes);
+        } else {
+          setErrors((prev) => {
+            const next = new Set(prev);
+            next.delete(`${r},${c}`);
+            return next;
+          });
+        }
+
         addMove({
-          type: "note",
+          type: "entry",
           row: r,
           column: c,
-          previous_value: previousNotes,
-          new_value: [...cellNotes],
+          previous_value: previousValue,
+          new_value: n,
+          was_correct: wasCorrect,
         });
-        return;
-      }
+        completePuzzle(nextBoard, secondsRef.current, nextMistakes, hintsUsed, undoCount, moveCountRef.current);
+      });
+    },
+    [selected, paused, completed, gameOver, notesMode, pushHistory, board, mistakes, completePuzzle, hintsUsed, undoCount, addMove, notes, givens, solution]
+  );
 
-      const previousValue = board[r][c];
-      const nextBoard = board.map((row) => [...row]);
-      nextBoard[r][c] = n;
-      const wasCorrect = n === solution[r][c];
-      const nextMistakes = wasCorrect ? mistakes : mistakes + 1;
-      setBoard(nextBoard);
+  const erase = useCallback(() => {
+    measureInteraction("erase press to board update", () => {
+      const givenValue = selected ? givens[selected.r]?.[selected.c] : undefined;
+      const blockedReason = cellBlockReason({ selected, paused, completed, gameOver, givenValue });
+      if (blockedReason) return;
+      if (!selected) return;
+      const { r, c } = selected;
+      if (board[r][c] === 0 && notes[r][c].length === 0) return;
+      pushHistory(r, c);
+      const previousValue = board[r][c] !== 0 ? board[r][c] : [...notes[r][c]];
+      setBoard((prev) => {
+        const next = prev.map((row) => [...row]);
+        next[r][c] = 0;
+        return next;
+      });
       setNotes((prev) => {
         const next = prev.map((row) => row.map((cell) => [...cell]));
         next[r][c] = [];
         return next;
       });
-
-      if (!wasCorrect) {
-        setErrors((prev) => new Set(prev).add(`${r},${c}`));
-        setMistakes(nextMistakes);
-      } else {
-        setErrors((prev) => {
-          const next = new Set(prev);
-          next.delete(`${r},${c}`);
-          return next;
-        });
-      }
-
+      setErrors((prev) => {
+        const next = new Set(prev);
+        next.delete(`${r},${c}`);
+        return next;
+      });
       addMove({
-        type: "entry",
+        type: "erase",
         row: r,
         column: c,
         previous_value: previousValue,
-        new_value: n,
-        was_correct: wasCorrect,
+        new_value: board[r][c] !== 0 ? 0 : [],
       });
-      completePuzzle(nextBoard, seconds, nextMistakes, hintsUsed, undoCount, moveHistory.length + 1);
-    },
-    [selected, paused, completed, gameOver, notesMode, pushHistory, board, mistakes, completePuzzle, seconds, hintsUsed, undoCount, moveHistory.length, addMove, notes, givens, solution]
-  );
-
-  const erase = useCallback(() => {
-    if (!selected || paused || completed || gameOver) return;
-    const { r, c } = selected;
-    if (givens[r][c] !== 0) return;
-    if (board[r][c] === 0 && notes[r][c].length === 0) return;
-    pushHistory(r, c);
-    const previousValue = board[r][c] !== 0 ? board[r][c] : [...notes[r][c]];
-    setBoard((prev) => {
-      const next = prev.map((row) => [...row]);
-      next[r][c] = 0;
-      return next;
-    });
-    setNotes((prev) => {
-      const next = prev.map((row) => row.map((cell) => [...cell]));
-      next[r][c] = [];
-      return next;
-    });
-    setErrors((prev) => {
-      const next = new Set(prev);
-      next.delete(`${r},${c}`);
-      return next;
-    });
-    addMove({
-      type: "erase",
-      row: r,
-      column: c,
-      previous_value: previousValue,
-      new_value: board[r][c] !== 0 ? 0 : [],
     });
   }, [selected, paused, completed, gameOver, pushHistory, board, notes, addMove, givens]);
 
   const undo = useCallback(() => {
-    if (paused || completed || gameOver) return;
-    const last = history.current.pop();
-    if (!last) return;
-    setBoard(last.board);
-    setNotes(last.notes);
-    setErrors(new Set(last.errors));
-    const nextUndoCount = undoCount + 1;
-    setUndoCount(nextUndoCount);
-    addMove({
-      type: "undo",
-      row: last.row,
-      column: last.column,
-      previous_value: board[last.row]?.[last.column] ?? null,
-      new_value: last.board[last.row]?.[last.column] ?? null,
+    measureInteraction("undo press to board update", () => {
+      if (paused || completed || gameOver) return;
+      const last = history.current.pop();
+      if (!last) return;
+      setBoard(last.board);
+      setNotes(last.notes);
+      setErrors(new Set(last.errors));
+      const nextUndoCount = undoCount + 1;
+      setUndoCount(nextUndoCount);
+      addMove({
+        type: "undo",
+        row: last.row,
+        column: last.column,
+        previous_value: board[last.row]?.[last.column] ?? null,
+        new_value: last.board[last.row]?.[last.column] ?? null,
+      });
     });
   }, [paused, completed, gameOver, undoCount, addMove, board]);
 
   const hintAllowed = mode !== "ranked";
 
   const hint = useCallback(() => {
-    if (!hintAllowed) return;
-    if (!selected || paused || completed || gameOver) return;
-    const { r, c } = selected;
-    if (givens[r][c] !== 0) return;
-    if (board[r][c] === solution[r][c]) return;
-    pushHistory(r, c);
-    const previousValue = board[r][c];
-    setBoard((prev) => {
-      const next = prev.map((row) => [...row]);
-      next[r][c] = solution[r][c];
-      return next;
+    measureInteraction("hint press to board update", () => {
+      if (!hintAllowed) return;
+      const givenValue = selected ? givens[selected.r]?.[selected.c] : undefined;
+      const blockedReason = cellBlockReason({ selected, paused, completed, gameOver, givenValue });
+      if (blockedReason) return;
+      if (!selected) return;
+      const { r, c } = selected;
+      if (board[r][c] === solution[r][c]) return;
+      pushHistory(r, c);
+      const previousValue = board[r][c];
+      setBoard((prev) => {
+        const next = prev.map((row) => [...row]);
+        next[r][c] = solution[r][c];
+        return next;
+      });
+      setNotes((prev) => {
+        const next = prev.map((row) => row.map((cell) => [...cell]));
+        next[r][c] = [];
+        return next;
+      });
+      setErrors((prev) => {
+        const next = new Set(prev);
+        next.delete(`${r},${c}`);
+        return next;
+      });
+      const nextHintsUsed = hintsUsed + 1;
+      const nextBoard = board.map((row) => [...row]);
+      nextBoard[r][c] = solution[r][c];
+      setHintsUsed(nextHintsUsed);
+      addMove({
+        type: "hint",
+        row: r,
+        column: c,
+        previous_value: previousValue,
+        new_value: solution[r][c],
+        was_correct: true,
+      });
+      completePuzzle(nextBoard, secondsRef.current, mistakes, nextHintsUsed, undoCount, moveCountRef.current);
     });
-    setNotes((prev) => {
-      const next = prev.map((row) => row.map((cell) => [...cell]));
-      next[r][c] = [];
-      return next;
-    });
-    setErrors((prev) => {
-      const next = new Set(prev);
-      next.delete(`${r},${c}`);
-      return next;
-    });
-    const nextHintsUsed = hintsUsed + 1;
-    const nextBoard = board.map((row) => [...row]);
-    nextBoard[r][c] = solution[r][c];
-    setHintsUsed(nextHintsUsed);
-    addMove({
-      type: "hint",
-      row: r,
-      column: c,
-      previous_value: previousValue,
-      new_value: solution[r][c],
-      was_correct: true,
-    });
-    completePuzzle(nextBoard, seconds, mistakes, nextHintsUsed, undoCount, moveHistory.length + 1);
-  }, [hintAllowed, selected, paused, completed, gameOver, pushHistory, board, hintsUsed, completePuzzle, seconds, mistakes, undoCount, moveHistory.length, addMove, givens, solution]);
+  }, [hintAllowed, selected, paused, completed, gameOver, pushHistory, board, hintsUsed, completePuzzle, mistakes, undoCount, addMove, givens, solution]);
 
   const toggleNotes = useCallback(() => {
-    if (completed || gameOver || paused) return;
-    setNotesMode((n) => !n);
+    measureInteraction("notes toggle to state update", () => {
+      if (completed || gameOver || paused) return;
+      setNotesMode((n) => !n);
+    });
   }, [completed, gameOver, paused]);
   const togglePause = useCallback(() => {
-    if (completed || gameOver) return;
-    setPaused((p) => !p);
+    measureInteraction("pause press to state update", () => {
+      if (completed || gameOver) return;
+      setPaused((p) => !p);
+    });
   }, [completed, gameOver]);
   const resume = useCallback(() => setPaused(false), []);
 
@@ -489,6 +588,8 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
     setMoveHistory([]);
     history.current = [];
     moveSequence.current = 0;
+    moveCountRef.current = 0;
+    secondsRef.current = 0;
   }, [givens]);
 
   const getSessionSnapshot = useCallback((): SessionSnapshot => ({

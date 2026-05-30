@@ -2,7 +2,7 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-rou
 import { useIsFocused } from "@react-navigation/native";
 import { ChevronLeft, Pause, Play as PlayIcon } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppState, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, AppState, Modal, Pressable, Share, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import CompletionModal from "@/components/CompletionModal";
@@ -17,8 +17,9 @@ import type { Difficulty } from "@/constants/mockData";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import useSudokuGame, { type GameMode, type SessionSnapshot } from "@/hooks/useSudokuGame";
+import { measureAsync } from "@/lib/performanceDiagnostics";
 import type { ProfileUpdateSummary } from "@/lib/playerProfile";
-import { fetchClassicPuzzle, fetchDailyPuzzle, type RawPuzzleData } from "@/lib/sudoku";
+import { fetchClassicPuzzle, fetchDailyPuzzle, fetchPuzzleById, formatTime, type RawPuzzleData } from "@/lib/sudoku";
 
 const MODE_LABEL: Record<GameMode, string> = {
   daily: "Daily",
@@ -42,10 +43,12 @@ export default function GameScreen() {
     difficulty?: string;
     puzzleId?: string;
     sessionId?: string;
+    excludePuzzleId?: string;
   }>();
   const mode = (params.mode as GameMode) ?? "daily";
   const difficulty = ((params.difficulty as Difficulty) ?? "Medium") as Difficulty;
   const sessionIdParam = params.sessionId as string | undefined;
+  const excludePuzzleId = params.excludePuzzleId as string | undefined;
 
   const auth = useAuth();
   const { findSessionSnapshot, upsertSession, deleteSessionById, closeSessionForPuzzle } = usePlayerProfile();
@@ -63,25 +66,24 @@ export default function GameScreen() {
   const [isLoadingPuzzle, setIsLoadingPuzzle] = useState<boolean>(!restoreSnapshot);
 
   useEffect(() => {
-    if (restoreSnapshot) {
-      setIsLoadingPuzzle(false);
-      return;
-    }
     let cancelled = false;
     async function load(): Promise<void> {
       setIsLoadingPuzzle(true);
       setPuzzleLoadError(null);
       try {
         const today = new Date().toISOString().slice(0, 10);
-        if (effectiveMode === "daily") {
-          const data = await fetchDailyPuzzle(today, "daily");
+        if (restoreSnapshot) {
+          const data = await measureAsync("puzzle fetch restore", () => fetchPuzzleById(restoreSnapshot.puzzle_id, restoreSnapshot.difficulty));
+          if (!cancelled) setPuzzleData(data);
+        } else if (effectiveMode === "daily") {
+          const data = await measureAsync("puzzle fetch daily", () => fetchDailyPuzzle(today, "daily"));
           if (!cancelled) setPuzzleData(data);
         } else if (effectiveMode === "duel") {
-          const data = await fetchDailyPuzzle(today, "daily_duel");
+          const data = await measureAsync("puzzle fetch daily_duel", () => fetchDailyPuzzle(today, "daily_duel"));
           if (!cancelled) setPuzzleData(data);
         } else {
           // classic or ranked
-          const data = await fetchClassicPuzzle(auth.user?.id ?? null, difficulty);
+          const data = await measureAsync("puzzle fetch classic", () => fetchClassicPuzzle(auth.user?.id ?? null, difficulty, effectiveMode === "classic" ? excludePuzzleId : undefined));
           if (!cancelled) setPuzzleData(data);
         }
       } catch (err: unknown) {
@@ -95,7 +97,7 @@ export default function GameScreen() {
     }
     void load();
     return () => { cancelled = true; };
-  }, [effectiveMode, difficulty, auth.user?.id, restoreSnapshot]);
+  }, [effectiveMode, difficulty, auth.user?.id, restoreSnapshot, excludePuzzleId]);
 
   const game = useSudokuGame({
     mode: effectiveMode,
@@ -104,8 +106,10 @@ export default function GameScreen() {
     restoreSnapshot,
     puzzleData,
   });
-  const { recordPuzzleResult } = usePlayerProfile();
+  const { recordPuzzleResult, submitOfficialPuzzleResult } = usePlayerProfile();
   const [completionSummary, setCompletionSummary] = useState<ProfileUpdateSummary | null>(null);
+  const [officialScore, setOfficialScore] = useState<number | null>(null);
+  const [officialLeaderboardEligible, setOfficialLeaderboardEligible] = useState<boolean | null>(null);
   const [processedResultId, setProcessedResultId] = useState<string | null>(null);
   const [isSubmittingResult, setIsSubmittingResult] = useState<boolean>(false);
   const [leaveOpen, setLeaveOpen] = useState<boolean>(false);
@@ -122,6 +126,7 @@ export default function GameScreen() {
   const lastSaveTimeRef = useRef<number>(0);
   const pendingSaveRef = useRef<boolean>(false);
   const saveErrorRef = useRef<string | null>(null);
+  const initialSessionCreatedForRef = useRef<string | null>(sessionIdParam ?? null);
 
   // ── Stable refs for game callbacks (avoids re-render loops) ──────
   const getSnapshotRef = useRef(game.getSessionSnapshot);
@@ -160,7 +165,7 @@ export default function GameScreen() {
 
     pendingSaveRef.current = true;
     try {
-      const sid = await upsertSession(snapshot, currentSessionIdRef.current ?? undefined);
+      const sid = await measureAsync("session save duration", () => upsertSession(snapshot, currentSessionIdRef.current ?? undefined));
       if (!force && (isSubmittingResultRef.current || isCompletedRef.current)) {
         pendingSaveRef.current = false;
         return false;
@@ -190,12 +195,12 @@ export default function GameScreen() {
   // ── IMMEDIATE session creation when puzzle starts ────────────────
 
   useEffect(() => {
-    // Only create session for new (non-restore) puzzles
-    if (sessionIdParam || game.paused || game.completed || game.gameOver) return;
-    // Create initial session immediately with starting board
+    if (sessionIdParam || isLoadingPuzzle || game.puzzleId === "unknown" || game.paused || game.completed || game.gameOver) return;
+    if (initialSessionCreatedForRef.current === game.puzzleId) return;
+    initialSessionCreatedForRef.current = game.puzzleId;
     void saveSession(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [sessionIdParam, isLoadingPuzzle, game.puzzleId, game.paused, game.completed, game.gameOver]);
 
   // ── Auto-save effect (every AUTO_SAVE_INTERVAL_MS while playing) ─
 
@@ -229,7 +234,7 @@ export default function GameScreen() {
     if (game.paused || game.completed || game.gameOver || isSubmittingResult) return;
     if (!hasSavedOnce) return;
     scheduleSaveSession(500);
-  }, [game.notes, game.mistakes, game.hintsUsed, game.undoCount, game.seconds, game.paused, game.completed, game.gameOver, hasSavedOnce, isSubmittingResult, scheduleSaveSession]);
+  }, [game.notes, game.mistakes, game.hintsUsed, game.undoCount, game.paused, game.completed, game.gameOver, hasSavedOnce, isSubmittingResult, scheduleSaveSession]);
 
   // ── AppState listener: save when app goes to background ──────────
 
@@ -286,20 +291,17 @@ export default function GameScreen() {
     setLeaveOpen(true);
   }, [game.completed, game.gameOver, router]);
 
-  // ── Leave handler: force-save before navigating ──────────────────
+  // ── Leave handler: navigate immediately and force-save in background ─────
 
-  const [isLeaving, setIsLeaving] = useState<boolean>(false);
-  const handleLeave = useCallback(async () => {
+  const isLeaving = false;
+  const handleLeave = useCallback(() => {
     if (!game.completed && !game.gameOver) {
       cancelPendingSave();
-      setIsLeaving(true);
-      const saved = await saveSession(true);
-      if (!saved && !isSubmittingResultRef.current && !isCompletedRef.current) {
-        // Save failed — give user a chance to retry
-        // For now, still allow leaving (progress may be lost)
-        console.warn("[Game] Force-save failed on leave, progress may be lost");
-      }
-      setIsLeaving(false);
+      void saveSession(true).then((saved) => {
+        if (!saved && !isSubmittingResultRef.current && !isCompletedRef.current) {
+          console.warn("[Game] Force-save failed on leave, progress may be lost");
+        }
+      });
     }
     closeAllAndBack();
   }, [cancelPendingSave, game.completed, game.gameOver, saveSession, closeAllAndBack]);
@@ -320,21 +322,45 @@ export default function GameScreen() {
   useEffect(() => {
     if (!game.result || processedResultId?.startsWith(`${game.result.puzzle_id}:`) || isSubmittingResult) return;
     setIsSubmittingResult(true);
+    setOfficialScore(null);
+    setOfficialLeaderboardEligible(null);
     const outcome = effectiveMode === "duel" || effectiveMode === "ranked" ? "win" : undefined;
     cancelPendingSave();
     isSubmittingResultRef.current = true;
     isCompletedRef.current = true;
     const completedSessionId = currentSessionIdRef.current ?? undefined;
     const resultWithSession = { ...game.result, session_id: completedSessionId };
+    setProcessedResultId(`${game.result.puzzle_id}:${completedSessionId ?? "no-session"}`);
+    if (auth.isSignedIn && completedSessionId) {
+      void submitOfficialPuzzleResult(resultWithSession, game.board, { sessionId: completedSessionId })
+        .then((summary) => {
+          setCompletionSummary(summary);
+          const officialResult = summary.updatedProfile.recent_results[0];
+          setOfficialScore(officialResult?.final_score ?? null);
+          setOfficialLeaderboardEligible(officialResult?.eligible_for_leaderboard ?? false);
+        })
+        .catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : "Could not save official result. Try again.";
+          Alert.alert("Official result not saved", message);
+        })
+        .finally(() => {
+          currentSessionIdRef.current = null;
+          setHasSavedOnce(false);
+          setIsSubmittingResult(false);
+        });
+      return;
+    }
+
     const summary = recordPuzzleResult(resultWithSession, outcome, { sessionId: completedSessionId });
     setCompletionSummary(summary);
-    setProcessedResultId(`${game.result.puzzle_id}:${completedSessionId ?? "no-session"}`);
+    setOfficialScore(summary.updatedProfile.recent_results[0]?.final_score ?? null);
+    setOfficialLeaderboardEligible(summary.updatedProfile.recent_results[0]?.eligible_for_leaderboard ?? false);
     void closeSessionForPuzzle(game.result.puzzle_id, completedSessionId).finally(() => {
       currentSessionIdRef.current = null;
       setHasSavedOnce(false);
       setIsSubmittingResult(false);
     });
-  }, [cancelPendingSave, closeSessionForPuzzle, effectiveMode, game.result, isSubmittingResult, processedResultId, recordPuzzleResult]);
+  }, [auth.isSignedIn, cancelPendingSave, closeSessionForPuzzle, effectiveMode, game.board, game.result, isSubmittingResult, processedResultId, recordPuzzleResult, submitOfficialPuzzleResult]);
 
   const cleanupCompletedSession = useCallback(() => {
     cancelPendingSave();
@@ -348,6 +374,34 @@ export default function GameScreen() {
     clearTransientUiRef.current();
   }, [cancelPendingSave, closeSessionForPuzzle, game.result]);
 
+  const handleCompletionNext = useCallback(() => {
+    const completedPuzzleId = game.result?.puzzle_id ?? game.puzzleId;
+    cleanupCompletedSession();
+    setCompletionSummary(null);
+    setOfficialScore(null);
+    setOfficialLeaderboardEligible(null);
+    setProcessedResultId(null);
+    if (effectiveMode === "classic") {
+      router.replace({
+        pathname: "/game",
+        params: {
+          mode: "classic",
+          difficulty: game.difficulty,
+          ...(completedPuzzleId ? { excludePuzzleId: completedPuzzleId } : {}),
+        },
+      });
+      return;
+    }
+    router.replace("/(tabs)/play");
+  }, [cleanupCompletedSession, effectiveMode, game.difficulty, game.puzzleId, game.result?.puzzle_id, router]);
+
+  const handleShareResult = useCallback(() => {
+    const text = `${MODE_LABEL[effectiveMode]} ${game.difficulty}: ${formatTime(game.seconds)}, ${game.mistakes} mistakes, ${game.score.toLocaleString()} score.`;
+    void Share.share({ message: text }).catch(() => {
+      Alert.alert("Share result", "Sharing is unavailable on this device.");
+    });
+  }, [effectiveMode, game.difficulty, game.mistakes, game.score, game.seconds]);
+
   useEffect(() => {
     return () => cancelPendingSave();
   }, [cancelPendingSave]);
@@ -359,14 +413,14 @@ export default function GameScreen() {
       return;
     }
     game.hint();
-  }, [effectiveMode, game]);
+  }, [effectiveMode, game.hintAllowed, game.hint]);
 
   if (!isFocused && !navIsFocused) {
     return <View style={{ flex: 1, backgroundColor: C.bg }} />;
   }
 
   // ── Puzzle loading state ──────────────────────────────────────────
-  if (isLoadingPuzzle && !restoreSnapshot) {
+  if (isLoadingPuzzle) {
     return (
       <View style={{ flex: 1, backgroundColor: C.bg, alignItems: "center", justifyContent: "center", padding: 32 }}>
         <Stack.Screen options={{ headerShown: false }} />
@@ -377,7 +431,7 @@ export default function GameScreen() {
   }
 
   // ── Puzzle load error ─────────────────────────────────────────────
-  if (puzzleLoadError && !restoreSnapshot) {
+  if (puzzleLoadError) {
     return (
       <View style={{ flex: 1, backgroundColor: C.bg, alignItems: "center", justifyContent: "center", padding: 32 }}>
         <Stack.Screen options={{ headerShown: false }} />
@@ -418,7 +472,7 @@ export default function GameScreen() {
 
       <GameStatsBar
         mistakes={game.mistakes}
-        score={game.score}
+        score={officialScore ?? game.score}
         seconds={game.seconds}
       />
 
@@ -527,7 +581,7 @@ export default function GameScreen() {
         mistakes={game.mistakes}
         hintsUsed={game.hintsUsed}
         undoCount={game.undoCount}
-        leaderboardEligible={game.result?.eligible_for_leaderboard ?? false}
+        leaderboardEligible={auth.isSignedIn ? officialLeaderboardEligible ?? false : game.result?.eligible_for_leaderboard ?? false}
         score={game.score}
         streak={completionSummary?.updatedProfile.current_streak ?? stats.currentStreak + 1}
         difficulty={game.difficulty}
@@ -535,20 +589,19 @@ export default function GameScreen() {
         xpEarned={completionSummary?.xpEarned ?? 0}
         levelUpMessage={completionSummary?.didLevelUp ? `Level up! ${completionSummary.previousLevel} → ${completionSummary.newLevel}` : null}
         unlockedBadges={completionSummary?.unlockedBadges.map((badge) => ({ name: badge.name, icon: badge.icon })) ?? []}
-        onNext={() => {
-          cleanupCompletedSession();
-          setCompletionSummary(null);
-          setProcessedResultId(null);
-          game.restart();
-        }}
-        onShare={() => {}}
+        onNext={handleCompletionNext}
+        onShare={handleShareResult}
         onHome={() => {
           cleanupCompletedSession();
+          setOfficialScore(null);
+          setOfficialLeaderboardEligible(null);
           setIsFocused(false);
           router.replace("/(tabs)");
         }}
         onClose={() => {
           cleanupCompletedSession();
+          setOfficialScore(null);
+          setOfficialLeaderboardEligible(null);
           setIsFocused(false);
           router.replace("/(tabs)");
         }}
