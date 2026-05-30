@@ -15,6 +15,8 @@ interface Props {
   streak: number;
   difficulty: string;
   mode: string;
+  officialStatus?: "guest" | "pending" | "saved" | "failed";
+  officialError?: string | null;
   xpEarned?: number;
   levelUpMessage?: string | null;
   unlockedBadges?: { name: string; icon: string }[];
@@ -35,6 +37,8 @@ export default function CompletionModal({
   streak,
   difficulty,
   mode,
+  officialStatus = "guest",
+  officialError = null,
   xpEarned = 0,
   levelUpMessage = null,
   unlockedBadges = [],
@@ -51,6 +55,10 @@ export default function CompletionModal({
     ? `You solved the ${difficulty} puzzle with hints.`
     : `You solved the ${difficulty} puzzle.`;
   const leaderboardLabel = leaderboardEligible ? "Leaderboard eligible: Yes" : "Leaderboard eligible: No";
+  const personalStatsSaved = officialStatus === "guest" || officialStatus === "saved";
+  const showOfficialPending = officialStatus === "pending";
+  const showOfficialFailure = officialStatus === "failed";
+  const showOfficialRewards = officialStatus === "guest" || officialStatus === "saved";
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -73,14 +81,17 @@ export default function CompletionModal({
           <View style={styles.scoreBox}>
             <Text style={styles.scoreLabel}>FINAL SCORE</Text>
             <Text style={styles.scoreValue}>{score.toLocaleString()}</Text>
-            <Text style={styles.eligibleText}>Personal stats saved: Yes</Text>
-            <Text style={styles.eligibleText}>{leaderboardLabel}</Text>
-            <Text style={styles.xpText}>+{xpEarned} Mastery XP</Text>
+            {showOfficialPending ? <Text style={styles.eligibleText}>Saving official result...</Text> : null}
+            {showOfficialFailure ? <Text style={styles.errorText}>Official result not saved</Text> : null}
+            {showOfficialFailure && officialError ? <Text style={styles.errorDetail}>{officialError}</Text> : null}
+            <Text style={styles.eligibleText}>Personal stats saved: {personalStatsSaved ? "Yes" : "No"}</Text>
+            {showOfficialRewards ? <Text style={styles.eligibleText}>{leaderboardLabel}</Text> : null}
+            {showOfficialRewards ? <Text style={styles.xpText}>+{xpEarned} Mastery XP</Text> : null}
           </View>
 
-          {levelUpMessage ? <Text style={styles.levelUpText}>{levelUpMessage}</Text> : null}
+          {showOfficialRewards && levelUpMessage ? <Text style={styles.levelUpText}>{levelUpMessage}</Text> : null}
 
-          {unlockedBadges.length > 0 ? (
+          {showOfficialRewards && unlockedBadges.length > 0 ? (
             <View style={styles.badgeRow}>
               {unlockedBadges.slice(0, 3).map((badge) => (
                 <View key={badge.name} style={styles.badgeChip}>
@@ -92,12 +103,14 @@ export default function CompletionModal({
             </View>
           ) : null}
 
-          <View style={styles.streakRow}>
-            <Flame size={14} color={C.streak} fill={C.streak} />
-            <Text style={styles.streakText}>
-              Streak updated · {streak} days
-            </Text>
-          </View>
+          {showOfficialRewards ? (
+            <View style={styles.streakRow}>
+              <Flame size={14} color={C.streak} fill={C.streak} />
+              <Text style={styles.streakText}>
+                Streak updated · {streak} days
+              </Text>
+            </View>
+          ) : null}
 
           <Pressable style={styles.primary} onPress={onNext}>
             <RotateCw size={16} color="#FBF8F2" />
@@ -177,6 +190,8 @@ const styles = StyleSheet.create({
   scoreLabel: { fontSize: 10, color: C.muted, fontWeight: "800", letterSpacing: 1.6 },
   scoreValue: { fontSize: 38, fontWeight: "800", color: C.ink, letterSpacing: -1, marginTop: 4 },
   eligibleText: { fontSize: 12, color: C.muted, fontWeight: "700", marginTop: 2 },
+  errorText: { fontSize: 13, color: C.danger, fontWeight: "800", marginTop: 6 },
+  errorDetail: { fontSize: 11, color: C.muted, fontWeight: "700", marginTop: 2, textAlign: "center" },
   xpText: { fontSize: 13, color: C.accent, fontWeight: "800", marginTop: 6 },
   levelUpText: { fontSize: 13, color: C.gold, fontWeight: "800", marginTop: 8 },
   badgeRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 10 },
