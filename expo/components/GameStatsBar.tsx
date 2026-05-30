@@ -1,4 +1,4 @@
-import React from "react";
+import React, { memo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { C } from "@/constants/colors";
 import { formatTime } from "@/lib/sudoku";
@@ -10,7 +10,7 @@ interface Props {
   seconds: number;
 }
 
-export default function GameStatsBar({ mistakes, score, seconds }: Props) {
+function GameStatsBar({ mistakes, score, seconds }: Props) {
   return (
     <View style={styles.row}>
       <Stat
@@ -80,3 +80,5 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
 });
+
+export default memo(GameStatsBar);

@@ -9,8 +9,8 @@ import {
   Swords,
   Zap,
 } from "lucide-react-native";
-import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useState } from "react";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Card from "@/components/Card";
@@ -19,6 +19,7 @@ import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import type { Difficulty } from "@/constants/mockData";
+import type { PuzzleSessionRow } from "@/lib/supabase";
 
 const DIFFICULTIES: { key: Difficulty; sub: string; tone: "muted" | "accent" | "amber" | "red" | "purple" }[] = [
   { key: "Easy", sub: "Warm up · ~4 min", tone: "muted" },
@@ -44,14 +45,79 @@ function formatBestTime(seconds: number | undefined): string {
 export default function PlayHubScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { profile, activeSessions } = usePlayerProfile();
+  const { profile, activeSessions, closeSessionForPuzzle, getInProgressClassicSession } = usePlayerProfile();
+  const [pendingClassicDifficulty, setPendingClassicDifficulty] = useState<Difficulty | null>(null);
+  const [pendingClassicSession, setPendingClassicSession] = useState<PuzzleSessionRow | null>(null);
+  const [isCheckingClassicSession, setIsCheckingClassicSession] = useState(false);
+  const [checkingClassicDifficulty, setCheckingClassicDifficulty] = useState<Difficulty | null>(null);
+  const [isStartingNewClassic, setIsStartingNewClassic] = useState(false);
 
-  const go = (mode: string, difficulty: Difficulty, sessionId?: string) =>
-    router.push({ pathname: "/game", params: { mode, difficulty, ...(sessionId ? { sessionId } : {}) } });
+  const go = (mode: string, difficulty: Difficulty, sessionId?: string, excludePuzzleId?: string) =>
+    router.push({ pathname: "/game", params: { mode, difficulty, ...(sessionId ? { sessionId } : {}), ...(excludePuzzleId ? { excludePuzzleId } : {}) } });
+
+  const clearClassicChoice = () => {
+    setPendingClassicDifficulty(null);
+    setPendingClassicSession(null);
+    setIsCheckingClassicSession(false);
+    setCheckingClassicDifficulty(null);
+    setIsStartingNewClassic(false);
+  };
+
+  const startClassic = async (difficulty: Difficulty) => {
+    if (isCheckingClassicSession) return;
+    setIsCheckingClassicSession(true);
+    setCheckingClassicDifficulty(difficulty);
+    try {
+      const session = await getInProgressClassicSession();
+      if (session) {
+        setPendingClassicDifficulty(difficulty);
+        setPendingClassicSession(session);
+        return;
+      }
+      go("classic", difficulty);
+    } finally {
+      setIsCheckingClassicSession(false);
+      setCheckingClassicDifficulty(null);
+    }
+  };
+
+  const resumeClassicSession = () => {
+    if (!pendingClassicSession) return;
+    const session = pendingClassicSession;
+    clearClassicChoice();
+    go("classic", session.difficulty as Difficulty, session.session_id);
+  };
+
+  const startNewClassic = async () => {
+    if (!pendingClassicSession || !pendingClassicDifficulty || isStartingNewClassic) return;
+    setIsStartingNewClassic(true);
+    const session = pendingClassicSession;
+    const difficulty = pendingClassicDifficulty;
+    await closeSessionForPuzzle(session.puzzle_id ?? "", session.session_id, "abandoned");
+    clearClassicChoice();
+    go("classic", difficulty, undefined, session.puzzle_id ?? undefined);
+  };
 
   const inProgressSessions = activeSessions.filter((session) => session.status === "in_progress");
   const hasActiveSession = inProgressSessions.length > 0;
   const activeSession = hasActiveSession ? inProgressSessions[0] : null;
+  const startDaily = () => {
+    const session = inProgressSessions.find((entry) => entry.mode === "daily");
+    if (session) {
+      go("daily", session.difficulty as Difficulty, session.session_id);
+      return;
+    }
+    go("daily", "Medium");
+  };
+  const startDuel = () => {
+    const session = inProgressSessions.find((entry) => entry.mode === "duel");
+    if (session) {
+      go("duel", session.difficulty as Difficulty, session.session_id);
+      return;
+    }
+    go("duel", "Medium");
+  };
+  const showComingSoon = (message = "Coming soon") => Alert.alert("Coming soon", message);
 
   const today = new Date();
   const dateStr = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -102,7 +168,7 @@ export default function PlayHubScreen() {
         )}
 
         {/* Daily hero */}
-        <Pressable onPress={() => go("daily", "Medium")}>
+        <Pressable onPress={startDaily}>
           {({ pressed }) => (
             <View style={[styles.heroCard, { opacity: pressed ? 0.92 : 1, marginTop: 14 }]}>
               <LinearGradient
@@ -138,7 +204,7 @@ export default function PlayHubScreen() {
           <SectionHeader title="Classic puzzle" />
           <View style={{ gap: 10 }}>
             {DIFFICULTIES.map((d) => (
-              <Card key={d.key} onPress={() => go("classic", d.key)}>
+              <Card key={d.key} onPress={() => void startClassic(d.key)}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
                   <View
                     style={[
@@ -176,7 +242,7 @@ export default function PlayHubScreen() {
                       <Text style={styles.cardTitle}>{d.key}</Text>
                       {(d.key === "Expert" || d.key === "Master") ? <Pill label="Premium" tone="amber" /> : null}
                     </View>
-                    <Text style={styles.cardSub}>{d.sub}</Text>
+                    <Text style={styles.cardSub}>{checkingClassicDifficulty === d.key ? "Loading..." : d.sub}</Text>
                   </View>
                   <ChevronRight color={C.mutedSoft} size={20} />
                 </View>
@@ -188,7 +254,7 @@ export default function PlayHubScreen() {
         {/* Versus shortcut */}
         <View style={{ marginTop: 24 }}>
           <SectionHeader title="Compete" />
-          <Card onPress={() => go("duel", "Medium")}>
+          <Card onPress={startDuel}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
               <View style={[styles.iconTile, { backgroundColor: C.amberSoft }]}>
                 <Swords color={C.amber} size={22} strokeWidth={2} />
@@ -200,7 +266,7 @@ export default function PlayHubScreen() {
               <ChevronRight color={C.mutedSoft} size={20} />
             </View>
           </Card>
-          <Card onPress={() => go("ranked", "Hard")} style={{ marginTop: 10 }}>
+          <Card onPress={() => showComingSoon("Ranked matchmaking coming soon")} style={{ marginTop: 10 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
               <View style={[styles.iconTile, { backgroundColor: "#1E1B4B22" }]}>
                 <Crown color={C.gold} size={22} strokeWidth={2} />
@@ -250,7 +316,7 @@ export default function PlayHubScreen() {
         </View>
 
         <View style={{ height: 8 }} />
-        <Pressable>
+        <Pressable onPress={() => showComingSoon("Premium coming soon")}>
           {({ pressed }) => (
             <View style={[styles.premiumHint, { opacity: pressed ? 0.92 : 1 }]}>
               <Sparkles size={14} color={C.gold} />
@@ -259,7 +325,49 @@ export default function PlayHubScreen() {
           )}
         </Pressable>
       </ScrollView>
+      <ClassicSessionChoiceModal
+        visible={!!pendingClassicSession}
+        isStartingNew={isStartingNewClassic}
+        onResume={resumeClassicSession}
+        onStartNew={() => void startNewClassic()}
+        onCancel={clearClassicChoice}
+      />
     </View>
+  );
+}
+
+function ClassicSessionChoiceModal({
+  visible,
+  isStartingNew,
+  onResume,
+  onStartNew,
+  onCancel,
+}: {
+  visible: boolean;
+  isStartingNew: boolean;
+  onResume: () => void;
+  onStartNew: () => void;
+  onCancel: () => void;
+}) {
+  if (!visible) return null;
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={modalStyles.backdrop}>
+        <View style={modalStyles.card}>
+          <Text style={modalStyles.title}>Puzzle in progress</Text>
+          <Text style={modalStyles.body}>You already have an unfinished puzzle.</Text>
+          <Pressable style={[modalStyles.primary, isStartingNew && { opacity: 0.5 }]} onPress={onResume} disabled={isStartingNew}>
+            <Text style={modalStyles.primaryText}>Resume puzzle</Text>
+          </Pressable>
+          <Pressable style={[modalStyles.secondary, isStartingNew && { opacity: 0.5 }]} onPress={onStartNew} disabled={isStartingNew}>
+            <Text style={modalStyles.secondaryText}>{isStartingNew ? "Starting..." : "Start new puzzle"}</Text>
+          </Pressable>
+          <Pressable style={[modalStyles.cancel, isStartingNew && { opacity: 0.5 }]} onPress={onCancel} disabled={isStartingNew}>
+            <Text style={modalStyles.cancelText}>Cancel</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -377,5 +485,70 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: C.muted,
     fontWeight: "600",
+  },
+});
+
+const modalStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(21, 23, 28, 0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  card: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: C.card,
+    borderRadius: 18,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: C.ink,
+    marginBottom: 8,
+  },
+  body: {
+    fontSize: 14,
+    color: C.muted,
+    marginBottom: 18,
+    lineHeight: 20,
+  },
+  primary: {
+    backgroundColor: C.ink,
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  primaryText: {
+    color: "#FBF8F2",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  secondary: {
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: C.border,
+    marginBottom: 10,
+  },
+  secondaryText: {
+    color: C.ink,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  cancel: {
+    paddingVertical: 8,
+    alignItems: "center",
+  },
+  cancelText: {
+    color: C.muted,
+    fontSize: 14,
+    fontWeight: "700",
   },
 });

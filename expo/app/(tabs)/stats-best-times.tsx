@@ -13,7 +13,7 @@ import { formatTime } from "@/lib/sudoku";
 const FILTERS = ["7 days", "30 days", "All time"] as const;
 type Filter = typeof FILTERS[number];
 const MODES: { label: string; mode: GameMode }[] = [{ label: "Classic", mode: "classic" }, { label: "Daily", mode: "daily" }, { label: "Duel", mode: "duel" }, { label: "Ranked", mode: "ranked" }];
-const DIFFICULTIES: Difficulty[] = ["Easy", "Medium", "Hard", "Expert"];
+const DIFFICULTIES: Difficulty[] = ["Easy", "Medium", "Hard", "Expert", "Master"];
 function withinFilter(iso: string, filter: Filter): boolean { if (filter === "All time") return true; const days = filter === "7 days" ? 7 : 30; return Date.now() - new Date(iso).getTime() <= days * 86400000; }
 function best(values: number[]): string { return values.length === 0 ? "—" : formatTime(Math.min(...values)); }
 function avg(values: number[]): string { return values.length === 0 ? "—" : formatTime(Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)); }

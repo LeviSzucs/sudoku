@@ -12,10 +12,12 @@ export default function SectionHeader({ title, action, onAction }: Props) {
   return (
     <View style={styles.row}>
       <Text style={styles.title}>{title}</Text>
-      {action ? (
+      {action && onAction ? (
         <Pressable onPress={onAction} hitSlop={8}>
           <Text style={styles.action}>{action}</Text>
         </Pressable>
+      ) : action ? (
+        <Text style={styles.action}>{action}</Text>
       ) : null}
     </View>
   );

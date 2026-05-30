@@ -7,7 +7,9 @@
     "start": "bunx rork start -p okidsmkev7mo0mtc0ic0z --tunnel",
     "start-web": "bunx rork start -p okidsmkev7mo0mtc0ic0z --web --tunnel",
     "start-web-dev": "DEBUG=expo* bunx rork start -p okidsmkev7mo0mtc0ic0z --web --tunnel",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "validate:puzzles": "node scripts/validate-puzzles.js",
+    "validate:givens": "node scripts/validate-given-cells.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

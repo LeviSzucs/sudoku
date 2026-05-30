@@ -68,7 +68,7 @@ export interface PlayerProfile {
   medium_completed: number;
   hard_completed: number;
   expert_completed: number;
-  evil_completed: number;
+  master_completed: number;
   settings: ProfileSettings;
 }
 

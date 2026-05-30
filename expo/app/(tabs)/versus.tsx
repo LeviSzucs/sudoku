@@ -2,7 +2,7 @@ import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { ChevronRight, Clock, Swords, UserPlus, Zap } from "lucide-react-native";
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/components/Avatar";
@@ -24,6 +24,7 @@ export default function VersusScreen() {
   const duelResults = profile.recent_results.filter(
     (r) => r.mode === "duel" || r.mode === "ranked"
   );
+  const startDailyDuel = () => router.push({ pathname: "/game", params: { mode: "duel", difficulty: "Medium" } });
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -40,7 +41,7 @@ export default function VersusScreen() {
         <Text style={styles.subtitle}>Race the same puzzle. Best time wins.</Text>
 
         {/* Daily Duel hero */}
-        <Pressable onPress={() => router.push("/play")} style={{ marginTop: 22 }}>
+        <Pressable onPress={startDailyDuel} style={{ marginTop: 22 }}>
           {({ pressed }) => (
             <View style={[styles.duelHero, { opacity: pressed ? 0.92 : 1 }]}>
               <LinearGradient
@@ -97,7 +98,7 @@ export default function VersusScreen() {
         {/* Quick play options */}
         <View style={{ marginTop: 22 }}>
           <SectionHeader title="Find a match" />
-          <Card onPress={() => router.push("/play")} style={{ marginBottom: 12 }}>
+          <Card onPress={() => Alert.alert("Ranked Duel", "Ranked matchmaking coming soon")} style={{ marginBottom: 12 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
               <View style={[styles.iconTile, { backgroundColor: C.amberSoft }]}>
                 <Zap color={C.amber} size={22} fill={C.amber} strokeWidth={1.5} />
@@ -117,7 +118,7 @@ export default function VersusScreen() {
             </View>
           </Card>
 
-          <Card onPress={() => {}}>
+          <Card onPress={() => Alert.alert("Friends", "Friends coming soon")}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
               <View style={[styles.iconTile, { backgroundColor: C.accentSoft }]}>
                 <UserPlus color={C.accent} size={22} strokeWidth={2} />
@@ -135,7 +136,7 @@ export default function VersusScreen() {
 
         {/* Recent matches */}
         <View style={{ marginTop: 26 }}>
-          <SectionHeader title="Recent matches" action={duelResults.length > 0 ? "History" : undefined} />
+          <SectionHeader title="Recent matches" action={duelResults.length > 0 ? "History" : undefined} onAction={() => router.push("/results")} />
           {duelResults.length === 0 ? (
             <Card style={{ alignItems: "center", paddingVertical: 24 }}>
               <Swords size={32} color={C.mutedSoft} strokeWidth={1.5} />

@@ -10,7 +10,7 @@ import {
   Trophy,
 } from "lucide-react-native";
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/components/Avatar";
@@ -42,6 +42,25 @@ export default function HomeScreen() {
   const hasActiveSession = inProgressSessions.length > 0;
   const activeSession = hasActiveSession ? inProgressSessions[0] : null;
   const isGuest = auth.isGuest;
+  const openDaily = () => {
+    const session = inProgressSessions.find((entry) => entry.mode === "daily");
+    router.push({
+      pathname: "/game",
+      params: session
+        ? { mode: "daily", difficulty: session.difficulty, sessionId: session.session_id }
+        : { mode: "daily", difficulty: "Medium" },
+    });
+  };
+  const openDuel = () => {
+    const session = inProgressSessions.find((entry) => entry.mode === "duel");
+    router.push({
+      pathname: "/game",
+      params: session
+        ? { mode: "duel", difficulty: session.difficulty, sessionId: session.session_id }
+        : { mode: "duel", difficulty: "Medium" },
+    });
+  };
+  const showComingSoon = (title = "Coming soon") => Alert.alert(title, "Coming soon");
 
   const streak = profile.current_streak;
   const streakDots = Math.min(streak, 7);
@@ -97,14 +116,7 @@ export default function HomeScreen() {
         </Card>
 
         {/* Daily Sudoku — hero */}
-        <Pressable
-          onPress={() =>
-            router.push({
-              pathname: "/game",
-              params: { mode: "daily", difficulty: "Medium" },
-            })
-          }
-        >
+        <Pressable onPress={openDaily}>
           {({ pressed }) => (
             <View style={[styles.heroCard, { opacity: pressed ? 0.92 : 1 }]}>
               <LinearGradient
@@ -139,15 +151,7 @@ export default function HomeScreen() {
         </Pressable>
 
         {/* Daily Duel */}
-        <Card
-          onPress={() =>
-            router.push({
-              pathname: "/game",
-              params: { mode: "duel", difficulty: "Medium" },
-            })
-          }
-          style={{ marginTop: 14 }}
-        >
+        <Card onPress={openDuel} style={{ marginTop: 14 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
             <View
               style={[
@@ -194,7 +198,7 @@ export default function HomeScreen() {
 
         {/* Guest prompt */}
         {isGuest ? (
-          <Card style={{ marginTop: 14 }}>
+          <Card style={{ marginTop: 14 }} onPress={() => { void auth.signOut(); router.replace("/auth"); }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
               <View style={[styles.iconTile, { backgroundColor: C.accentSoft }]}>
                 <Crown color={C.gold} size={20} strokeWidth={2} />
@@ -212,7 +216,7 @@ export default function HomeScreen() {
 
         {/* Premium */}
         <View style={{ marginTop: 22 }}>
-          <Pressable>
+          <Pressable onPress={() => showComingSoon(PREMIUM_NAME)}>
             {({ pressed }) => (
               <View style={[styles.premiumCard, { opacity: pressed ? 0.92 : 1 }]}>
                 <LinearGradient

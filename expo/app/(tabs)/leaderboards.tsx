@@ -7,13 +7,7 @@ import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
 import { C } from "@/constants/colors";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
-import {
-  friendsLeaderboard,
-  rankedLeaderboard,
-  todaysLeaderboard,
-  weeklyLeaderboard,
-  type LeaderboardEntry,
-} from "@/constants/mockData";
+import type { LeaderboardEntry } from "@/constants/mockData";
 
 type Tab = "daily" | "weekly" | "friends" | "ranked";
 
@@ -51,11 +45,10 @@ export default function LeaderboardsScreen() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>("daily");
   const { profile } = usePlayerProfile();
-  const devMode = profile.settings.devMode;
-
   const data = useMemo<LeaderboardEntry[]>(() => {
     const dailyResult = profile.recent_results.find((r) => r.mode === "daily" && r.eligible_for_leaderboard && r.completed);
     const weeklyPoints = profile.recent_results.reduce((total, r) => total + r.final_score + r.xp_earned, 0);
+    const rankedResult = profile.recent_results.find((r) => r.mode === "ranked" && r.completed);
     const tier = `${profile.rank_tier}${profile.rank_division ? ` ${profile.rank_division}` : ""}`;
     const currentUserEntry: LeaderboardEntry = {
       id: "self",
@@ -74,22 +67,17 @@ export default function LeaderboardsScreen() {
 
     switch (tab) {
       case "weekly": {
-        const entries = [...weeklyLeaderboard, { ...currentUserEntry, score: weeklyPoints }];
-        return rankEntries(entries, tab);
+        return weeklyPoints > 0 ? rankEntries([{ ...currentUserEntry, score: weeklyPoints }], tab) : [];
       }
       case "friends": {
         // Only show the user for friends tab — no mock friends
-        return rankEntries([currentUserEntry], tab);
+        return [];
       }
       case "ranked": {
-        const entries = [...rankedLeaderboard, { ...currentUserEntry, score: profile.rank_points, time: tier }];
-        return rankEntries(entries, tab);
+        return rankedResult ? rankEntries([{ ...currentUserEntry, score: profile.rank_points, time: tier }], tab) : [];
       }
       default: {
-        if (currentUserEntry.score > 0) {
-          return rankEntries([...todaysLeaderboard, currentUserEntry], tab);
-        }
-        return rankEntries(todaysLeaderboard, tab);
+        return currentUserEntry.score > 0 ? rankEntries([currentUserEntry], tab) : [];
       }
     }
   }, [profile, tab]);
@@ -97,10 +85,6 @@ export default function LeaderboardsScreen() {
   const valueLabel = tab === "ranked" ? "RP" : tab === "daily" ? "SCORE" : "POINTS";
   const podiumEntries = [2, 1, 3].map((rankPosition) => data.find((entry) => entry.rank === rankPosition));
   const podiumHeights: Record<number, number> = { 1: 132, 2: 104, 3: 78 };
-
-  // Check if data is purely demo/mock (no real current user involvement)
-  const hasRealUserInList = data.some((e) => e.id === "self");
-  const isDemoData = !hasRealUserInList && tab !== "friends";
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -170,13 +154,6 @@ export default function LeaderboardsScreen() {
           </Card>
         ) : (
           <>
-            {/* Demo label */}
-            {isDemoData && devMode ? (
-              <View style={styles.demoLabel}>
-                <Text style={styles.demoLabelText}>Demo data</Text>
-              </View>
-            ) : null}
-
             {/* Top 3 podium */}
             <View style={styles.podium}>
               {podiumEntries.map((entry, columnIndex) => {

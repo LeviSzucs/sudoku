@@ -21,11 +21,12 @@ export default function PuzzleStatsScreen() {
   const [filter, setFilter] = useState<Filter>("All time");
   const results = useMemo(() => profile.recent_results.filter((r) => r.completed && withinFilter(r.completed_at, filter)), [filter, profile.recent_results]);
   const total = filter === "All time" ? profile.puzzles_completed : results.length;
-  const byDifficulty = filter === "All time" ? { Easy: profile.easy_completed, Medium: profile.medium_completed, Hard: profile.hard_completed, Expert: profile.expert_completed } : {
+  const byDifficulty = filter === "All time" ? { Easy: profile.easy_completed, Medium: profile.medium_completed, Hard: profile.hard_completed, Expert: profile.expert_completed, Master: profile.master_completed } : {
     Easy: results.filter((r) => r.difficulty === "Easy").length,
     Medium: results.filter((r) => r.difficulty === "Medium").length,
     Hard: results.filter((r) => r.difficulty === "Hard").length,
     Expert: results.filter((r) => r.difficulty === "Expert").length,
+    Master: results.filter((r) => r.difficulty === "Master").length,
   };
   return <SafeAreaView style={styles.safe} edges={["top"]}><Stack.Screen options={{ headerShown: false }} /><ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 110 }} showsVerticalScrollIndicator={false}><Header title="Puzzle Stats" sub={`${total} completed · ${filter}`} /><FilterTabs value={filter} onChange={setFilter} /><MetricCard title="Total completed" value={total.toLocaleString()} detail="Only valid completed puzzles count." /><Text style={styles.section}>By difficulty</Text>{Object.entries(byDifficulty).map(([label, count]) => <SplitRow key={label} label={label} count={count} total={total} />)}<Text style={styles.section}>By mode</Text>{MODES.map(({ label, mode }) => { const count = results.filter((r) => r.mode === mode).length; return <SplitRow key={mode} label={label} count={count} total={results.length} />; })}</ScrollView></SafeAreaView>;
 }
