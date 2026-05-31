@@ -21,6 +21,8 @@ import { PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { useAuth } from "@/hooks/useAuth";
+import { logDevDiagnostic } from "@/lib/performanceDiagnostics";
+import { fetchDailyPuzzle, makeEmptyNotes } from "@/lib/sudoku";
 
 function formatElapsed(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -31,7 +33,7 @@ function formatElapsed(seconds: number): string {
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { profile, activeSessions } = usePlayerProfile();
+  const { profile, activeSessions, startPuzzleSession } = usePlayerProfile();
   const auth = useAuth();
 
   const today = new Date();
@@ -42,21 +44,74 @@ export default function HomeScreen() {
   const hasActiveSession = inProgressSessions.length > 0;
   const activeSession = hasActiveSession ? inProgressSessions[0] : null;
   const isGuest = auth.isGuest;
+
+  const openSignedInDailyMode = async (mode: "daily" | "duel") => {
+    if (!auth.user) {
+      Alert.alert("Could not start puzzle", "Please try again.");
+      return;
+    }
+    try {
+      const puzzle = await fetchDailyPuzzle(new Date().toISOString().slice(0, 10), mode === "daily" ? "daily" : "daily_duel");
+      logDevDiagnostic("puzzle session create attempt", {
+        authUserId: auth.user.id,
+        selectedPuzzleId: puzzle.puzzle_id,
+        mode,
+        difficulty: puzzle.difficulty,
+        sessionCreateAttempted: true,
+      });
+      const session = await startPuzzleSession({
+        puzzleId: puzzle.puzzle_id,
+        mode,
+        difficulty: puzzle.difficulty,
+        initialBoardState: puzzle.givens.map((row) => [...row]),
+        initialNotesState: makeEmptyNotes(),
+      });
+      const params = { mode, difficulty: puzzle.difficulty, sessionId: session.session_id, session_id: session.session_id, puzzleId: puzzle.puzzle_id, puzzle_id: puzzle.puzzle_id };
+      logDevDiagnostic("puzzle session create result", {
+        authUserId: auth.user.id,
+        selectedPuzzleId: puzzle.puzzle_id,
+        mode,
+        difficulty: puzzle.difficulty,
+        sessionCreateSuccess: true,
+        returnedSessionId: session.session_id,
+        returnedStatus: session.status,
+        routeParams: params,
+      });
+      router.push({ pathname: "/game", params });
+    } catch (error: unknown) {
+      logDevDiagnostic("puzzle session create result", {
+        authUserId: auth.user.id,
+        mode,
+        sessionCreateSuccess: false,
+        supabaseError: error instanceof Error ? error.message : "Unknown Supabase error",
+      });
+      Alert.alert("Could not start puzzle", "Please try again.");
+    }
+  };
+
   const openDaily = () => {
     const session = inProgressSessions.find((entry) => entry.mode === "daily");
+    if (!session && auth.isSignedIn) {
+      void openSignedInDailyMode("daily");
+      return;
+    }
     router.push({
       pathname: "/game",
       params: session
-        ? { mode: "daily", difficulty: session.difficulty, sessionId: session.session_id }
+        ? { mode: "daily", difficulty: session.difficulty, sessionId: session.session_id, session_id: session.session_id, ...(session.puzzle_id ? { puzzleId: session.puzzle_id, puzzle_id: session.puzzle_id } : {}) }
         : { mode: "daily", difficulty: "Medium" },
     });
   };
   const openDuel = () => {
     const session = inProgressSessions.find((entry) => entry.mode === "duel");
+    if (!session && auth.isSignedIn) {
+      void openSignedInDailyMode("duel");
+      return;
+    }
     router.push({
       pathname: "/game",
       params: session
-        ? { mode: "duel", difficulty: session.difficulty, sessionId: session.session_id }
+        ? { mode: "duel", difficulty: session.difficulty, sessionId: session.session_id, session_id: session.session_id, ...(session.puzzle_id ? { puzzleId: session.puzzle_id, puzzle_id: session.puzzle_id } : {}) }
         : { mode: "duel", difficulty: "Medium" },
     });
   };
@@ -177,7 +232,7 @@ export default function HomeScreen() {
             onPress={() =>
               router.push({
                 pathname: "/game",
-                params: { mode: activeSession.mode, difficulty: activeSession.difficulty, sessionId: activeSession.session_id },
+                params: { mode: activeSession.mode, difficulty: activeSession.difficulty, sessionId: activeSession.session_id, session_id: activeSession.session_id, ...(activeSession.puzzle_id ? { puzzleId: activeSession.puzzle_id, puzzle_id: activeSession.puzzle_id } : {}) },
               })
             }
             style={{ marginTop: 12 }}

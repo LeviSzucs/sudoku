@@ -18,7 +18,7 @@ import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import useSudokuGame, { type GameMode, type SessionSnapshot } from "@/hooks/useSudokuGame";
 import { logDevDiagnostic, measureAsync } from "@/lib/performanceDiagnostics";
 import type { ProfileUpdateSummary } from "@/lib/playerProfile";
-import { fetchClassicPuzzle, fetchDailyPuzzle, fetchPuzzleById, formatTime, type RawPuzzleData } from "@/lib/sudoku";
+import { fetchClassicPuzzle, fetchDailyPuzzle, fetchPuzzleById, formatTime, makeEmptyNotes, type RawPuzzleData } from "@/lib/sudoku";
 
 const MODE_LABEL: Record<GameMode, string> = {
   daily: "Daily",
@@ -41,18 +41,22 @@ export default function GameScreen() {
     mode?: string;
     difficulty?: string;
     puzzleId?: string;
+    puzzle_id?: string;
     sessionId?: string;
+    session_id?: string;
     excludePuzzleId?: string;
   }>();
   const paramsSignature = JSON.stringify(params);
   const mode = (params.mode as GameMode) ?? "daily";
   const difficulty = ((params.difficulty as Difficulty) ?? "Medium") as Difficulty;
-  const sessionIdParam = params.sessionId as string | undefined;
+  const sessionIdParam = (params.session_id ?? params.sessionId) as string | undefined;
+  const routePuzzleId = (params.puzzle_id ?? params.puzzleId) as string | undefined;
   const excludePuzzleId = params.excludePuzzleId as string | undefined;
 
   const auth = useAuth();
-  const { findSessionSnapshot, upsertSession, deleteSessionById, closeSessionForPuzzle } = usePlayerProfile();
+  const { findSessionSnapshot, upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle } = usePlayerProfile();
   const effectiveMode: GameMode = auth.isGuest && mode === "ranked" ? "classic" : mode;
+  const isDevMode = typeof globalThis !== "undefined" && Boolean((globalThis as { __DEV__?: boolean }).__DEV__);
 
   // ── Resolve restore snapshot synchronously ────────────────────────
   const restoreSessionIdRef = useRef<string | undefined>(undefined);
@@ -83,12 +87,17 @@ export default function GameScreen() {
       setIsLoadingPuzzle(true);
       setPuzzleLoadError(null);
       try {
+        if (auth.isSignedIn && !sessionIdParam) {
+          throw new Error("Puzzle session missing. Return to Play and try again.");
+        }
         const today = new Date().toISOString().slice(0, 10);
         if (sessionIdParam) {
-          if (!restorePuzzleId || !restoreDifficulty) {
+          const sessionPuzzleId = restorePuzzleId ?? routePuzzleId;
+          const sessionDifficulty = restoreDifficulty ?? difficulty;
+          if (!sessionPuzzleId) {
             throw new Error("Saved puzzle could not be found.");
           }
-          const data = await measureAsync("puzzle fetch restore", () => fetchPuzzleById(restorePuzzleId, restoreDifficulty));
+          const data = await measureAsync("puzzle fetch restore", () => fetchPuzzleById(sessionPuzzleId, sessionDifficulty));
           if (!cancelled) setPuzzleData(data);
         } else if (effectiveMode === "daily") {
           const data = await measureAsync("puzzle fetch daily", () => fetchDailyPuzzle(today, "daily"));
@@ -112,12 +121,12 @@ export default function GameScreen() {
     }
     void load();
     return () => { cancelled = true; };
-  }, [effectiveMode, difficulty, auth.user?.id, sessionIdParam, restorePuzzleId, restoreDifficulty, excludePuzzleId]);
+  }, [effectiveMode, difficulty, auth.isSignedIn, auth.user?.id, sessionIdParam, restorePuzzleId, restoreDifficulty, routePuzzleId, excludePuzzleId]);
 
   const game = useSudokuGame({
     mode: effectiveMode,
     difficulty,
-    puzzleId: params.puzzleId,
+    puzzleId: routePuzzleId,
     restoreSnapshot,
     puzzleData,
   });
@@ -409,6 +418,14 @@ export default function GameScreen() {
     cancelPendingSave();
     isSubmittingResultRef.current = true;
     isCompletedRef.current = true;
+    logDevDiagnostic("completion session state", {
+      authUserId: auth.user?.id ?? null,
+      localSessionId: currentSessionIdRef.current,
+      routeSessionId: sessionIdParam ?? null,
+      puzzleId: game.result.puzzle_id,
+      mode: game.result.mode,
+      difficulty: game.result.difficulty,
+    });
     setProcessedResultId(`${game.result.puzzle_id}:${currentSessionIdRef.current ?? "pending-session"}`);
     if (auth.isSignedIn) {
       void saveSession(true)
@@ -481,6 +498,43 @@ export default function GameScreen() {
     setOfficialSubmitError(null);
     setProcessedResultId(null);
     if (effectiveMode === "classic") {
+      if (auth.isSignedIn) {
+        void (async () => {
+          try {
+            const puzzle = await fetchClassicPuzzle(auth.user?.id ?? null, game.difficulty, completedPuzzleId);
+            const session = await startPuzzleSession({
+              puzzleId: puzzle.puzzle_id,
+              mode: "classic",
+              difficulty: puzzle.difficulty,
+              initialBoardState: puzzle.givens.map((row) => [...row]),
+              initialNotesState: makeEmptyNotes(),
+            });
+            router.replace({
+              pathname: "/game",
+              params: {
+                mode: "classic",
+                difficulty: puzzle.difficulty,
+                sessionId: session.session_id,
+                session_id: session.session_id,
+                puzzleId: puzzle.puzzle_id,
+                puzzle_id: puzzle.puzzle_id,
+                ...(completedPuzzleId ? { excludePuzzleId: completedPuzzleId } : {}),
+              },
+            });
+          } catch (error: unknown) {
+            logDevDiagnostic("puzzle session create result", {
+              authUserId: auth.user?.id ?? null,
+              mode: "classic",
+              difficulty: game.difficulty,
+              sessionCreateSuccess: false,
+              supabaseError: error instanceof Error ? error.message : "Unknown Supabase error",
+            });
+            Alert.alert("Could not start puzzle", "Please try again.");
+            router.replace("/(tabs)/play");
+          }
+        })();
+        return;
+      }
       router.replace({
         pathname: "/game",
         params: {
@@ -492,7 +546,7 @@ export default function GameScreen() {
       return;
     }
     router.replace("/(tabs)/play");
-  }, [cleanupCompletedSession, effectiveMode, game.difficulty, game.puzzleId, game.result?.puzzle_id, router]);
+  }, [auth.isSignedIn, auth.user?.id, cleanupCompletedSession, effectiveMode, game.difficulty, game.puzzleId, game.result?.puzzle_id, router, startPuzzleSession]);
 
   const handleShareResult = useCallback(() => {
     const text = `${MODE_LABEL[effectiveMode]} ${game.difficulty}: ${formatTime(game.seconds)}, ${game.mistakes} mistakes, ${game.score.toLocaleString()} score.`;
@@ -549,6 +603,17 @@ export default function GameScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Stack.Screen options={{ headerShown: false }} />
+
+      {isDevMode ? (
+        <View style={styles.devSessionDiagnostics}>
+          <Text style={styles.devSessionDiagnosticsText}>
+            route session_id: {sessionIdParam ?? "missing"} | active: {currentSessionIdRef.current ?? "missing"} | user: {auth.user?.id ?? "none"}
+          </Text>
+          <Text style={styles.devSessionDiagnosticsText}>
+            puzzle_id: {routePuzzleId ?? game.puzzleId ?? "unknown"} | mode: {effectiveMode} | difficulty: {game.difficulty} | status: {sessionIdParam ? "in_progress" : auth.isSignedIn ? "missing" : "guest"}
+          </Text>
+        </View>
+      ) : null}
 
       <View style={[styles.topBar, { paddingTop: insets.top + 4 }]}>
         <Pressable hitSlop={10} onPress={onBackPress} style={styles.topBtn}>
@@ -817,6 +882,16 @@ const leaveStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
+  devSessionDiagnostics: {
+    backgroundColor: "#15171C",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  devSessionDiagnosticsText: {
+    color: "#FBF8F2",
+    fontSize: 10,
+    fontWeight: "700",
+  },
   topBar: {
     flexDirection: "row",
     alignItems: "center",
