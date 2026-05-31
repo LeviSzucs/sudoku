@@ -59,6 +59,7 @@ export default function CompletionModal({
   const showOfficialPending = officialStatus === "pending";
   const showOfficialFailure = officialStatus === "failed";
   const showOfficialRewards = officialStatus === "guest" || officialStatus === "saved";
+  const streakUnit = streak === 1 ? "day" : "days";
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -107,7 +108,7 @@ export default function CompletionModal({
             <View style={styles.streakRow}>
               <Flame size={14} color={C.streak} fill={C.streak} />
               <Text style={styles.streakText}>
-                Streak updated · {streak} days
+                Streak updated · {streak} {streakUnit}
               </Text>
             </View>
           ) : null}
