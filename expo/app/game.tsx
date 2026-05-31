@@ -56,7 +56,6 @@ export default function GameScreen() {
   const auth = useAuth();
   const { findSessionSnapshot, upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle } = usePlayerProfile();
   const effectiveMode: GameMode = auth.isGuest && mode === "ranked" ? "classic" : mode;
-  const isDevMode = typeof globalThis !== "undefined" && Boolean((globalThis as { __DEV__?: boolean }).__DEV__);
 
   // ── Resolve restore snapshot synchronously ────────────────────────
   const restoreSessionIdRef = useRef<string | undefined>(undefined);
@@ -604,17 +603,6 @@ export default function GameScreen() {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {isDevMode ? (
-        <View style={styles.devSessionDiagnostics}>
-          <Text style={styles.devSessionDiagnosticsText}>
-            route session_id: {sessionIdParam ?? "missing"} | active: {currentSessionIdRef.current ?? "missing"} | user: {auth.user?.id ?? "none"}
-          </Text>
-          <Text style={styles.devSessionDiagnosticsText}>
-            puzzle_id: {routePuzzleId ?? game.puzzleId ?? "unknown"} | mode: {effectiveMode} | difficulty: {game.difficulty} | status: {sessionIdParam ? "in_progress" : auth.isSignedIn ? "missing" : "guest"}
-          </Text>
-        </View>
-      ) : null}
-
       <View style={[styles.topBar, { paddingTop: insets.top + 4 }]}>
         <Pressable hitSlop={10} onPress={onBackPress} style={styles.topBtn}>
           <ChevronLeft color={C.ink} size={26} />
@@ -882,16 +870,6 @@ const leaveStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  devSessionDiagnostics: {
-    backgroundColor: "#15171C",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  devSessionDiagnosticsText: {
-    color: "#FBF8F2",
-    fontSize: 10,
-    fontWeight: "700",
-  },
   topBar: {
     flexDirection: "row",
     alignItems: "center",
