@@ -17,9 +17,13 @@ import Card from "@/components/Card";
 import Pill from "@/components/Pill";
 import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
+import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
+import type { GameMode } from "@/hooks/useSudokuGame";
 import type { Difficulty } from "@/constants/mockData";
 import type { PuzzleSessionRow } from "@/lib/supabase";
+import { logDevDiagnostic } from "@/lib/performanceDiagnostics";
+import { fetchClassicPuzzle, fetchDailyPuzzle, makeEmptyNotes, type RawPuzzleData } from "@/lib/sudoku";
 
 const DIFFICULTIES: { key: Difficulty; sub: string; tone: "muted" | "accent" | "amber" | "red" | "purple" }[] = [
   { key: "Easy", sub: "Warm up · ~4 min", tone: "muted" },
@@ -45,15 +49,80 @@ function formatBestTime(seconds: number | undefined): string {
 export default function PlayHubScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { profile, activeSessions, closeSessionForPuzzle, getInProgressClassicSession } = usePlayerProfile();
+  const auth = useAuth();
+  const { profile, activeSessions, closeSessionForPuzzle, getInProgressClassicSession, startPuzzleSession } = usePlayerProfile();
   const [pendingClassicDifficulty, setPendingClassicDifficulty] = useState<Difficulty | null>(null);
   const [pendingClassicSession, setPendingClassicSession] = useState<PuzzleSessionRow | null>(null);
   const [isCheckingClassicSession, setIsCheckingClassicSession] = useState(false);
   const [checkingClassicDifficulty, setCheckingClassicDifficulty] = useState<Difficulty | null>(null);
   const [isStartingNewClassic, setIsStartingNewClassic] = useState(false);
 
-  const go = (mode: string, difficulty: Difficulty, sessionId?: string, excludePuzzleId?: string) =>
-    router.push({ pathname: "/game", params: { mode, difficulty, ...(sessionId ? { sessionId } : {}), ...(excludePuzzleId ? { excludePuzzleId } : {}) } });
+  const go = (mode: string, difficulty: Difficulty, sessionId?: string, excludePuzzleId?: string, puzzleId?: string | null) => {
+    const params = {
+      mode,
+      difficulty,
+      ...(sessionId ? { sessionId, session_id: sessionId } : {}),
+      ...(excludePuzzleId ? { excludePuzzleId } : {}),
+      ...(puzzleId ? { puzzleId, puzzle_id: puzzleId } : {}),
+    };
+    logDevDiagnostic("puzzle route start", {
+      authUserId: auth.user?.id ?? null,
+      mode,
+      difficulty,
+      sessionId: sessionId ?? null,
+      routeParams: params,
+    });
+    router.push({ pathname: "/game", params });
+  };
+
+  const startSignedInPuzzle = async (
+    mode: GameMode,
+    difficulty: Difficulty,
+    fetchPuzzle: () => Promise<RawPuzzleData>,
+    excludePuzzleId?: string
+  ) => {
+    if (!auth.user) {
+      Alert.alert("Could not start puzzle", "Please try again.");
+      return;
+    }
+    try {
+      const puzzle = await fetchPuzzle();
+      logDevDiagnostic("puzzle session create attempt", {
+        authUserId: auth.user.id,
+        selectedPuzzleId: puzzle.puzzle_id,
+        mode,
+        difficulty: puzzle.difficulty,
+        sessionCreateAttempted: true,
+      });
+      const session = await startPuzzleSession({
+        puzzleId: puzzle.puzzle_id,
+        mode,
+        difficulty: puzzle.difficulty,
+        initialBoardState: puzzle.givens.map((row) => [...row]),
+        initialNotesState: makeEmptyNotes(),
+      });
+      logDevDiagnostic("puzzle session create result", {
+        authUserId: auth.user.id,
+        selectedPuzzleId: puzzle.puzzle_id,
+        mode,
+        difficulty: puzzle.difficulty,
+        sessionCreateSuccess: true,
+        returnedSessionId: session.session_id,
+        returnedStatus: session.status,
+      });
+      go(mode, puzzle.difficulty, session.session_id, excludePuzzleId, puzzle.puzzle_id);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown Supabase error";
+      logDevDiagnostic("puzzle session create result", {
+        authUserId: auth.user.id,
+        mode,
+        difficulty,
+        sessionCreateSuccess: false,
+        supabaseError: message,
+      });
+      Alert.alert("Could not start puzzle", "Please try again.");
+    }
+  };
 
   const clearClassicChoice = () => {
     setPendingClassicDifficulty(null);
@@ -74,6 +143,10 @@ export default function PlayHubScreen() {
         setPendingClassicSession(session);
         return;
       }
+      if (auth.isSignedIn) {
+        await startSignedInPuzzle("classic", difficulty, () => fetchClassicPuzzle(auth.user?.id ?? null, difficulty));
+        return;
+      }
       go("classic", difficulty);
     } finally {
       setIsCheckingClassicSession(false);
@@ -85,7 +158,7 @@ export default function PlayHubScreen() {
     if (!pendingClassicSession) return;
     const session = pendingClassicSession;
     clearClassicChoice();
-    go("classic", session.difficulty as Difficulty, session.session_id);
+    go("classic", session.difficulty as Difficulty, session.session_id, undefined, session.puzzle_id);
   };
 
   const startNewClassic = async () => {
@@ -95,6 +168,10 @@ export default function PlayHubScreen() {
     const difficulty = pendingClassicDifficulty;
     await closeSessionForPuzzle(session.puzzle_id ?? "", session.session_id, "abandoned");
     clearClassicChoice();
+    if (auth.isSignedIn) {
+      await startSignedInPuzzle("classic", difficulty, () => fetchClassicPuzzle(auth.user?.id ?? null, difficulty, session.puzzle_id), session.puzzle_id ?? undefined);
+      return;
+    }
     go("classic", difficulty, undefined, session.puzzle_id ?? undefined);
   };
 
@@ -104,7 +181,11 @@ export default function PlayHubScreen() {
   const startDaily = () => {
     const session = inProgressSessions.find((entry) => entry.mode === "daily");
     if (session) {
-      go("daily", session.difficulty as Difficulty, session.session_id);
+      go("daily", session.difficulty as Difficulty, session.session_id, undefined, session.puzzle_id);
+      return;
+    }
+    if (auth.isSignedIn) {
+      void startSignedInPuzzle("daily", "Medium", () => fetchDailyPuzzle(new Date().toISOString().slice(0, 10), "daily"));
       return;
     }
     go("daily", "Medium");
@@ -112,7 +193,11 @@ export default function PlayHubScreen() {
   const startDuel = () => {
     const session = inProgressSessions.find((entry) => entry.mode === "duel");
     if (session) {
-      go("duel", session.difficulty as Difficulty, session.session_id);
+      go("duel", session.difficulty as Difficulty, session.session_id, undefined, session.puzzle_id);
+      return;
+    }
+    if (auth.isSignedIn) {
+      void startSignedInPuzzle("duel", "Medium", () => fetchDailyPuzzle(new Date().toISOString().slice(0, 10), "daily_duel"));
       return;
     }
     go("duel", "Medium");
@@ -138,7 +223,7 @@ export default function PlayHubScreen() {
         {/* Continue */}
         {hasActiveSession && activeSession ? (
           <Card
-            onPress={() => go(activeSession.mode, activeSession.difficulty as Difficulty, activeSession.session_id)}
+            onPress={() => go(activeSession.mode, activeSession.difficulty as Difficulty, activeSession.session_id, undefined, activeSession.puzzle_id)}
             style={{ marginTop: 18 }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>

@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import type { PuzzleResult, SessionSnapshot } from "@/hooks/useSudokuGame";
 import { logDevDiagnostic, measureAsync } from "@/lib/performanceDiagnostics";
 import { BADGE_DEFINITIONS, applyPuzzleResult, createInitialPlayerProfile, createSimulatedResult, getRankFromRp, initialsFromName, normalizeProfile, type AchievementBadge, type BadgeCategory, type PlayerProfile, type ProfileSettings, type ProfileUpdateSummary, type RankOutcome, type RecentResult } from "@/lib/playerProfile";
+import { startPuzzleSession as insertPuzzleSession, type StartPuzzleSessionInput } from "@/lib/puzzleSessions";
 import { isSupabaseConfigured, supabase, type GameResultRow, type PlayerStatsRow, type ProfileRow, type PuzzleSessionRow, type UserAchievementRow, type UserSettingsRow } from "@/lib/supabase";
 
 /** Generate a valid UUID v4 for session IDs matching the DB uuid column. */
@@ -325,35 +326,11 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     });
     updateDiagnostics({ lastSessionSaveAttemptedAt: attemptedAt });
 
-    // Build the local session row regardless of backend success
-    const buildSessionRow = (sessionId: string): PuzzleSessionRow => ({
-      session_id: sessionId,
-      user_id: auth.user?.id ?? "",
-      puzzle_id: snapshot.puzzle_id,
-      mode: snapshot.mode,
-      difficulty: snapshot.difficulty,
-      board_state: snapshot.board_state,
-      notes_state: snapshot.notes_state,
-      elapsed_seconds: snapshot.elapsed_seconds,
-      mistakes: snapshot.mistakes,
-      hints_used: snapshot.hints_used,
-      undo_count: snapshot.undo_count,
-      move_history: snapshot.move_history,
-      status: "in_progress" as const,
-    });
-
     if (auth.isSignedIn && auth.user && isSupabaseConfigured) {
       const sessionId = existingSessionId ?? generateUUID();
-      const sessionRow = buildSessionRow(sessionId);
-
-      // Always update local activeSessions first so Continue Puzzle works immediately
-      setActiveSessions((prev) => {
-        const filtered = prev.filter((s) => s.session_id !== sessionId && s.status === "in_progress");
-        return [sessionRow, ...filtered];
-      });
 
       try {
-        const { error } = await supabase.from("puzzle_sessions").upsert({
+        const { data, error } = await supabase.from("puzzle_sessions").upsert({
           session_id: sessionId,
           user_id: auth.user.id,
           puzzle_id: snapshot.puzzle_id,
@@ -367,17 +344,26 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
           undo_count: snapshot.undo_count,
           move_history: snapshot.move_history as unknown as Record<string, unknown>[],
           status: "in_progress",
-        });
+        }).select("*").single();
 
         if (error) {
           updateDiagnostics({ lastError: error.message, lastSessionSaveSucceeded: false, lastSessionSaveError: error.message });
-          // Local state already updated above, so Continue Puzzle still works.
-          // Throw so caller knows backend save failed and can warn user.
           throw new Error(error.message);
         }
 
+        if (!data?.session_id) {
+          const message = "Session save failed: Supabase did not return a session_id.";
+          updateDiagnostics({ lastError: message, lastSessionSaveSucceeded: false, lastSessionSaveError: message });
+          throw new Error(message);
+        }
+
+        const sessionRow = data as PuzzleSessionRow;
+        setActiveSessions((prev) => {
+          const filtered = prev.filter((s) => s.session_id !== sessionRow.session_id && s.status === "in_progress");
+          return [sessionRow, ...filtered];
+        });
         updateDiagnostics({ lastSessionSaveSucceeded: true, lastSessionSaveError: null });
-        return sessionId;
+        return sessionRow.session_id;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Session save failed";
         updateDiagnostics({ lastError: msg, lastSessionSaveSucceeded: false, lastSessionSaveError: msg });
@@ -405,6 +391,28 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }
     return sessionId;
   }, [auth.isSignedIn, auth.user, loadGuestSessions, persistGuestSessions, updateDiagnostics]);
+
+  const startPuzzleSession = useCallback(async (input: Omit<StartPuzzleSessionInput, "userId">): Promise<PuzzleSessionRow> => {
+    if (!auth.isSignedIn || !auth.user || !isSupabaseConfigured) {
+      const message = "Could not start puzzle. Please try again.";
+      updateDiagnostics({ lastError: message, lastSessionSaveSucceeded: false, lastSessionSaveError: message });
+      throw new Error(message);
+    }
+
+    const session = await insertPuzzleSession({ userId: auth.user.id, ...input });
+    setActiveSessions((prev) => {
+      const filtered = prev.filter((entry) => entry.session_id !== session.session_id && entry.status === "in_progress");
+      return [session, ...filtered];
+    });
+    updateDiagnostics({
+      latestSessionStatus: session.status,
+      lastError: null,
+      lastSessionSaveAttemptedAt: new Date().toISOString(),
+      lastSessionSaveSucceeded: true,
+      lastSessionSaveError: null,
+    });
+    return session;
+  }, [auth.isSignedIn, auth.user, updateDiagnostics]);
 
   const verifyOwnedInProgressSession = useCallback(async (sessionId: string): Promise<PuzzleSessionRow> => {
     if (!auth.user || !isSupabaseConfigured) throw new Error("Could not save official result. Missing auth user.");
@@ -736,7 +744,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     recordPuzzleResult, submitOfficialPuzzleResult, simulateResult, simulateRankedWin, simulateRankedLoss,
     resetLocalProfile, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
     repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, clearLastUpdate,
-    upsertSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession,
+    upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession,
   }), [
     activeGuestSessions, activeSessions, auth.isSignedIn,
     clearLastUpdate, diagnostics, hasActiveSession, isLoaded, lastUpdate, loadError, profile,
@@ -744,6 +752,6 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     simulateRankedLoss, simulateRankedWin, simulateResult,
     testSupabaseRead, testSupabaseWrite,
     updateDisplayName, updateNotificationSettings, updatePrivacySettings,
-    upsertSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession,
+    upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession,
   ]);
 });
