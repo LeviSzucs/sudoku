@@ -56,8 +56,11 @@ export const supabase = createClient(isSupabaseConfigured ? sanitizedSupabaseUrl
 export interface ProfileRow {
   id: string;
   username: string;
+  username_handle?: string | null;
+  display_name?: string | null;
   initials: string;
   avatar_color: string;
+  profile_setup_completed?: boolean;
   created_at?: string;
   updated_at?: string;
 }

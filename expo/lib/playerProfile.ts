@@ -41,6 +41,9 @@ export interface ProfileSettings {
 export interface PlayerProfile {
   user_id: string;
   username: string;
+  username_handle: string | null;
+  display_name: string | null;
+  profile_setup_completed: boolean;
   initials: string;
   avatar_color: string;
   account_level: number;
@@ -184,7 +187,7 @@ export function createInitialPlayerProfile(withMockProgress = true): PlayerProfi
   const totalXp = withMockProgress ? 2850 : 0;
   const level = getLevelFromXp(totalXp);
   const base: PlayerProfile = {
-    user_id: "u_self", username: DEFAULT_USERNAME, initials: DEFAULT_INITIALS, avatar_color: DEFAULT_AVATAR_COLOR,
+    user_id: "u_self", username: DEFAULT_USERNAME, username_handle: null, display_name: null, profile_setup_completed: false, initials: DEFAULT_INITIALS, avatar_color: DEFAULT_AVATAR_COLOR,
     account_level: level.level, mastery_xp: level.xpInLevel, mastery_xp_to_next_level: level.xpToNext, total_mastery_xp: totalXp,
     rank_tier: "Bronze", rank_division: "II", rank_points: withMockProgress ? 120 : 0, current_streak: withMockProgress ? 4 : 0, longest_streak: withMockProgress ? 7 : 0,
     puzzles_completed: withMockProgress ? 18 : 0, flawless_puzzles: withMockProgress ? 6 : 0, total_mistakes: withMockProgress ? 14 : 0, total_hints_used: withMockProgress ? 5 : 0,

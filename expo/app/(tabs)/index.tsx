@@ -170,7 +170,7 @@ export default function HomeScreen() {
         <View style={styles.greetingRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.kicker}>{dayOfWeek} · {today.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()}</Text>
-            <Text style={styles.greeting}>Good morning,</Text>
+            <Text style={styles.greeting}>Welcome back,</Text>
             <Text style={styles.greetingName}>{profile.username}</Text>
           </View>
           <Avatar initials={profile.initials} color={profile.avatar_color} size={48} />

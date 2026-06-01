@@ -26,6 +26,15 @@ const GUEST_SESSIONS_KEY = "sudoku.guest_sessions.v1";
 type SaveResult = { ok: boolean; error?: string };
 type SessionStatus = "in_progress" | "completed" | "failed" | "abandoned";
 type DailySessionMode = "daily" | "duel";
+type UsernameAvailabilityStatus = "available" | "unavailable" | "invalid" | "error";
+
+const RESERVED_USERNAMES = new Set(["player", "admin", "support", "sudoku", "ranked", "daily", "guest"]);
+
+export interface UsernameAvailability {
+  username: string;
+  status: UsernameAvailabilityStatus;
+  message: string;
+}
 
 interface RecordPuzzleResultOptions {
   sessionId?: string;
@@ -146,11 +155,17 @@ export interface BackendDiagnostics {
 
 function profileFromRows(profileRow: ProfileRow, statsRow: PlayerStatsRow, settingsRow: UserSettingsRow, fallback: PlayerProfile): PlayerProfile {
   const [tier = "Bronze", division = "III"] = statsRow.rank_tier.split(" ");
+  const handle = profileRow.username_handle?.trim().toLowerCase() || null;
+  const displayName = profileRow.display_name?.trim() || handle || profileRow.username;
+  const setupCompleted = profileRow.profile_setup_completed === true && handle !== null;
   return normalizeProfile({
     ...fallback,
     user_id: profileRow.id,
-    username: profileRow.username,
-    initials: profileRow.initials,
+    username: displayName,
+    username_handle: handle,
+    display_name: displayName,
+    profile_setup_completed: setupCompleted,
+    initials: setupCompleted ? profileRow.initials : "",
     avatar_color: profileRow.avatar_color,
     total_mastery_xp: statsRow.total_mastery_xp,
     account_level: statsRow.account_level,
@@ -213,6 +228,19 @@ function deterministicResultId(userId: string, result: PuzzleResult, sessionId: 
 
 function isUniqueViolation(error: { code?: string; message?: string } | null): boolean {
   return error?.code === "23505" || error?.message?.toLowerCase().includes("duplicate") === true;
+}
+
+function normalizeUsernameHandle(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function validateUsernameHandle(value: string): UsernameAvailability | null {
+  const username = normalizeUsernameHandle(value);
+  if (username.length === 0) return { username, status: "invalid", message: "Username is required." };
+  if (username.length < 3 || username.length > 20) return { username, status: "invalid", message: "Username must be 3-20 characters." };
+  if (!/^[a-z0-9_]+$/.test(username)) return { username, status: "invalid", message: "Use lowercase letters, numbers, and underscores only." };
+  if (RESERVED_USERNAMES.has(username)) return { username, status: "invalid", message: "That username is reserved." };
+  return null;
 }
 
 function achievementFromBackend(row: AchievementRow, progress?: UserAchievementRow): AchievementBadge {
@@ -332,7 +360,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       return { ok: false, error: achievementRowsError.message };
     }
     const defaults = [
-      supabase.from("profiles").upsert({ id: auth.user.id, username: name, initials: initialsFromName(name), avatar_color: profile.avatar_color || empty.avatar_color }, { onConflict: "id", ignoreDuplicates: true }),
+      supabase.from("profiles").upsert({ id: auth.user.id, username: name, display_name: null, username_handle: null, initials: initialsFromName(name), avatar_color: profile.avatar_color || empty.avatar_color, profile_setup_completed: false }, { onConflict: "id", ignoreDuplicates: true }),
       supabase.from("player_stats").upsert({ user_id: auth.user.id, total_mastery_xp: 0, account_level: 1, rank_points: 0, rank_tier: `${rank.tier} ${rank.division}`, current_streak: 0, longest_streak: 0, puzzles_completed: 0, flawless_puzzles: 0, total_mistakes: 0, total_hints_used: 0, total_undos_used: 0, duels_played: 0, duels_won: 0, ranked_played: 0, ranked_won: 0, best_easy_time: null, best_medium_time: null, best_hard_time: null, best_expert_time: null, best_master_time: null }, { onConflict: "user_id", ignoreDuplicates: true }),
       supabase.from("user_settings").upsert({ user_id: auth.user.id, daily_reminder: true, streak_reminder: true, duel_results: true, ranked_updates: false, public_profile: true, show_stats_publicly: true, show_recent_results_publicly: false, allow_friend_challenges: true }, { onConflict: "user_id", ignoreDuplicates: true }),
     ];
@@ -1241,13 +1269,59 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }));
   }, [auth.user?.id, updateDiagnostics]);
 
+  const checkUsernameAvailable = useCallback(async (usernameInput: string): Promise<UsernameAvailability> => {
+    const invalid = validateUsernameHandle(usernameInput);
+    if (invalid) return invalid;
+    const username = normalizeUsernameHandle(usernameInput);
+    if (!auth.user || !isSupabaseConfigured) return { username, status: "error", message: "Sign in before choosing a username." };
+
+    const { data, error } = await supabase.rpc("check_username_available", { p_username: username });
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return { username, status: "error", message: error.message };
+    }
+    const row = Array.isArray(data) ? data[0] : null;
+    if (!row) return { username, status: "error", message: "Could not check username." };
+    return {
+      username: row.normalized_username ?? username,
+      status: row.available ? "available" : "unavailable",
+      message: row.reason ?? (row.available ? "Username is available." : "Username is unavailable."),
+    };
+  }, [auth.user, updateDiagnostics]);
+
+  const completeProfileSetup = useCallback(async (usernameInput: string): Promise<SaveResult> => {
+    const invalid = validateUsernameHandle(usernameInput);
+    if (invalid) return { ok: false, error: invalid.message };
+    if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before setting up your profile." };
+
+    const username = normalizeUsernameHandle(usernameInput);
+    const nextInitials = initialsFromName(username);
+    const { error } = await supabase.from("profiles").update({
+      username,
+      username_handle: username,
+      display_name: username,
+      initials: nextInitials,
+      profile_setup_completed: true,
+      updated_at: new Date().toISOString(),
+    }).eq("id", auth.user.id);
+    if (error) {
+      const message = isUniqueViolation(error) ? "Username is already taken." : error.message;
+      updateDiagnostics({ lastError: message });
+      return { ok: false, error: message };
+    }
+
+    setProfile((current) => normalizeProfile({ ...current, username, username_handle: username, display_name: username, initials: nextInitials, profile_setup_completed: true }));
+    await loadBackendProfile();
+    return { ok: true };
+  }, [auth.user, loadBackendProfile, updateDiagnostics]);
+
   const updateDisplayName = useCallback((username: string): SaveResult => {
     const trimmed = username.trim();
     if (trimmed.length === 0) return { ok: false, error: "Display name cannot be empty." };
     if (trimmed.length > 20) return { ok: false, error: "Display name must be 20 characters or fewer." };
-    const next = { ...profile, username: trimmed, initials: initialsFromName(trimmed) };
+    const next = { ...profile, username: trimmed, display_name: trimmed, initials: initialsFromName(trimmed) };
     persist(next);
-    if (auth.isSignedIn && auth.user && isSupabaseConfigured) void supabase.from("profiles").upsert({ id: auth.user.id, username: trimmed, initials: next.initials, avatar_color: next.avatar_color, updated_at: new Date().toISOString() }).then(({ error: saveError }) => { if (saveError) updateDiagnostics({ lastError: saveError.message }); }).catch((saveError: unknown) => updateDiagnostics({ lastError: saveError instanceof Error ? saveError.message : "Unable to save display name." }));
+    if (auth.isSignedIn && auth.user && isSupabaseConfigured) void supabase.from("profiles").upsert({ id: auth.user.id, username: trimmed, display_name: trimmed, initials: next.initials, avatar_color: next.avatar_color, updated_at: new Date().toISOString() }).then(({ error: saveError }) => { if (saveError) updateDiagnostics({ lastError: saveError.message }); }).catch((saveError: unknown) => updateDiagnostics({ lastError: saveError instanceof Error ? saveError.message : "Unable to save display name." }));
     return { ok: true };
   }, [auth.isSignedIn, auth.user, persist, profile, updateDiagnostics]);
 
@@ -1350,18 +1424,19 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
   }, [auth.user, loadBackendProfile]);
 
   const hasActiveSession = auth.isSignedIn ? activeSessions.some((s) => s.status === "in_progress") : activeGuestSessions.length > 0;
+  const profileSetupRequired = auth.isSignedIn && isLoaded && (!profile.profile_setup_completed || !profile.username_handle);
 
   return useMemo(() => ({
     profile, isLoaded, loadError, lastUpdate,
     activeSessions: auth.isSignedIn ? activeSessions : activeGuestSessions.map(guestSessionToPuzzleSessionRow),
-    diagnostics, hasActiveSession,
+    diagnostics, hasActiveSession, profileSetupRequired,
     recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, simulateResult, simulateRankedWin, simulateRankedLoss,
-    resetLocalProfile, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
+    resetLocalProfile, checkUsernameAvailable, completeProfileSetup, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
     repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, testDailyResultQuery, clearLastUpdate,
     upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
   }), [
     activeGuestSessions, activeSessions, auth.isSignedIn,
-    clearLastUpdate, diagnostics, hasActiveSession, isLoaded, lastUpdate, loadError, profile,
+    checkUsernameAvailable, clearLastUpdate, completeProfileSetup, diagnostics, hasActiveSession, isLoaded, lastUpdate, loadError, profile, profileSetupRequired,
     recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
     simulateRankedLoss, simulateRankedWin, simulateResult,
     testSupabaseRead, testSupabaseWrite, testDailyResultQuery,

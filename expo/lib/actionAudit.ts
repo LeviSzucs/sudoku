@@ -33,7 +33,7 @@ export const ACTION_AUDIT: ActionAuditEntry[] = [
   { route: "Versus", action: "Friend Challenge", status: "coming soon" },
   { route: "Versus", action: "Recent match history", status: "works" },
   { route: "Leaderboards", action: "Daily/Weekly/Friends/Ranked tabs", status: "works" },
-  { route: "Auth", action: "Create account/login/guest/profile setup/back", status: "works" },
+  { route: "Auth", action: "Create account/login/username setup/back", status: "works" },
 ];
 
 export function printActionAuditReport(): string {

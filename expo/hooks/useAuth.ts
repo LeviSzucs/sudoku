@@ -1,11 +1,8 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import type { Session, User } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { supabase, isSupabaseConfigured, supabaseConfigurationError } from "@/lib/supabase";
-
-const GUEST_MODE_KEY = "sudoku.guest_mode.v1";
 
 export type AuthMode = "loading" | "guest" | "signed_in" | "signed_out";
 
@@ -18,15 +15,14 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     let active = true;
 
     async function restore(): Promise<void> {
-      const guest = await AsyncStorage.getItem(GUEST_MODE_KEY);
       if (!isSupabaseConfigured) {
-        if (active) setMode(guest === "true" ? "guest" : "signed_out");
+        if (active) setMode("signed_out");
         return;
       }
       const { data } = await supabase.auth.getSession();
       if (!active) return;
       setSession(data.session);
-      setMode(data.session ? "signed_in" : guest === "true" ? "guest" : "signed_out");
+      setMode(data.session ? "signed_in" : "signed_out");
     }
 
     void restore().catch(() => {
@@ -36,7 +32,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
       setMode(nextSession ? "signed_in" : "signed_out");
-      if (nextSession) void AsyncStorage.removeItem(GUEST_MODE_KEY);
     });
 
     return () => {
@@ -67,14 +62,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     return { ok: true };
   }, []);
 
-  const continueAsGuest = useCallback(async (): Promise<void> => {
-    await AsyncStorage.setItem(GUEST_MODE_KEY, "true");
-    setSession(null);
-    setMode("guest");
-  }, []);
-
   const signOut = useCallback(async (): Promise<void> => {
-    await AsyncStorage.removeItem(GUEST_MODE_KEY);
     if (isSupabaseConfigured) await supabase.auth.signOut();
     setSession(null);
     setMode("signed_out");
@@ -84,5 +72,5 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const isGuest = mode === "guest";
   const isSignedIn = mode === "signed_in";
 
-  return useMemo(() => ({ session, user, mode, isGuest, isSignedIn, authError, signUp, signIn, continueAsGuest, signOut }), [authError, continueAsGuest, isGuest, isSignedIn, mode, session, signIn, signOut, signUp, user]);
+  return useMemo(() => ({ session, user, mode, isGuest, isSignedIn, authError, signUp, signIn, signOut }), [authError, isGuest, isSignedIn, mode, session, signIn, signOut, signUp, user]);
 });

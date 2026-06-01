@@ -56,10 +56,11 @@ export default function SettingsScreen() {
         <Text style={styles.sub}>{APP_NAME} · v1.0.0</Text>
         <Card padded={false} style={{ marginTop: 18 }}>
           <Row icon={<Bell size={18} color={C.inkSoft} />} title="Notifications" detail="Daily puzzle, streaks, duels" onPress={() => setPanel("notifications")} />
-          <Row icon={<UserRound size={18} color={C.inkSoft} />} title="Display name" detail={profile.username} onPress={() => setPanel("display")} />
+          <Row icon={<UserRound size={18} color={C.inkSoft} />} title="Display name" detail={profile.display_name ?? profile.username} onPress={() => setPanel("display")} />
+          <Row icon={<UserRound size={18} color={C.inkSoft} />} title="Username" detail={profile.username_handle ? `@${profile.username_handle}` : "Setup required"} onPress={() => Alert.alert("Username", "Username changes are coming soon.")} />
           <Row icon={<Shield size={18} color={C.inkSoft} />} title="Privacy" detail={privacy.publicProfile ? "Public profile" : "Private profile"} onPress={() => setPanel("privacy")} />
           <Row icon={<Crown size={18} color={C.gold} />} title={PREMIUM_NAME} detail="Manage plan later" onPress={() => Alert.alert(PREMIUM_NAME, "Premium settings will be connected when subscriptions are added.")} />
-          <Row icon={<LogOut size={18} color={C.inkSoft} />} title={auth.isGuest ? "Leave guest mode" : "Log out"} detail={auth.isGuest ? "Return to splash" : "Sign out of this account"} onPress={() => Alert.alert(auth.isGuest ? "Leave guest mode?" : "Log out?", "You will return to the welcome screen.", [{ text: "Cancel", style: "cancel" }, { text: auth.isGuest ? "Leave" : "Log out", style: "destructive", onPress: () => { void auth.signOut(); } }])} last />
+          <Row icon={<LogOut size={18} color={C.inkSoft} />} title="Log out" detail="Sign out of this account" onPress={() => Alert.alert("Log out?", "You will return to the welcome screen.", [{ text: "Cancel", style: "cancel" }, { text: "Log out", style: "destructive", onPress: () => { void auth.signOut(); } }])} last />
         </Card>
         {auth.isGuest ? (
           <Pressable style={styles.resetRow} onPress={() => Alert.alert("Reset local profile?", "This resets local guest XP, rank, badges and results.", [{ text: "Cancel", style: "cancel" }, { text: "Reset", style: "destructive", onPress: resetLocalProfile }])}>
