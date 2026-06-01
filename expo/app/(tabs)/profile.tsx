@@ -15,6 +15,15 @@ import { getLevelFromXp, getRankFromRp, RANKS, type AchievementBadge } from "@/l
 import { formatTime } from "@/lib/sudoku";
 
 function pct(current: number, target: number): number { return target <= 0 ? 0 : Math.max(0, Math.min(1, current / target)); }
+function modeLabel(mode: string): string {
+  if (mode === "classic") return "Classic";
+  if (mode === "daily") return "Daily";
+  if (mode === "daily_duel") return "Daily Duel";
+  if (mode === "friend_challenge") return "Friend Challenge";
+  if (mode === "ranked" || mode === "ranked_duel") return "Ranked";
+  if (mode === "duel") return "Duel";
+  return "Puzzle";
+}
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -25,6 +34,8 @@ export default function ProfileScreen() {
   const nextRank = rank.nextMin !== null ? RANKS.find((r) => r.min === rank.nextMin) : null;
   const rankProgress = rank.nextMin === null ? 1 : (profile.rank_points - rank.currentMin) / (rank.nextMin - rank.currentMin);
   const duelWinRate = profile.duels_played > 0 ? Math.round((profile.duels_won / profile.duels_played) * 100) : 0;
+  const duelWinRateValue = profile.duels_played > 0 ? `${duelWinRate}%` : "No duels yet";
+  const duelWinRateSub = profile.duels_played > 0 ? `${profile.duels_won}/${profile.duels_played} duels won` : "Play a duel to track wins";
   const best = useMemo(() => {
     const entries = Object.entries(profile.best_times_by_difficulty).filter((entry): entry is [string, number] => typeof entry[1] === "number");
     const fastest = entries.sort((a, b) => a[1] - b[1])[0];
@@ -45,7 +56,7 @@ export default function ProfileScreen() {
     <View style={{ marginTop: 12 }}><Card><View style={styles.progressHeader}><View><Text style={styles.progressKicker}>COMPETITIVE RANK</Text><Text style={styles.levelText}>{profile.rank_tier}{profile.rank_division ? ` ${profile.rank_division}` : ""}</Text></View><Text style={styles.progressValue}>{profile.rank_points} RP</Text></View><View style={styles.barTrack}><View style={[styles.rankBar, { width: `${Math.max(0, Math.min(1, rankProgress)) * 100}%` }]} /></View><Text style={styles.progressSub}>{nextRank ? `${nextRank.min - profile.rank_points} RP to ${nextRank.tier}${nextRank.division ? ` ${nextRank.division}` : ""}` : "Top rank reached"}</Text></Card></View>
     <View style={styles.statsGrid}>
       <StatCard icon={<Target size={18} color={C.accent} />} tone={C.accentSoft} label="Puzzles" value={`${profile.puzzles_completed}`} sub={`Easy ${profile.easy_completed} · Medium ${profile.medium_completed} · Hard ${profile.hard_completed}`} onPress={() => router.push("/stats-puzzles")} />
-      <StatCard icon={<Trophy size={18} color={C.gold} />} tone={C.goldSoft} label="Win rate" value={`${duelWinRate}%`} sub="30 days · Duels" onPress={() => router.push("/stats-win-rate")} />
+      <StatCard icon={<Trophy size={18} color={C.gold} />} tone={C.goldSoft} label="Win rate" value={duelWinRateValue} sub={duelWinRateSub} onPress={() => router.push("/stats-win-rate")} />
       <StatCard icon={<Timer size={18} color={C.success} />} tone="#DCEBE0" label="Best time" value={best.time} sub={best.detail} onPress={() => router.push("/stats-best-times")} />
       <StatCard icon={<Flame size={18} color={C.streak} />} tone={C.streakSoft} label="Streak" value={`${profile.current_streak}`} sub={`Best: ${profile.longest_streak} days`} onPress={() => router.push("/stats-streak")} />
     </View>
@@ -58,7 +69,7 @@ export default function ProfileScreen() {
 }
 
 function BadgeCard({ badge, onPress }: { badge: AchievementBadge; onPress: () => void }) { return <Pressable style={[styles.badgeCard, !badge.unlocked && { opacity: 0.42 }]} onPress={onPress}><View style={[styles.badgeIcon, { backgroundColor: badge.unlocked ? C.accent : C.border }]}><Text style={styles.badgeEmoji}>{badge.icon}</Text></View><Text style={styles.badgeName} numberOfLines={2}>{badge.name}</Text>{!badge.unlocked && badge.progress_current > 0 ? <View style={styles.miniTrack}><View style={[styles.miniBar, { width: `${pct(badge.progress_current, badge.progress_target) * 100}%` }]} /></View> : null}</Pressable>; }
-function ResultRow({ result, last }: { result: any; last: boolean }) { return <View style={[styles.resultRow, !last && { borderBottomWidth: 1, borderBottomColor: C.border }]}><View style={{ flex: 1 }}><Text style={styles.resultTitle}>{result.difficulty} · {result.mode}</Text><Text style={styles.resultSub}>{formatTime(result.elapsed_seconds)} · {result.mistakes} mistakes · {result.hints_used} hints · {result.undo_count} undos</Text></View><View style={{ alignItems: "flex-end" }}><Text style={styles.resultScore}>{result.final_score.toLocaleString()}</Text><Text style={styles.resultXp}>+{result.xp_earned} XP</Text></View></View>; }
+function ResultRow({ result, last }: { result: any; last: boolean }) { return <View style={[styles.resultRow, !last && { borderBottomWidth: 1, borderBottomColor: C.border }]}><View style={{ flex: 1 }}><Text style={styles.resultTitle}>{modeLabel(result.mode)} / {result.difficulty}</Text><Text style={styles.resultSub}>{formatTime(result.elapsed_seconds)} / {result.mistakes} mistakes / {result.hints_used} hints / {result.undo_count} undos</Text></View><View style={{ alignItems: "flex-end" }}><Text style={styles.resultScore}>{result.final_score.toLocaleString()}</Text><Text style={styles.resultXp}>+{result.xp_earned} XP</Text></View></View>; }
 function BadgeModal({ badge, onClose }: { badge: AchievementBadge | null; onClose: () => void }) { if (!badge) return null; return <Modal visible transparent animationType="fade" onRequestClose={onClose}><View style={styles.modalBackdrop}><View style={styles.modalCard}><View style={[styles.badgeIcon, { backgroundColor: badge.unlocked ? C.accent : C.border }]}><Text style={styles.badgeEmoji}>{badge.icon}</Text></View><Text style={styles.modalTitle}>{badge.name}</Text><Text style={styles.modalDesc}>{badge.description}</Text><Text style={styles.modalState}>{badge.category} · {badge.unlocked ? "Unlocked" : "Locked"}</Text><View style={styles.barTrack}><View style={[styles.xpBar, { width: `${pct(badge.progress_current, badge.progress_target) * 100}%` }]} /></View><Text style={styles.progressSub}>{badge.progress_current}/{badge.progress_target} progress</Text><Text style={styles.modalDesc}>{badge.unlocked && badge.unlocked_at ? `Unlocked ${new Date(badge.unlocked_at).toLocaleDateString()}` : `How to unlock: ${badge.description}`}</Text><Pressable style={styles.primaryButton} onPress={onClose}><Text style={styles.primaryButtonText}>Close</Text></Pressable></View></View></Modal>; }
 function StatCard({ icon, tone, label, value, sub, onPress }: { icon: React.ReactNode; tone: string; label: string; value: string; sub: string; onPress: () => void }) { return <Pressable onPress={onPress} style={({ pressed }) => [styles.statCard, { opacity: pressed ? 0.86 : 1 }]}><View style={styles.statTop}><View style={[styles.statIcon, { backgroundColor: tone }]}>{icon}</View><ChevronRight color={C.mutedSoft} size={18} /></View><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text><Text style={styles.statSub} numberOfLines={1}>{sub}</Text><Text style={styles.viewText}>View</Text></Pressable>; }
 function SettingsRow({ icon, label, detail, onPress, last }: { icon: React.ReactNode; label: string; detail: string; onPress: () => void; last?: boolean }) { return <Pressable onPress={onPress} style={[styles.settingsRow, !last && { borderBottomWidth: 1, borderBottomColor: C.border }]}><View style={[styles.statIcon, { backgroundColor: C.bgElevated, width: 36, height: 36 }]}>{icon}</View><View style={{ flex: 1 }}><Text style={styles.settingsLabel}>{label}</Text><Text style={styles.settingsDetail}>{detail}</Text></View><ChevronRight color={C.mutedSoft} size={20} /></Pressable>; }

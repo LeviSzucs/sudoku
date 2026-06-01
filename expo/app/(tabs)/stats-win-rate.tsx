@@ -11,6 +11,7 @@ const FILTERS = ["7 days", "30 days", "All time"] as const;
 type Filter = typeof FILTERS[number];
 function withinFilter(iso: string, filter: Filter): boolean { if (filter === "All time") return true; const days = filter === "7 days" ? 7 : 30; return Date.now() - new Date(iso).getTime() <= days * 86400000; }
 function rate(wins: number, played: number): string { return played === 0 ? "0%" : `${Math.round((wins / played) * 100)}%`; }
+function isDuelMode(mode: string): boolean { return ["duel", "daily_duel", "friend_challenge", "ranked", "ranked_duel"].includes(mode); }
 function gameStats(matches: { result_outcome?: string }[]): { wins: number; losses: number; draws: number; played: number } {
   const wins = matches.filter((r) => r.result_outcome === "win").length;
   const losses = matches.filter((r) => r.result_outcome === "loss").length;
@@ -22,14 +23,14 @@ export default function WinRateStatsScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = usePlayerProfile();
   const [filter, setFilter] = useState<Filter>("All time");
-  const matches = useMemo(() => profile.recent_results.filter((r) => (r.mode === "duel" || r.mode === "ranked") && withinFilter(r.completed_at, filter)), [filter, profile.recent_results]);
+  const matches = useMemo(() => profile.recent_results.filter((r) => isDuelMode(r.mode) && withinFilter(r.completed_at, filter)), [filter, profile.recent_results]);
   const wins = filter === "All time" ? profile.duels_won : matches.filter((r) => r.result_outcome === "win").length;
   const played = filter === "All time" ? profile.duels_played : matches.length;
   const losses = matches.filter((r) => r.result_outcome === "loss").length;
   const draws = matches.filter((r) => r.result_outcome === "draw").length;
-  const daily = matches.filter((r) => r.mode === "duel" && !r.puzzle_id.toLowerCase().includes("friend"));
-  const friend = matches.filter((r) => r.mode === "duel" && r.puzzle_id.toLowerCase().includes("friend"));
-  const ranked = matches.filter((r) => r.mode === "ranked");
+  const daily = matches.filter((r) => ["duel", "daily_duel"].includes(r.mode) && !r.puzzle_id.toLowerCase().includes("friend"));
+  const friend = matches.filter((r) => ["friend_challenge"].includes(r.mode) || (r.mode === "duel" && r.puzzle_id.toLowerCase().includes("friend")));
+  const ranked = matches.filter((r) => ["ranked", "ranked_duel"].includes(r.mode));
   const form = matches.slice(0, 10).map((r) => r.result_outcome === "win" ? "W" : r.result_outcome === "loss" ? "L" : "D");
   const breakdown = [{ label: "Daily Duel", stats: gameStats(daily) }, { label: "Friend Challenge", stats: gameStats(friend) }, { label: "Ranked Duel", stats: gameStats(ranked) }];
   return <SafeAreaView style={styles.safe} edges={["top"]}><Stack.Screen options={{ headerShown: false }} /><ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 110 }}><View style={styles.header}><View><Text style={styles.title}>Win Rate</Text><Text style={styles.sub}>{filter} · Duels</Text></View><Pressable style={styles.backButton} onPress={() => router.back()}><Text style={styles.backText}>Back</Text><ChevronRight color={C.ink} size={16} /></Pressable></View><View style={styles.tabs}>{FILTERS.map((f) => <Pressable key={f} onPress={() => setFilter(f)} style={[styles.chip, filter === f && styles.chipActive]}><Text style={[styles.chipText, filter === f && styles.chipTextActive]}>{f}</Text></Pressable>)}</View><Card style={{ marginTop: 16 }}><Text style={styles.kicker}>OVERALL DUEL WIN RATE</Text><Text style={styles.big}>{rate(wins, played)}</Text><Text style={styles.meta}>{wins} wins · {Math.max(0, played - wins - draws)} losses · {draws} draws</Text></Card><View style={styles.grid}>{breakdown.map(({ label, stats }) => <Mini key={label} title={label} value={rate(stats.wins, stats.played)} />)}<Mini title="Matches" value={`${played}`} /></View><Text style={styles.section}>Breakdown by game</Text>{breakdown.map(({ label, stats }) => <GameRow key={label} label={label} stats={stats} />)}<Text style={styles.section}>Current form</Text><View style={styles.form}>{form.length === 0 ? <Text style={styles.empty}>No recent duel matches yet.</Text> : form.map((f, index) => <View key={`${f}-${index}`} style={[styles.formDot, f === "W" ? styles.win : f === "L" ? styles.loss : styles.draw]}><Text style={styles.formText}>{f}</Text></View>)}</View></ScrollView></SafeAreaView>;

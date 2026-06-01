@@ -7,12 +7,16 @@ import Card from "@/components/Card";
 import { C } from "@/constants/colors";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import type { Difficulty } from "@/constants/mockData";
-import type { GameMode } from "@/hooks/useSudokuGame";
 import { formatTime } from "@/lib/sudoku";
 
 const FILTERS = ["7 days", "30 days", "All time"] as const;
 type Filter = typeof FILTERS[number];
-const MODES: { label: string; mode: GameMode }[] = [{ label: "Classic", mode: "classic" }, { label: "Daily", mode: "daily" }, { label: "Duel", mode: "duel" }, { label: "Ranked", mode: "ranked" }];
+const MODES: { label: string; modes: string[] }[] = [
+  { label: "Classic", modes: ["classic"] },
+  { label: "Daily", modes: ["daily"] },
+  { label: "Duel", modes: ["duel", "daily_duel", "friend_challenge"] },
+  { label: "Ranked", modes: ["ranked", "ranked_duel"] },
+];
 const DIFFICULTIES: Difficulty[] = ["Easy", "Medium", "Hard", "Expert", "Master"];
 function withinFilter(iso: string, filter: Filter): boolean { if (filter === "All time") return true; const days = filter === "7 days" ? 7 : 30; return Date.now() - new Date(iso).getTime() <= days * 86400000; }
 function best(values: number[]): string { return values.length === 0 ? "—" : formatTime(Math.min(...values)); }
@@ -24,7 +28,7 @@ export default function BestTimesScreen() {
   const [filter, setFilter] = useState<Filter>("All time");
   const results = useMemo(() => profile.recent_results.filter((r) => r.completed && withinFilter(r.completed_at, filter)), [filter, profile.recent_results]);
   const latest = results[0];
-  return <SafeAreaView style={styles.safe} edges={["top"]}><Stack.Screen options={{ headerShown: false }} /><ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 110 }}><View style={styles.header}><View><Text style={styles.title}>Best Times</Text><Text style={styles.sub}>Valid completed puzzles only</Text></View><Pressable style={styles.backButton} onPress={() => router.back()}><Text style={styles.backText}>Back</Text><ChevronRight color={C.ink} size={16} /></Pressable></View><View style={styles.tabs}>{FILTERS.map((f) => <Pressable key={f} onPress={() => setFilter(f)} style={[styles.chip, filter === f && styles.chipActive]}><Text style={[styles.chipText, filter === f && styles.chipTextActive]}>{f}</Text></Pressable>)}</View><View style={styles.grid}><Mini title="Average" value={avg(results.map((r) => r.elapsed_seconds))} /><Mini title="Latest" value={latest ? formatTime(latest.elapsed_seconds) : "—"} /></View><Text style={styles.section}>By difficulty</Text>{DIFFICULTIES.map((difficulty) => <TimeRow key={difficulty} label={difficulty} value={filter === "All time" && profile.best_times_by_difficulty[difficulty] ? formatTime(profile.best_times_by_difficulty[difficulty] ?? 0) : best(results.filter((r) => r.difficulty === difficulty).map((r) => r.elapsed_seconds))} />)}<Text style={styles.section}>By mode</Text>{MODES.map(({ label, mode }) => <TimeRow key={mode} label={label} value={best(results.filter((r) => r.mode === mode).map((r) => r.elapsed_seconds))} />)}</ScrollView></SafeAreaView>;
+  return <SafeAreaView style={styles.safe} edges={["top"]}><Stack.Screen options={{ headerShown: false }} /><ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 110 }}><View style={styles.header}><View><Text style={styles.title}>Best Times</Text><Text style={styles.sub}>Valid completed puzzles only</Text></View><Pressable style={styles.backButton} onPress={() => router.back()}><Text style={styles.backText}>Back</Text><ChevronRight color={C.ink} size={16} /></Pressable></View><View style={styles.tabs}>{FILTERS.map((f) => <Pressable key={f} onPress={() => setFilter(f)} style={[styles.chip, filter === f && styles.chipActive]}><Text style={[styles.chipText, filter === f && styles.chipTextActive]}>{f}</Text></Pressable>)}</View><View style={styles.grid}><Mini title="Average" value={avg(results.map((r) => r.elapsed_seconds))} /><Mini title="Latest" value={latest ? formatTime(latest.elapsed_seconds) : "—"} /></View><Text style={styles.section}>By difficulty</Text>{DIFFICULTIES.map((difficulty) => <TimeRow key={difficulty} label={difficulty} value={filter === "All time" && profile.best_times_by_difficulty[difficulty] ? formatTime(profile.best_times_by_difficulty[difficulty] ?? 0) : best(results.filter((r) => r.difficulty === difficulty).map((r) => r.elapsed_seconds))} />)}<Text style={styles.section}>By mode</Text>{MODES.map(({ label, modes }) => <TimeRow key={label} label={label} value={best(results.filter((r) => modes.includes(r.mode)).map((r) => r.elapsed_seconds))} />)}</ScrollView></SafeAreaView>;
 }
 function Mini({ title, value }: { title: string; value: string }) { return <Card style={styles.mini}><Text style={styles.miniTitle}>{title}</Text><Text style={styles.miniValue}>{value}</Text></Card>; }
 function TimeRow({ label, value }: { label: string; value: string }) { return <View style={styles.row}><Text style={styles.rowLabel}>{label}</Text><Text style={styles.rowValue}>{value}</Text></View>; }

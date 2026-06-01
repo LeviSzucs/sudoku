@@ -176,7 +176,7 @@ const defaultSettings: ProfileSettings = {
 export function normalizeProfile(profile: PlayerProfile): PlayerProfile {
   const level = getLevelFromXp(profile.total_mastery_xp ?? 0);
   const rank = getRankFromRp(profile.rank_points ?? 0);
-  const badges = BADGE_DEFINITIONS.map((definition) => profile.badges_unlocked?.find((b) => b.badge_id === definition.badge_id) ?? { ...definition });
+  const badges = Array.isArray(profile.badges_unlocked) ? profile.badges_unlocked : BADGE_DEFINITIONS.map((definition) => ({ ...definition }));
   return { ...createInitialPlayerProfile(false), ...profile, account_level: level.level, mastery_xp: level.xpInLevel, mastery_xp_to_next_level: level.xpToNext, rank_tier: rank.tier, rank_division: rank.division, badges_unlocked: badges, settings: { ...defaultSettings, ...(profile.settings ?? {}), notifications: { ...defaultSettings.notifications, ...(profile.settings?.notifications ?? {}) }, privacy: { ...defaultSettings.privacy, ...(profile.settings?.privacy ?? {}) } } };
 }
 
