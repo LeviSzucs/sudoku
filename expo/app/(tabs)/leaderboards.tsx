@@ -6,7 +6,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
 import { C } from "@/constants/colors";
+import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
+import { getDailyDateKey } from "@/lib/daily";
 
 type Tab = "daily" | "weekly" | "friends" | "ranked";
 
@@ -38,10 +40,12 @@ function secondsToTime(totalSeconds: number): string {
 export default function LeaderboardsScreen() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>("daily");
+  const auth = useAuth();
   const { profile, fetchDailyLeaderboard } = usePlayerProfile();
   const [dailyData, setDailyData] = useState<LeaderboardEntry[]>([]);
   const [isLoadingDaily, setIsLoadingDaily] = useState(false);
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const today = useMemo(() => getDailyDateKey(), []);
+  const currentUserId = auth.user?.id ?? profile.user_id;
 
   useEffect(() => {
     let active = true;
@@ -74,7 +78,7 @@ export default function LeaderboardsScreen() {
   const valueLabel = tab === "ranked" ? "RP" : tab === "daily" ? "SCORE" : "POINTS";
   const podiumEntries = [2, 1, 3].map((rankPosition) => data.find((entry) => entry.rank === rankPosition));
   const podiumHeights: Record<number, number> = { 1: 132, 2: 104, 3: 78 };
-  const currentUserDailyEntry = data.find((entry) => entry.user.id === profile.user_id);
+  const currentUserDailyEntry = data.find((entry) => entry.user.id === currentUserId);
   const showDailyJoinPrompt = tab === "daily" && !isLoadingDaily && data.length > 0 && !currentUserDailyEntry;
 
   const emptyState = (() => {
@@ -209,7 +213,7 @@ export default function LeaderboardsScreen() {
                   key={entry.id}
                   style={[
                     styles.row,
-                    entry.user.id === profile.user_id && styles.currentUserRow,
+                    entry.user.id === currentUserId && styles.currentUserRow,
                     i < data.length - 1 && {
                       borderBottomWidth: 1,
                       borderBottomColor: C.border,

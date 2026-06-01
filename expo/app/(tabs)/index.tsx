@@ -21,6 +21,7 @@ import { PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { useAuth } from "@/hooks/useAuth";
+import { getDailyDateKey } from "@/lib/daily";
 import { logDevDiagnostic } from "@/lib/performanceDiagnostics";
 import { fetchDailyPuzzle, makeEmptyNotes } from "@/lib/sudoku";
 
@@ -51,11 +52,18 @@ export default function HomeScreen() {
       return;
     }
     try {
-      const dateStr = new Date().toISOString().slice(0, 10);
+      const dateStr = getDailyDateKey();
       const puzzle = await fetchDailyPuzzle(dateStr, mode === "daily" ? "daily" : "daily_duel");
+      logDevDiagnostic("daily puzzle assigned", {
+        dateStr,
+        authUserId: auth.user.id,
+        mode,
+        assignedDailyPuzzleId: puzzle.puzzle_id,
+        difficulty: puzzle.difficulty,
+      });
       const completedResult = await getCompletedDailyResult(mode, puzzle.puzzle_id, dateStr);
       if (completedResult) {
-        Alert.alert(mode === "daily" ? "Daily Sudoku" : "Daily Duel", mode === "daily" ? "You’ve completed today’s Daily Sudoku." : "You’ve completed today’s Daily Duel.");
+        Alert.alert(mode === "daily" ? "Daily Sudoku" : "Daily Duel", mode === "daily" ? "You've completed today's Daily Sudoku." : "You've completed today's Daily Duel.");
         return;
       }
 

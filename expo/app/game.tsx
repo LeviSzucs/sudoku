@@ -16,6 +16,7 @@ import type { Difficulty } from "@/constants/mockData";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import useSudokuGame, { type GameMode, type SessionSnapshot } from "@/hooks/useSudokuGame";
+import { getDailyDateKey } from "@/lib/daily";
 import { logDevDiagnostic, measureAsync } from "@/lib/performanceDiagnostics";
 import type { ProfileUpdateSummary } from "@/lib/playerProfile";
 import { fetchClassicPuzzle, fetchDailyPuzzle, fetchPuzzleById, formatTime, makeEmptyNotes, type RawPuzzleData } from "@/lib/sudoku";
@@ -89,7 +90,7 @@ export default function GameScreen() {
         if (auth.isSignedIn && !sessionIdParam) {
           throw new Error("Puzzle session missing. Return to Play and try again.");
         }
-        const today = new Date().toISOString().slice(0, 10);
+        const today = getDailyDateKey();
         if (sessionIdParam) {
           const sessionPuzzleId = restorePuzzleId ?? routePuzzleId;
           const sessionDifficulty = restoreDifficulty ?? difficulty;
