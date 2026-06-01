@@ -12,6 +12,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile, type UsernameAvailability } from "@/hooks/usePlayerProfile";
 import { initialsFromName } from "@/lib/playerProfile";
 
+function normalizeUsernameInput(value: string): string {
+  return value.trim().toLowerCase();
+}
+
 export default function UsernameSetupScreen() {
   const auth = useAuth();
   const { completeProfileSetup, checkUsernameAvailable, isLoaded, profile, profileSetupRequired } = usePlayerProfile();
@@ -20,7 +24,7 @@ export default function UsernameSetupScreen() {
   const [checking, setChecking] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const normalized = username.trim().toLowerCase();
+  const normalized = normalizeUsernameInput(username);
   const previewInitials = useMemo(() => initialsFromName(normalized || "??"), [normalized]);
 
   useEffect(() => {
@@ -38,7 +42,7 @@ export default function UsernameSetupScreen() {
     let active = true;
     const timer = setTimeout(() => {
       setChecking(true);
-      void checkUsernameAvailable(username).then((result) => {
+      void checkUsernameAvailable(normalized).then((result) => {
         if (!active) return;
         setAvailability(result);
       }).catch((checkError: unknown) => {
@@ -54,10 +58,14 @@ export default function UsernameSetupScreen() {
     };
   }, [checkUsernameAvailable, normalized, username]);
 
+  const handleUsernameChange = (value: string) => {
+    setUsername(normalizeUsernameInput(value));
+  };
+
   const submit = async () => {
     setSaving(true);
     setError(null);
-    const result = await completeProfileSetup(username);
+    const result = await completeProfileSetup(normalized);
     setSaving(false);
     if (!result.ok) {
       setError(result.error ?? "Could not save username.");
@@ -89,7 +97,7 @@ export default function UsernameSetupScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               value={username}
-              onChangeText={(value) => setUsername(value.trim().toLowerCase())}
+              onChangeText={handleUsernameChange}
               maxLength={20}
               placeholder="username"
               placeholderTextColor={C.mutedSoft}
