@@ -49,6 +49,20 @@ export interface OfficialResultPayload {
   already_finalized?: boolean;
 }
 
+export interface DailyLeaderboardEntry {
+  result_id: string;
+  user_id: string;
+  username: string;
+  initials: string;
+  avatar_color: string;
+  final_score: number;
+  elapsed_seconds: number;
+  mistakes: number;
+  hints_used: number;
+  undo_count: number;
+  completed_at: string;
+}
+
 interface GuestSessionEntry {
   sessionId: string;
   snapshot: SessionSnapshot;
@@ -750,6 +764,69 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     return summary;
   }, [auth.isSignedIn, auth.user, loadBackendProfile, profile, recordPuzzleResult, summaryFromOfficialPayload, updateDiagnostics, verifyOwnedInProgressSession]);
 
+  const fetchDailyLeaderboard = useCallback(async (dateStr: string): Promise<DailyLeaderboardEntry[]> => {
+    if (!isSupabaseConfigured) return [];
+
+    const nextDate = nextDateString(dateStr);
+    const selectColumns = "result_id,user_id,final_score,elapsed_seconds,mistakes,hints_used,undo_count,completed_at";
+    const buildQuery = (requireEligibility: boolean) => {
+      let query = supabase
+        .from("game_results")
+        .select(selectColumns)
+        .eq("mode", "daily")
+        .eq("completed", true)
+        .gte("completed_at", `${dateStr}T00:00:00.000Z`)
+        .lt("completed_at", `${nextDate}T00:00:00.000Z`)
+        .order("final_score", { ascending: false })
+        .order("elapsed_seconds", { ascending: true })
+        .order("completed_at", { ascending: true });
+      if (requireEligibility) query = query.eq("eligible_for_leaderboard", true);
+      return query;
+    };
+
+    let { data, error } = await buildQuery(true);
+    if (error && (error.code === "42703" || error.message.toLowerCase().includes("eligible_for_leaderboard"))) {
+      ({ data, error } = await buildQuery(false));
+    }
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return [];
+    }
+
+    const rows = (data ?? []) as Pick<GameResultRow, "result_id" | "user_id" | "final_score" | "elapsed_seconds" | "mistakes" | "hints_used" | "undo_count" | "completed_at">[];
+    const userIds = Array.from(new Set(rows.map((row) => row.user_id).filter((id): id is string => typeof id === "string" && id.length > 0)));
+    const profilesById = new Map<string, ProfileRow>();
+    if (userIds.length > 0) {
+      const { data: profileRows, error: profileError } = await supabase
+        .from("profiles")
+        .select("id,username,initials,avatar_color")
+        .in("id", userIds);
+      if (profileError) updateDiagnostics({ lastError: profileError.message });
+      for (const profileRow of (profileRows ?? []) as ProfileRow[]) {
+        profilesById.set(profileRow.id, profileRow);
+      }
+    }
+
+    return rows
+      .map((row) => {
+        const profileRow = profilesById.get(row.user_id);
+        return {
+          result_id: row.result_id,
+          user_id: row.user_id,
+          username: profileRow?.username ?? (row.user_id === profile.user_id ? profile.username : "Player"),
+          initials: profileRow?.initials ?? (row.user_id === profile.user_id ? profile.initials : "PL"),
+          avatar_color: profileRow?.avatar_color ?? (row.user_id === profile.user_id ? profile.avatar_color : "#A8A294"),
+          final_score: row.final_score,
+          elapsed_seconds: row.elapsed_seconds,
+          mistakes: row.mistakes,
+          hints_used: row.hints_used,
+          undo_count: row.undo_count,
+          completed_at: row.completed_at,
+        };
+      })
+      .sort((a, b) => b.final_score - a.final_score || a.elapsed_seconds - b.elapsed_seconds || new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime());
+  }, [profile.avatar_color, profile.initials, profile.user_id, profile.username, updateDiagnostics]);
+
   const updateDisplayName = useCallback((username: string): SaveResult => {
     const trimmed = username.trim();
     if (trimmed.length === 0) return { ok: false, error: "Display name cannot be empty." };
@@ -815,14 +892,14 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     profile, isLoaded, loadError, lastUpdate,
     activeSessions: auth.isSignedIn ? activeSessions : activeGuestSessions.map(guestSessionToPuzzleSessionRow),
     diagnostics, hasActiveSession,
-    recordPuzzleResult, submitOfficialPuzzleResult, simulateResult, simulateRankedWin, simulateRankedLoss,
+    recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, simulateResult, simulateRankedWin, simulateRankedLoss,
     resetLocalProfile, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
     repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, clearLastUpdate,
     upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
   }), [
     activeGuestSessions, activeSessions, auth.isSignedIn,
     clearLastUpdate, diagnostics, hasActiveSession, isLoaded, lastUpdate, loadError, profile,
-    recordPuzzleResult, submitOfficialPuzzleResult, repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
+    recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
     simulateRankedLoss, simulateRankedWin, simulateResult,
     testSupabaseRead, testSupabaseWrite,
     updateDisplayName, updateNotificationSettings, updatePrivacySettings,
