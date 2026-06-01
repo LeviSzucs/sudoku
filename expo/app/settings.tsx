@@ -61,9 +61,11 @@ export default function SettingsScreen() {
           <Row icon={<Crown size={18} color={C.gold} />} title={PREMIUM_NAME} detail="Manage plan later" onPress={() => Alert.alert(PREMIUM_NAME, "Premium settings will be connected when subscriptions are added.")} />
           <Row icon={<LogOut size={18} color={C.inkSoft} />} title={auth.isGuest ? "Leave guest mode" : "Log out"} detail={auth.isGuest ? "Return to splash" : "Sign out of this account"} onPress={() => Alert.alert(auth.isGuest ? "Leave guest mode?" : "Log out?", "You will return to the welcome screen.", [{ text: "Cancel", style: "cancel" }, { text: auth.isGuest ? "Leave" : "Log out", style: "destructive", onPress: () => { void auth.signOut(); } }])} last />
         </Card>
-        <Pressable style={styles.resetRow} onPress={() => Alert.alert("Reset local profile?", "This resets local mock XP, rank, badges and results.", [{ text: "Cancel", style: "cancel" }, { text: "Reset", style: "destructive", onPress: resetLocalProfile }])}>
-          <Text style={styles.resetText}>Reset local profile data</Text>
-        </Pressable>
+        {auth.isGuest ? (
+          <Pressable style={styles.resetRow} onPress={() => Alert.alert("Reset local profile?", "This resets local guest XP, rank, badges and results.", [{ text: "Cancel", style: "cancel" }, { text: "Reset", style: "destructive", onPress: resetLocalProfile }])}>
+            <Text style={styles.resetText}>Reset local profile data</Text>
+          </Pressable>
+        ) : null}
         {profile.settings.devMode ? (
           <View style={styles.devSection}>
             <View style={styles.devHeader}><FlaskConical size={16} color={C.muted} /><Text style={styles.devTitle}>Developer Tools</Text></View>

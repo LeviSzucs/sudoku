@@ -121,6 +121,16 @@ export interface GameResultRow {
   completed_at: string;
 }
 
+export interface AchievementRow {
+  badge_id: string;
+  name: string;
+  description: string;
+  category: string;
+  icon: string;
+  progress_target: number;
+  created_at?: string;
+}
+
 export interface UserAchievementRow {
   user_id: string;
   badge_id: string;

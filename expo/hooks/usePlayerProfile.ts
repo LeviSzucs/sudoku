@@ -6,10 +6,10 @@ import { useAuth } from "@/hooks/useAuth";
 import type { PuzzleResult, SessionSnapshot } from "@/hooks/useSudokuGame";
 import { getDailyDateKey, getDailyDateWindow } from "@/lib/daily";
 import { logDevDiagnostic, measureAsync } from "@/lib/performanceDiagnostics";
-import { BADGE_DEFINITIONS, applyPuzzleResult, createInitialPlayerProfile, createSimulatedResult, getRankFromRp, initialsFromName, normalizeProfile, type AchievementBadge, type BadgeCategory, type PlayerProfile, type ProfileSettings, type ProfileUpdateSummary, type RankOutcome, type RecentResult } from "@/lib/playerProfile";
+import { applyPuzzleResult, createInitialPlayerProfile, createSimulatedResult, getRankFromRp, initialsFromName, normalizeProfile, type AchievementBadge, type BadgeCategory, type PlayerProfile, type ProfileSettings, type ProfileUpdateSummary, type RankOutcome, type RecentResult } from "@/lib/playerProfile";
 import { startPuzzleSession as insertPuzzleSession, type StartPuzzleSessionInput } from "@/lib/puzzleSessions";
 import { fetchDailyPuzzle } from "@/lib/sudoku";
-import { isSupabaseConfigured, supabase, type GameResultRow, type PlayerStatsRow, type ProfileRow, type PuzzleSessionRow, type UserAchievementRow, type UserSettingsRow } from "@/lib/supabase";
+import { isSupabaseConfigured, supabase, type AchievementRow, type GameResultRow, type PlayerStatsRow, type ProfileRow, type PuzzleSessionRow, type UserAchievementRow, type UserSettingsRow } from "@/lib/supabase";
 
 /** Generate a valid UUID v4 for session IDs matching the DB uuid column. */
 function generateUUID(): string {
@@ -203,7 +203,7 @@ function statsPayload(profile: PlayerProfile): Partial<PlayerStatsRow> {
 }
 
 function resultFromRow(row: GameResultRow): RecentResult {
-  return { session_id: row.session_id ?? undefined, puzzle_id: row.puzzle_id ?? "unknown", mode: row.mode as RecentResult["mode"], difficulty: row.difficulty as RecentResult["difficulty"], completed: row.completed, elapsed_seconds: row.elapsed_seconds, mistakes: row.mistakes, hints_used: row.hints_used, undo_count: row.undo_count, move_count: 0, final_score: row.final_score, eligible_for_leaderboard: row.eligible_for_leaderboard, eligible_for_ranked: row.eligible_for_ranked, completed_at: row.completed_at, xp_earned: row.xp_earned, result_outcome: row.won === true ? "win" : row.won === false ? "loss" : undefined };
+  return { session_id: row.session_id ?? undefined, puzzle_id: row.puzzle_id ?? "unknown", mode: row.mode as RecentResult["mode"], difficulty: row.difficulty as RecentResult["difficulty"], completed: true, elapsed_seconds: row.elapsed_seconds, mistakes: row.mistakes, hints_used: row.hints_used, undo_count: row.undo_count, move_count: 0, final_score: row.final_score, eligible_for_leaderboard: row.eligible_for_leaderboard, eligible_for_ranked: row.eligible_for_ranked, completed_at: row.completed_at, xp_earned: row.xp_earned, result_outcome: row.won === true ? "win" : row.won === false ? "loss" : undefined };
 }
 
 function deterministicResultId(userId: string, result: PuzzleResult, sessionId: string | null): string {
@@ -215,10 +215,18 @@ function isUniqueViolation(error: { code?: string; message?: string } | null): b
   return error?.code === "23505" || error?.message?.toLowerCase().includes("duplicate") === true;
 }
 
-function achievementFromRow(row: UserAchievementRow): AchievementBadge | null {
-  const meta = row.achievements;
-  if (!meta) return null;
-  return { badge_id: row.badge_id, name: meta.name, description: meta.description, category: meta.category as BadgeCategory, icon: meta.icon, progress_target: meta.progress_target, unlocked: row.unlocked, progress_current: row.progress_current, unlocked_at: row.unlocked_at };
+function achievementFromBackend(row: AchievementRow, progress?: UserAchievementRow): AchievementBadge {
+  return {
+    badge_id: row.badge_id,
+    name: row.name,
+    description: row.description,
+    category: row.category as BadgeCategory,
+    icon: row.icon,
+    progress_target: row.progress_target,
+    unlocked: progress?.unlocked ?? false,
+    progress_current: progress?.progress_current ?? 0,
+    unlocked_at: progress?.unlocked_at ?? null,
+  };
 }
 
 function guestSessionToPuzzleSessionRow(entry: GuestSessionEntry): PuzzleSessionRow {
@@ -241,7 +249,7 @@ function guestSessionToPuzzleSessionRow(entry: GuestSessionEntry): PuzzleSession
 
 export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() => {
   const auth = useAuth();
-  const [profile, setProfile] = useState<PlayerProfile>(() => createInitialPlayerProfile());
+  const [profile, setProfile] = useState<PlayerProfile>(() => createInitialPlayerProfile(false));
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<ProfileUpdateSummary | null>(null);
@@ -317,11 +325,16 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     const empty = createInitialPlayerProfile(false);
     const name = (auth.user.user_metadata?.display_name as string | undefined)?.trim() || profile.username || "Player";
     const rank = getRankFromRp(0);
+    const { data: achievementRows, error: achievementRowsError } = await supabase.from("achievements").select("badge_id");
+    if (achievementRowsError) {
+      setLoadError(achievementRowsError.message);
+      updateDiagnostics({ lastError: achievementRowsError.message });
+      return { ok: false, error: achievementRowsError.message };
+    }
     const defaults = [
       supabase.from("profiles").upsert({ id: auth.user.id, username: name, initials: initialsFromName(name), avatar_color: profile.avatar_color || empty.avatar_color }, { onConflict: "id", ignoreDuplicates: true }),
       supabase.from("player_stats").upsert({ user_id: auth.user.id, total_mastery_xp: 0, account_level: 1, rank_points: 0, rank_tier: `${rank.tier} ${rank.division}`, current_streak: 0, longest_streak: 0, puzzles_completed: 0, flawless_puzzles: 0, total_mistakes: 0, total_hints_used: 0, total_undos_used: 0, duels_played: 0, duels_won: 0, ranked_played: 0, ranked_won: 0, best_easy_time: null, best_medium_time: null, best_hard_time: null, best_expert_time: null, best_master_time: null }, { onConflict: "user_id", ignoreDuplicates: true }),
       supabase.from("user_settings").upsert({ user_id: auth.user.id, daily_reminder: true, streak_reminder: true, duel_results: true, ranked_updates: false, public_profile: true, show_stats_publicly: true, show_recent_results_publicly: false, allow_friend_challenges: true }, { onConflict: "user_id", ignoreDuplicates: true }),
-      supabase.from("user_achievements").upsert(BADGE_DEFINITIONS.map((badge) => ({ user_id: auth.user!.id, badge_id: badge.badge_id, unlocked: false, progress_current: 0, unlocked_at: null })), { onConflict: "user_id,badge_id", ignoreDuplicates: true }),
     ];
     const results = await Promise.all(defaults);
     const error = results.find((result) => result.error)?.error;
@@ -329,6 +342,15 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       setLoadError(error.message);
       updateDiagnostics({ lastError: error.message });
       return { ok: false, error: error.message };
+    }
+    const achievementDefaults = ((achievementRows ?? []) as Pick<AchievementRow, "badge_id">[]).map((badge) => ({ user_id: auth.user!.id, badge_id: badge.badge_id, unlocked: false, progress_current: 0, unlocked_at: null }));
+    if (achievementDefaults.length > 0) {
+      const { error: userAchievementError } = await supabase.from("user_achievements").upsert(achievementDefaults, { onConflict: "user_id,badge_id", ignoreDuplicates: true });
+      if (userAchievementError) {
+        setLoadError(userAchievementError.message);
+        updateDiagnostics({ lastError: userAchievementError.message });
+        return { ok: false, error: userAchievementError.message };
+      }
     }
     return { ok: true };
   }, [auth.user, profile.avatar_color, profile.username, updateDiagnostics]);
@@ -339,15 +361,16 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     const repair = await repairMissingProfileRows();
     if (!repair.ok) return;
     const empty = createInitialPlayerProfile(false);
-    const [{ data: p, error: pError }, { data: s, error: sError }, { data: settings, error: settingsError }, { data: results, error: resultsError }, { data: achievements, error: achievementsError }, { data: sessions, error: sessionsError }] = await Promise.all([
+    const [{ data: p, error: pError }, { data: s, error: sError }, { data: settings, error: settingsError }, { data: results, error: resultsError }, { data: achievements, error: achievementsError }, { data: userAchievements, error: userAchievementsError }, { data: sessions, error: sessionsError }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", auth.user.id).maybeSingle(),
       supabase.from("player_stats").select("*").eq("user_id", auth.user.id).maybeSingle(),
       supabase.from("user_settings").select("*").eq("user_id", auth.user.id).maybeSingle(),
-      supabase.from("game_results").select("*").eq("user_id", auth.user.id).order("completed_at", { ascending: false }).limit(50),
-      supabase.from("user_achievements").select("*, achievements(name, description, category, icon, progress_target)").eq("user_id", auth.user.id),
+      supabase.from("game_results").select("*").eq("user_id", auth.user.id).eq("completed", true).order("completed_at", { ascending: false }).limit(500),
+      supabase.from("achievements").select("*").order("badge_id", { ascending: true }),
+      supabase.from("user_achievements").select("*").eq("user_id", auth.user.id),
       supabase.from("puzzle_sessions").select("*").eq("user_id", auth.user.id).eq("status", "in_progress").order("updated_at", { ascending: false }),
     ]);
-    const error = pError ?? sError ?? settingsError ?? resultsError ?? achievementsError ?? sessionsError;
+    const error = pError ?? sError ?? settingsError ?? resultsError ?? achievementsError ?? userAchievementsError ?? sessionsError;
     if (error) {
       setLoadError(error.message);
       updateDiagnostics({ profileLoaded: !!p, statsLoaded: !!s, settingsLoaded: !!settings, lastError: error.message });
@@ -361,13 +384,31 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }
     const next = profileFromRows(p as ProfileRow, s as PlayerStatsRow, settings as UserSettingsRow, empty);
     next.recent_results = ((results ?? []) as GameResultRow[]).map(resultFromRow);
-    next.easy_completed = next.recent_results.filter((result) => result.difficulty === "Easy").length;
-    next.medium_completed = next.recent_results.filter((result) => result.difficulty === "Medium").length;
-    next.hard_completed = next.recent_results.filter((result) => result.difficulty === "Hard").length;
-    next.expert_completed = next.recent_results.filter((result) => result.difficulty === "Expert").length;
-    next.master_completed = next.recent_results.filter((result) => result.difficulty === "Master").length;
-    const backendBadges = ((achievements ?? []) as UserAchievementRow[]).map(achievementFromRow).filter((badge): badge is AchievementBadge => badge !== null);
-    if (backendBadges.length > 0) next.badges_unlocked = backendBadges;
+    const completedResults = next.recent_results.filter((result) => result.completed);
+    next.puzzles_completed = Math.max(next.puzzles_completed, completedResults.length);
+    next.easy_completed = completedResults.filter((result) => result.difficulty === "Easy").length;
+    next.medium_completed = completedResults.filter((result) => result.difficulty === "Medium").length;
+    next.hard_completed = completedResults.filter((result) => result.difficulty === "Hard").length;
+    next.expert_completed = completedResults.filter((result) => result.difficulty === "Expert").length;
+    next.master_completed = completedResults.filter((result) => result.difficulty === "Master").length;
+    const computedBestTimes = completedResults.reduce<Partial<Record<RecentResult["difficulty"], number>>>((acc, result) => {
+      const current = acc[result.difficulty];
+      if (typeof current !== "number" || result.elapsed_seconds < current) acc[result.difficulty] = result.elapsed_seconds;
+      return acc;
+    }, {});
+    next.best_times_by_difficulty = {
+      Easy: typeof next.best_times_by_difficulty.Easy === "number" && typeof computedBestTimes.Easy === "number" ? Math.min(next.best_times_by_difficulty.Easy, computedBestTimes.Easy) : next.best_times_by_difficulty.Easy ?? computedBestTimes.Easy,
+      Medium: typeof next.best_times_by_difficulty.Medium === "number" && typeof computedBestTimes.Medium === "number" ? Math.min(next.best_times_by_difficulty.Medium, computedBestTimes.Medium) : next.best_times_by_difficulty.Medium ?? computedBestTimes.Medium,
+      Hard: typeof next.best_times_by_difficulty.Hard === "number" && typeof computedBestTimes.Hard === "number" ? Math.min(next.best_times_by_difficulty.Hard, computedBestTimes.Hard) : next.best_times_by_difficulty.Hard ?? computedBestTimes.Hard,
+      Expert: typeof next.best_times_by_difficulty.Expert === "number" && typeof computedBestTimes.Expert === "number" ? Math.min(next.best_times_by_difficulty.Expert, computedBestTimes.Expert) : next.best_times_by_difficulty.Expert ?? computedBestTimes.Expert,
+      Master: typeof next.best_times_by_difficulty.Master === "number" && typeof computedBestTimes.Master === "number" ? Math.min(next.best_times_by_difficulty.Master, computedBestTimes.Master) : next.best_times_by_difficulty.Master ?? computedBestTimes.Master,
+    };
+    const duelResults = completedResults.filter((result) => ["duel", "daily_duel", "friend_challenge", "ranked", "ranked_duel"].includes(result.mode));
+    next.duels_played = Math.max(next.duels_played, duelResults.length);
+    next.duels_won = Math.max(next.duels_won, duelResults.filter((result) => result.result_outcome === "win").length);
+    next.last_completed_date = completedResults[0]?.completed_at?.slice(0, 10) ?? next.last_completed_date;
+    const progressByBadgeId = new Map(((userAchievements ?? []) as UserAchievementRow[]).map((row) => [row.badge_id, row]));
+    next.badges_unlocked = ((achievements ?? []) as AchievementRow[]).map((achievement) => achievementFromBackend(achievement, progressByBadgeId.get(achievement.badge_id)));
     const completedKeys = new Set(next.recent_results.map((result) => `${result.puzzle_id}:${result.mode}:${result.difficulty}`));
     const activeRows = ((sessions ?? []) as PuzzleSessionRow[]).filter((session) => {
       if (session.status !== "in_progress") return false;
