@@ -50,7 +50,7 @@ export default function PlayHubScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const auth = useAuth();
-  const { profile, activeSessions, closeSessionForPuzzle, getInProgressClassicSession, startPuzzleSession } = usePlayerProfile();
+  const { profile, activeSessions, closeSessionForPuzzle, getInProgressClassicSession, startPuzzleSession, getInProgressDailySession, getCompletedDailyResult } = usePlayerProfile();
   const [pendingClassicDifficulty, setPendingClassicDifficulty] = useState<Difficulty | null>(null);
   const [pendingClassicSession, setPendingClassicSession] = useState<PuzzleSessionRow | null>(null);
   const [isCheckingClassicSession, setIsCheckingClassicSession] = useState(false);
@@ -124,6 +124,37 @@ export default function PlayHubScreen() {
     }
   };
 
+  const startSignedInDailyPuzzle = async (mode: "daily" | "duel") => {
+    if (!auth.user) {
+      Alert.alert("Could not start puzzle", "Please try again.");
+      return;
+    }
+    try {
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const puzzle = await fetchDailyPuzzle(dateStr, mode === "daily" ? "daily" : "daily_duel");
+      const completedResult = await getCompletedDailyResult(mode, puzzle.puzzle_id, dateStr);
+      if (completedResult) {
+        Alert.alert(mode === "daily" ? "Daily Sudoku" : "Daily Duel", mode === "daily" ? "You’ve completed today’s Daily Sudoku." : "You’ve completed today’s Daily Duel.");
+        return;
+      }
+
+      const existingSession = await getInProgressDailySession(mode, puzzle.puzzle_id, dateStr);
+      if (existingSession) {
+        go(mode, existingSession.difficulty as Difficulty, existingSession.session_id, undefined, existingSession.puzzle_id);
+        return;
+      }
+
+      await startSignedInPuzzle(mode, puzzle.difficulty, () => Promise.resolve(puzzle));
+    } catch (error: unknown) {
+      logDevDiagnostic("daily puzzle start failed", {
+        authUserId: auth.user.id,
+        mode,
+        supabaseError: error instanceof Error ? error.message : "Unknown Supabase error",
+      });
+      Alert.alert("Could not start puzzle", "Please try again.");
+    }
+  };
+
   const clearClassicChoice = () => {
     setPendingClassicDifficulty(null);
     setPendingClassicSession(null);
@@ -179,25 +210,25 @@ export default function PlayHubScreen() {
   const hasActiveSession = inProgressSessions.length > 0;
   const activeSession = hasActiveSession ? inProgressSessions[0] : null;
   const startDaily = () => {
+    if (auth.isSignedIn) {
+      void startSignedInDailyPuzzle("daily");
+      return;
+    }
     const session = inProgressSessions.find((entry) => entry.mode === "daily");
     if (session) {
       go("daily", session.difficulty as Difficulty, session.session_id, undefined, session.puzzle_id);
       return;
     }
-    if (auth.isSignedIn) {
-      void startSignedInPuzzle("daily", "Medium", () => fetchDailyPuzzle(new Date().toISOString().slice(0, 10), "daily"));
-      return;
-    }
     go("daily", "Medium");
   };
   const startDuel = () => {
+    if (auth.isSignedIn) {
+      void startSignedInDailyPuzzle("duel");
+      return;
+    }
     const session = inProgressSessions.find((entry) => entry.mode === "duel");
     if (session) {
       go("duel", session.difficulty as Difficulty, session.session_id, undefined, session.puzzle_id);
-      return;
-    }
-    if (auth.isSignedIn) {
-      void startSignedInPuzzle("duel", "Medium", () => fetchDailyPuzzle(new Date().toISOString().slice(0, 10), "daily_duel"));
       return;
     }
     go("duel", "Medium");

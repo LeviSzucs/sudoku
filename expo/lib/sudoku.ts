@@ -343,18 +343,13 @@ export async function fetchDailyPuzzle(
       .eq("mode", mode)
       .limit(1);
 
-    if (
-      !dpError &&
-      dpRows &&
-      dpRows.length > 0 &&
-      Array.isArray(dpRows[0]?.puzzles)
-    ) {
+    if (!dpError && dpRows && dpRows.length > 0 && dpRows[0]?.puzzles) {
       const dp = dpRows[0] as {
         puzzle_id: string;
         difficulty: string;
-        puzzles: { givens: string; solution: string }[];
+        puzzles: { givens: string; solution: string } | { givens: string; solution: string }[];
       };
-      const inner = dp.puzzles[0];
+      const inner = Array.isArray(dp.puzzles) ? dp.puzzles[0] : dp.puzzles;
       if (inner) {
         return puzzleRowToData({
           puzzle_id: dp.puzzle_id,
