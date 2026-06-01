@@ -12,6 +12,7 @@ import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { useAuth } from "@/hooks/useAuth";
+import { getDailyDateKey } from "@/lib/daily";
 import { logDevDiagnostic } from "@/lib/performanceDiagnostics";
 import { fetchDailyPuzzle, formatTime, makeEmptyNotes } from "@/lib/sudoku";
 import type { RecentResult } from "@/lib/playerProfile";
@@ -35,7 +36,7 @@ export default function VersusScreen() {
       return;
     }
     try {
-      const puzzle = await fetchDailyPuzzle(new Date().toISOString().slice(0, 10), "daily_duel");
+      const puzzle = await fetchDailyPuzzle(getDailyDateKey(), "daily_duel");
       logDevDiagnostic("puzzle session create attempt", {
         authUserId: auth.user.id,
         selectedPuzzleId: puzzle.puzzle_id,

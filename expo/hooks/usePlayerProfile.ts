@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "@/hooks/useAuth";
 import type { PuzzleResult, SessionSnapshot } from "@/hooks/useSudokuGame";
+import { getDailyDateWindow } from "@/lib/daily";
 import { logDevDiagnostic, measureAsync } from "@/lib/performanceDiagnostics";
 import { BADGE_DEFINITIONS, applyPuzzleResult, createInitialPlayerProfile, createSimulatedResult, getRankFromRp, initialsFromName, normalizeProfile, type AchievementBadge, type BadgeCategory, type PlayerProfile, type ProfileSettings, type ProfileUpdateSummary, type RankOutcome, type RecentResult } from "@/lib/playerProfile";
 import { startPuzzleSession as insertPuzzleSession, type StartPuzzleSessionInput } from "@/lib/puzzleSessions";
@@ -153,12 +154,6 @@ function deterministicResultId(userId: string, result: PuzzleResult, sessionId: 
 
 function isUniqueViolation(error: { code?: string; message?: string } | null): boolean {
   return error?.code === "23505" || error?.message?.toLowerCase().includes("duplicate") === true;
-}
-
-function nextDateString(dateStr: string): string {
-  const date = new Date(`${dateStr}T00:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + 1);
-  return date.toISOString().slice(0, 10);
 }
 
 function achievementFromRow(row: UserAchievementRow): AchievementBadge | null {
@@ -545,12 +540,12 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
   }, [activeSessions, auth.isSignedIn, auth.user, updateDiagnostics]);
 
   const getInProgressDailySession = useCallback(async (mode: DailySessionMode, puzzleId: string, dateStr: string): Promise<PuzzleSessionRow | null> => {
-    const nextDate = nextDateString(dateStr);
+    const { startIso, endIso } = getDailyDateWindow(dateStr);
     const localSession = activeSessions.find((session) =>
       session.mode === mode &&
       session.puzzle_id === puzzleId &&
       session.status === "in_progress" &&
-      (!session.created_at || (session.created_at >= `${dateStr}T00:00:00.000Z` && session.created_at < `${nextDate}T00:00:00.000Z`))
+      (!session.created_at || (session.created_at >= startIso && session.created_at < endIso))
     ) ?? null;
     if (!auth.isSignedIn || !auth.user || !isSupabaseConfigured) return localSession;
 
@@ -561,8 +556,8 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       .eq("mode", mode)
       .eq("puzzle_id", puzzleId)
       .eq("status", "in_progress")
-      .gte("created_at", `${dateStr}T00:00:00.000Z`)
-      .lt("created_at", `${nextDate}T00:00:00.000Z`)
+      .gte("created_at", startIso)
+      .lt("created_at", endIso)
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -580,15 +575,43 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
   }, [activeSessions, auth.isSignedIn, auth.user, updateDiagnostics]);
 
   const getCompletedDailyResult = useCallback(async (mode: DailySessionMode, puzzleId: string, dateStr: string): Promise<RecentResult | null> => {
-    const nextDate = nextDateString(dateStr);
+    const { startIso, endIso } = getDailyDateWindow(dateStr);
+    const startMs = Date.parse(startIso);
+    const endMs = Date.parse(endIso);
     const localResult = profile.recent_results.find((result) =>
       result.mode === mode &&
       result.puzzle_id === puzzleId &&
       result.completed &&
-      result.completed_at >= `${dateStr}T00:00:00.000Z` &&
-      result.completed_at < `${nextDate}T00:00:00.000Z`
+      result.completed_at &&
+      Date.parse(result.completed_at) >= startMs &&
+      Date.parse(result.completed_at) < endMs
     ) ?? null;
-    if (localResult || !auth.isSignedIn || !auth.user || !isSupabaseConfigured) return localResult;
+    logDevDiagnostic("daily completion check start", {
+      dateStr,
+      startTimestamp: startIso,
+      endTimestamp: endIso,
+      authUserId: auth.user?.id ?? null,
+      assignedDailyPuzzleId: puzzleId,
+      filters: {
+        table: "game_results",
+        user_id: auth.user?.id ?? null,
+        mode,
+        puzzle_id: puzzleId,
+        completed: true,
+        completed_at: { gte: startIso, lt: endIso },
+      },
+      localRowsReturned: localResult ? 1 : 0,
+    });
+    if (localResult || !auth.isSignedIn || !auth.user || !isSupabaseConfigured) {
+      logDevDiagnostic("daily completion check result", {
+        dateStr,
+        authUserId: auth.user?.id ?? null,
+        assignedDailyPuzzleId: puzzleId,
+        rowsReturned: localResult ? 1 : 0,
+        source: localResult ? "local" : "none",
+      });
+      return localResult;
+    }
 
     const { data, error } = await supabase
       .from("game_results")
@@ -597,18 +620,33 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       .eq("mode", mode)
       .eq("puzzle_id", puzzleId)
       .eq("completed", true)
-      .gte("completed_at", `${dateStr}T00:00:00.000Z`)
-      .lt("completed_at", `${nextDate}T00:00:00.000Z`)
+      .not("completed_at", "is", null)
+      .gte("completed_at", startIso)
+      .lt("completed_at", endIso)
       .order("completed_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
 
     if (error) {
+      logDevDiagnostic("daily completion check result", {
+        dateStr,
+        authUserId: auth.user.id,
+        assignedDailyPuzzleId: puzzleId,
+        rowsReturned: 0,
+        supabaseError: error.message,
+      });
       updateDiagnostics({ lastError: error.message });
       return null;
     }
 
-    return data ? resultFromRow(data as GameResultRow) : null;
+    const rows = (data ?? []) as GameResultRow[];
+    logDevDiagnostic("daily completion check result", {
+      dateStr,
+      authUserId: auth.user.id,
+      assignedDailyPuzzleId: puzzleId,
+      rowsReturned: rows.length,
+      supabaseError: null,
+    });
+    return rows[0] ? resultFromRow(rows[0]) : null;
   }, [auth.isSignedIn, auth.user, profile.recent_results, updateDiagnostics]);
 
   // ── Puzzle result recording ──────────────────────────────────────
@@ -767,16 +805,17 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
   const fetchDailyLeaderboard = useCallback(async (dateStr: string): Promise<DailyLeaderboardEntry[]> => {
     if (!isSupabaseConfigured) return [];
 
-    const nextDate = nextDateString(dateStr);
-    const selectColumns = "result_id,user_id,final_score,elapsed_seconds,mistakes,hints_used,undo_count,completed_at";
+    const { startIso, endIso } = getDailyDateWindow(dateStr);
+    const selectColumns = "result_id,user_id,puzzle_id,mode,completed,eligible_for_leaderboard,final_score,elapsed_seconds,mistakes,hints_used,undo_count,completed_at";
     const buildQuery = (requireEligibility: boolean) => {
       let query = supabase
         .from("game_results")
         .select(selectColumns)
         .eq("mode", "daily")
         .eq("completed", true)
-        .gte("completed_at", `${dateStr}T00:00:00.000Z`)
-        .lt("completed_at", `${nextDate}T00:00:00.000Z`)
+        .not("completed_at", "is", null)
+        .gte("completed_at", startIso)
+        .lt("completed_at", endIso)
         .order("final_score", { ascending: false })
         .order("elapsed_seconds", { ascending: true })
         .order("completed_at", { ascending: true });
@@ -784,16 +823,46 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       return query;
     };
 
+    logDevDiagnostic("daily leaderboard fetch start", {
+      dateStr,
+      startTimestamp: startIso,
+      endTimestamp: endIso,
+      authUserId: auth.user?.id ?? null,
+      assignedDailyPuzzleId: null,
+      filters: {
+        table: "game_results",
+        mode: "daily",
+        completed: true,
+        eligible_for_leaderboard: true,
+        completed_at: { gte: startIso, lt: endIso },
+      },
+    });
     let { data, error } = await buildQuery(true);
     if (error && (error.code === "42703" || error.message.toLowerCase().includes("eligible_for_leaderboard"))) {
+      logDevDiagnostic("daily leaderboard eligibility filter unavailable", {
+        dateStr,
+        supabaseError: error.message,
+      });
       ({ data, error } = await buildQuery(false));
     }
     if (error) {
+      logDevDiagnostic("daily leaderboard fetch result", {
+        dateStr,
+        authUserId: auth.user?.id ?? null,
+        rowsReturned: 0,
+        supabaseError: error.message,
+      });
       updateDiagnostics({ lastError: error.message });
       return [];
     }
 
     const rows = (data ?? []) as Pick<GameResultRow, "result_id" | "user_id" | "final_score" | "elapsed_seconds" | "mistakes" | "hints_used" | "undo_count" | "completed_at">[];
+    logDevDiagnostic("daily leaderboard fetch result", {
+      dateStr,
+      authUserId: auth.user?.id ?? null,
+      rowsReturned: rows.length,
+      supabaseError: null,
+    });
     const userIds = Array.from(new Set(rows.map((row) => row.user_id).filter((id): id is string => typeof id === "string" && id.length > 0)));
     const profilesById = new Map<string, ProfileRow>();
     if (userIds.length > 0) {
@@ -825,7 +894,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
         };
       })
       .sort((a, b) => b.final_score - a.final_score || a.elapsed_seconds - b.elapsed_seconds || new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime());
-  }, [profile.avatar_color, profile.initials, profile.user_id, profile.username, updateDiagnostics]);
+  }, [auth.user?.id, profile.avatar_color, profile.initials, profile.user_id, profile.username, updateDiagnostics]);
 
   const updateDisplayName = useCallback((username: string): SaveResult => {
     const trimmed = username.trim();
