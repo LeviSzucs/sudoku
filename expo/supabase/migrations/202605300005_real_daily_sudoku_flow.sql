@@ -1,3 +1,38 @@
+create table if not exists public.daily_puzzles (
+  id bigint generated always as identity primary key,
+  date date not null,
+  mode text not null check (mode in ('daily', 'daily_duel')),
+  puzzle_id text not null references public.puzzles(puzzle_id) on delete cascade,
+  difficulty text not null,
+  created_at timestamptz not null default now(),
+  unique(date, mode)
+);
+
+create unique index if not exists daily_puzzles_date_mode_key
+  on public.daily_puzzles(date, mode);
+
+create index if not exists idx_daily_puzzles_date_mode
+  on public.daily_puzzles(date, mode);
+
+alter table public.daily_puzzles enable row level security;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'daily_puzzles'
+      and policyname = 'daily_puzzles_public_read'
+  ) then
+    create policy "daily_puzzles_public_read"
+      on public.daily_puzzles
+      for select
+      using (true);
+  end if;
+end;
+$$;
+
 create or replace function public.get_daily_puzzle(
   p_date date,
   p_mode text default 'daily'
