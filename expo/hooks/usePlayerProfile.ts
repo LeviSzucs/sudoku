@@ -87,6 +87,26 @@ export interface WeeklyLeaderboardEntry {
   latest_completed_at: string;
 }
 
+export interface FriendUser {
+  user_id: string;
+  display_name: string;
+  username_handle: string;
+  initials: string;
+  avatar_color: string;
+  created_at?: string;
+  relationship_status?: "none" | "friends" | "request_sent" | "request_received";
+}
+
+export interface FriendRequestEntry {
+  request_id: string;
+  user_id: string;
+  display_name: string;
+  username_handle: string;
+  initials: string;
+  avatar_color: string;
+  created_at: string;
+}
+
 interface DailyLeaderboardRpcRow {
   rank?: number;
   result_id: string;
@@ -1317,6 +1337,82 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     return { ok: true };
   }, [auth.user, loadBackendProfile, updateDiagnostics]);
 
+  const fetchFriends = useCallback(async (): Promise<FriendUser[]> => {
+    if (!auth.user || !isSupabaseConfigured) return [];
+    const { data, error } = await supabase.rpc("get_friends");
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return [];
+    }
+    return ((data ?? []) as FriendUser[]).map((row) => ({
+      user_id: row.user_id,
+      display_name: row.display_name ?? "Player",
+      username_handle: row.username_handle ?? "",
+      initials: row.initials ?? "PL",
+      avatar_color: row.avatar_color ?? "#A8A294",
+      created_at: row.created_at,
+      relationship_status: "friends",
+    }));
+  }, [auth.user, updateDiagnostics]);
+
+  const fetchPendingFriendRequests = useCallback(async (): Promise<FriendRequestEntry[]> => {
+    if (!auth.user || !isSupabaseConfigured) return [];
+    const { data, error } = await supabase.rpc("get_pending_friend_requests");
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return [];
+    }
+    return ((data ?? []) as FriendRequestEntry[]).map((row) => ({
+      request_id: row.request_id,
+      user_id: row.user_id,
+      display_name: row.display_name ?? "Player",
+      username_handle: row.username_handle ?? "",
+      initials: row.initials ?? "PL",
+      avatar_color: row.avatar_color ?? "#A8A294",
+      created_at: row.created_at,
+    }));
+  }, [auth.user, updateDiagnostics]);
+
+  const searchUsersByUsername = useCallback(async (query: string): Promise<FriendUser[]> => {
+    if (!auth.user || !isSupabaseConfigured) return [];
+    const normalized = query.trim().replace(/^@+/, "").toLowerCase();
+    if (normalized.length < 2) return [];
+    const { data, error } = await supabase.rpc("search_users_by_username", { query: normalized });
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return [];
+    }
+    return ((data ?? []) as FriendUser[]).map((row) => ({
+      user_id: row.user_id,
+      display_name: row.display_name ?? "Player",
+      username_handle: row.username_handle ?? "",
+      initials: row.initials ?? "PL",
+      avatar_color: row.avatar_color ?? "#A8A294",
+      relationship_status: row.relationship_status ?? "none",
+    }));
+  }, [auth.user, updateDiagnostics]);
+
+  const sendFriendRequest = useCallback(async (receiverUsername: string): Promise<SaveResult> => {
+    if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before adding friends." };
+    const username = receiverUsername.trim().replace(/^@+/, "").toLowerCase();
+    const { error } = await supabase.rpc("send_friend_request", { receiver_username: username });
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  }, [auth.user, updateDiagnostics]);
+
+  const respondFriendRequest = useCallback(async (requestId: string, response: "accepted" | "declined"): Promise<SaveResult> => {
+    if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before responding to friend requests." };
+    const { error } = await supabase.rpc("respond_friend_request", { p_request_id: requestId, p_response: response });
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  }, [auth.user, updateDiagnostics]);
+
   const updateDisplayName = useCallback((username: string): SaveResult => {
     const trimmed = username.trim();
     if (trimmed.length === 0) return { ok: false, error: "Display name cannot be empty." };
@@ -1433,13 +1529,16 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     activeSessions: auth.isSignedIn ? activeSessions : activeGuestSessions.map(guestSessionToPuzzleSessionRow),
     diagnostics, hasActiveSession, profileSetupRequired,
     recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, simulateResult, simulateRankedWin, simulateRankedLoss,
+    fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     resetLocalProfile, checkUsernameAvailable, completeProfileSetup, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
     repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, testDailyResultQuery, clearLastUpdate,
     upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
   }), [
     activeGuestSessions, activeSessions, auth.isSignedIn,
     checkUsernameAvailable, clearLastUpdate, completeProfileSetup, diagnostics, hasActiveSession, isLoaded, lastUpdate, loadError, profile, profileSetupRequired,
-    recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
+    recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard,
+    fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
+    repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
     simulateRankedLoss, simulateRankedWin, simulateResult,
     testSupabaseRead, testSupabaseWrite, testDailyResultQuery,
     updateDisplayName, updateNotificationSettings, updatePrivacySettings,
