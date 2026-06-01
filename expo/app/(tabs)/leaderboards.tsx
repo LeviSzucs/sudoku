@@ -21,6 +21,8 @@ interface LeaderboardEntry {
   mistakes?: number;
   hints?: number;
   undos?: number;
+  puzzlesCompleted?: number;
+  bestScore?: number;
 }
 
 const TABS: { id: Tab; label: string; sub: string }[] = [
@@ -41,9 +43,11 @@ export default function LeaderboardsScreen() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>("daily");
   const auth = useAuth();
-  const { profile, fetchDailyLeaderboard } = usePlayerProfile();
+  const { profile, fetchDailyLeaderboard, fetchWeeklyLeaderboard } = usePlayerProfile();
   const [dailyData, setDailyData] = useState<LeaderboardEntry[]>([]);
+  const [weeklyData, setWeeklyData] = useState<LeaderboardEntry[]>([]);
   const [isLoadingDaily, setIsLoadingDaily] = useState(false);
+  const [isLoadingWeekly, setIsLoadingWeekly] = useState(false);
   const today = useMemo(() => getDailyDateKey(), []);
   const currentUserId = auth.user?.id ?? profile.user_id;
 
@@ -73,13 +77,44 @@ export default function LeaderboardsScreen() {
     return () => { active = false; };
   }, [fetchDailyLeaderboard, tab, today]);
 
-  const data = useMemo<LeaderboardEntry[]>(() => tab === "daily" ? dailyData : [], [dailyData, tab]);
+  useEffect(() => {
+    let active = true;
+    if (tab !== "weekly") return () => { active = false; };
+
+    setIsLoadingWeekly(true);
+    void fetchWeeklyLeaderboard(today)
+      .then((rows) => {
+        if (!active) return;
+        setWeeklyData(rows.map((row) => ({
+          id: row.user_id,
+          rank: row.rank,
+          user: { id: row.user_id, username: row.username, initials: row.initials, avatarColor: row.avatar_color },
+          score: row.total_score,
+          time: secondsToTime(row.total_time),
+          puzzlesCompleted: row.puzzles_completed,
+          bestScore: row.best_score,
+        })));
+      })
+      .finally(() => {
+        if (active) setIsLoadingWeekly(false);
+      });
+
+    return () => { active = false; };
+  }, [fetchWeeklyLeaderboard, tab, today]);
+
+  const data = useMemo<LeaderboardEntry[]>(() => {
+    if (tab === "daily") return dailyData;
+    if (tab === "weekly") return weeklyData;
+    return [];
+  }, [dailyData, tab, weeklyData]);
 
   const valueLabel = tab === "ranked" ? "RP" : tab === "daily" ? "SCORE" : "POINTS";
   const podiumEntries = [2, 1, 3].map((rankPosition) => data.find((entry) => entry.rank === rankPosition));
   const podiumHeights: Record<number, number> = { 1: 132, 2: 104, 3: 78 };
   const currentUserDailyEntry = data.find((entry) => entry.user.id === currentUserId);
   const showDailyJoinPrompt = tab === "daily" && !isLoadingDaily && data.length > 0 && !currentUserDailyEntry;
+  const currentUserWeeklyEntry = data.find((entry) => entry.user.id === currentUserId);
+  const showWeeklyJoinPrompt = tab === "weekly" && !isLoadingWeekly && data.length > 0 && !currentUserWeeklyEntry;
 
   const emptyState = (() => {
     if (tab === "daily") {
@@ -90,7 +125,11 @@ export default function LeaderboardsScreen() {
       };
     }
     if (tab === "weekly") {
-      return { title: "Weekly leaderboard coming soon", sub: "Daily scores are live now.", icon: <Trophy size={36} color={C.mutedSoft} strokeWidth={1.5} /> };
+      return {
+        title: isLoadingWeekly ? "Loading weekly scores" : "No weekly scores yet",
+        sub: isLoadingWeekly ? "Checking this week's scores" : "Complete puzzles this week to join the leaderboard.",
+        icon: <Trophy size={36} color={C.mutedSoft} strokeWidth={1.5} />,
+      };
     }
     if (tab === "friends") {
       return { title: "Add friends to compare scores", sub: "Friends leaderboards will appear here once friends are available.", icon: <Crown size={36} color={C.mutedSoft} strokeWidth={1.5} /> };
@@ -150,6 +189,12 @@ export default function LeaderboardsScreen() {
           <Card style={{ alignItems: "center", paddingVertical: 32, marginBottom: 18 }}>
             <Trophy size={36} color={C.mutedSoft} strokeWidth={1.5} />
             <Text style={styles.emptyTitle}>Complete today's Daily Sudoku to join the leaderboard</Text>
+          </Card>
+        ) : null}
+        {showWeeklyJoinPrompt ? (
+          <Card style={{ alignItems: "center", paddingVertical: 32, marginBottom: 18 }}>
+            <Trophy size={36} color={C.mutedSoft} strokeWidth={1.5} />
+            <Text style={styles.emptyTitle}>Complete puzzles this week to join the leaderboard.</Text>
           </Card>
         ) : null}
 
@@ -237,6 +282,9 @@ export default function LeaderboardsScreen() {
                     <Text style={styles.name}>{entry.user.username}</Text>
                     {tab === "daily" ? (
                       <Text style={styles.metaText}>{entry.time} - {entry.mistakes ?? 0}M {entry.hints ?? 0}H {entry.undos ?? 0}U</Text>
+                    ) : null}
+                    {tab === "weekly" ? (
+                      <Text style={styles.metaText}>{entry.puzzlesCompleted ?? 0} puzzles - best {(entry.bestScore ?? 0).toLocaleString()} - {entry.time}</Text>
                     ) : null}
                   </View>
                   <Text style={styles.score}>{entry.score.toLocaleString()}</Text>
