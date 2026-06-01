@@ -1,5 +1,5 @@
 import { Crown, Trophy } from "lucide-react-native";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -7,9 +7,19 @@ import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
 import { C } from "@/constants/colors";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
-import type { LeaderboardEntry } from "@/constants/mockData";
 
 type Tab = "daily" | "weekly" | "friends" | "ranked";
+
+interface LeaderboardEntry {
+  id: string;
+  rank: number;
+  user: { id: string; username: string; initials: string; avatarColor: string };
+  score: number;
+  time: string;
+  mistakes?: number;
+  hints?: number;
+  undos?: number;
+}
 
 const TABS: { id: Tab; label: string; sub: string }[] = [
   { id: "daily", label: "Daily", sub: "Same puzzle for everyone" },
@@ -18,73 +28,71 @@ const TABS: { id: Tab; label: string; sub: string }[] = [
   { id: "ranked", label: "Ranked", sub: "By competitive RP" },
 ];
 
-function timeToSeconds(time: string): number {
-  const [minutesRaw, secondsRaw] = time.split(":");
-  return Number(minutesRaw ?? 0) * 60 + Number(secondsRaw ?? 0);
-}
-
 function secondsToTime(totalSeconds: number): string {
-  if (totalSeconds <= 0) return "—";
+  if (totalSeconds <= 0) return "-";
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-function rankEntries(entries: LeaderboardEntry[], tab: Tab): LeaderboardEntry[] {
-  const sorted = [...entries].sort((a, b) => {
-    if (tab === "daily") {
-      return b.score - a.score || timeToSeconds(a.time) - timeToSeconds(b.time) || (a.mistakes ?? 0) - (b.mistakes ?? 0) || (a.hints ?? 0) - (b.hints ?? 0) || (a.undos ?? 0) - (b.undos ?? 0);
-    }
-    if (tab === "ranked") return (b.rp ?? b.score) - (a.rp ?? a.score);
-    return (b.weeklyPoints ?? b.score) - (a.weeklyPoints ?? a.score);
-  });
-  return sorted.map((entry, index) => ({ ...entry, rank: index + 1 }));
-}
-
 export default function LeaderboardsScreen() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>("daily");
-  const { profile } = usePlayerProfile();
-  const data = useMemo<LeaderboardEntry[]>(() => {
-    const dailyResult = profile.recent_results.find((r) => r.mode === "daily" && r.eligible_for_leaderboard && r.completed);
-    const weeklyPoints = profile.recent_results.reduce((total, r) => total + r.final_score + r.xp_earned, 0);
-    const rankedResult = profile.recent_results.find((r) => r.mode === "ranked" && r.completed);
-    const tier = `${profile.rank_tier}${profile.rank_division ? ` ${profile.rank_division}` : ""}`;
-    const currentUserEntry: LeaderboardEntry = {
-      id: "self",
-      user: { id: profile.user_id, username: profile.username, initials: profile.initials, avatarColor: profile.avatar_color },
-      score: dailyResult?.final_score ?? 0,
-      time: secondsToTime(dailyResult?.elapsed_seconds ?? 0),
-      mistakes: dailyResult?.mistakes ?? 0,
-      hints: dailyResult?.hints_used ?? 0,
-      undos: dailyResult?.undo_count ?? 0,
-      weeklyPoints,
-      rp: profile.rank_points,
-      tier,
-      rank: 0,
-      isFriend: true,
-    };
+  const { profile, fetchDailyLeaderboard } = usePlayerProfile();
+  const [dailyData, setDailyData] = useState<LeaderboardEntry[]>([]);
+  const [isLoadingDaily, setIsLoadingDaily] = useState(false);
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
-    switch (tab) {
-      case "weekly": {
-        return weeklyPoints > 0 ? rankEntries([{ ...currentUserEntry, score: weeklyPoints }], tab) : [];
-      }
-      case "friends": {
-        // Only show the user for friends tab — no mock friends
-        return [];
-      }
-      case "ranked": {
-        return rankedResult ? rankEntries([{ ...currentUserEntry, score: profile.rank_points, time: tier }], tab) : [];
-      }
-      default: {
-        return currentUserEntry.score > 0 ? rankEntries([currentUserEntry], tab) : [];
-      }
-    }
-  }, [profile, tab]);
+  useEffect(() => {
+    let active = true;
+    if (tab !== "daily") return () => { active = false; };
+
+    setIsLoadingDaily(true);
+    void fetchDailyLeaderboard(today)
+      .then((rows) => {
+        if (!active) return;
+        setDailyData(rows.map((row, index) => ({
+          id: row.result_id,
+          rank: index + 1,
+          user: { id: row.user_id, username: row.username, initials: row.initials, avatarColor: row.avatar_color },
+          score: row.final_score,
+          time: secondsToTime(row.elapsed_seconds),
+          mistakes: row.mistakes,
+          hints: row.hints_used,
+          undos: row.undo_count,
+        })));
+      })
+      .finally(() => {
+        if (active) setIsLoadingDaily(false);
+      });
+
+    return () => { active = false; };
+  }, [fetchDailyLeaderboard, tab, today]);
+
+  const data = useMemo<LeaderboardEntry[]>(() => tab === "daily" ? dailyData : [], [dailyData, tab]);
 
   const valueLabel = tab === "ranked" ? "RP" : tab === "daily" ? "SCORE" : "POINTS";
   const podiumEntries = [2, 1, 3].map((rankPosition) => data.find((entry) => entry.rank === rankPosition));
   const podiumHeights: Record<number, number> = { 1: 132, 2: 104, 3: 78 };
+  const currentUserDailyEntry = data.find((entry) => entry.user.id === profile.user_id);
+  const showDailyJoinPrompt = tab === "daily" && !isLoadingDaily && data.length > 0 && !currentUserDailyEntry;
+
+  const emptyState = (() => {
+    if (tab === "daily") {
+      return {
+        title: isLoadingDaily ? "Loading Daily results" : "No Daily results yet",
+        sub: isLoadingDaily ? "Checking today's scores" : "Complete today's Daily Sudoku to join the leaderboard",
+        icon: <Trophy size={36} color={C.mutedSoft} strokeWidth={1.5} />,
+      };
+    }
+    if (tab === "weekly") {
+      return { title: "Weekly leaderboard coming soon", sub: "Daily scores are live now.", icon: <Trophy size={36} color={C.mutedSoft} strokeWidth={1.5} /> };
+    }
+    if (tab === "friends") {
+      return { title: "Add friends to compare scores", sub: "Friends leaderboards will appear here once friends are available.", icon: <Crown size={36} color={C.mutedSoft} strokeWidth={1.5} /> };
+    }
+    return { title: "Ranked leaderboard coming soon", sub: "Ranked results will appear once ranked mode is live.", icon: <Trophy size={36} color={C.mutedSoft} strokeWidth={1.5} /> };
+  })();
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -95,7 +103,6 @@ export default function LeaderboardsScreen() {
           {TABS.find((t) => t.id === tab)?.sub ?? ""}
         </Text>
 
-        {/* Tabs */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -135,26 +142,21 @@ export default function LeaderboardsScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Empty states */}
-        {tab === "friends" && data.length <= 1 && !data.some((e) => e.id !== "self") ? (
-          <Card style={{ alignItems: "center", paddingVertical: 32, marginBottom: 18 }}>
-            <Crown size={36} color={C.mutedSoft} strokeWidth={1.5} />
-            <Text style={styles.emptyTitle}>No friends yet</Text>
-            <Text style={styles.emptySub}>
-              Add friends to compare scores on the leaderboard
-            </Text>
-          </Card>
-        ) : data.length === 0 ? (
+        {showDailyJoinPrompt ? (
           <Card style={{ alignItems: "center", paddingVertical: 32, marginBottom: 18 }}>
             <Trophy size={36} color={C.mutedSoft} strokeWidth={1.5} />
-            <Text style={styles.emptyTitle}>No scores yet</Text>
-            <Text style={styles.emptySub}>
-              {tab === "daily" ? "Complete today's daily puzzle to appear here" : "Scores will appear once you start playing"}
-            </Text>
+            <Text style={styles.emptyTitle}>Complete today's Daily Sudoku to join the leaderboard</Text>
+          </Card>
+        ) : null}
+
+        {data.length === 0 ? (
+          <Card style={{ alignItems: "center", paddingVertical: 32, marginBottom: 18 }}>
+            {emptyState.icon}
+            <Text style={styles.emptyTitle}>{emptyState.title}</Text>
+            <Text style={styles.emptySub}>{emptyState.sub}</Text>
           </Card>
         ) : (
           <>
-            {/* Top 3 podium */}
             <View style={styles.podium}>
               {podiumEntries.map((entry, columnIndex) => {
                 if (!entry) return <View key={`empty-${columnIndex}`} style={styles.podiumCol} />;
@@ -173,7 +175,7 @@ export default function LeaderboardsScreen() {
                         {entry.user.username}
                       </Text>
                       <Text style={styles.podiumScore} numberOfLines={1}>
-                        {tab === "ranked" ? `${entry.rp ?? entry.score} RP` : (tab === "daily" ? entry.score : (entry.weeklyPoints ?? entry.score)).toLocaleString()}
+                        {entry.score.toLocaleString()}
                       </Text>
                     </View>
                     <View
@@ -195,7 +197,6 @@ export default function LeaderboardsScreen() {
               })}
             </View>
 
-            {/* List */}
             <View style={styles.listHeader}>
               <Text style={[styles.listHeaderText, { width: 28 }]}>#</Text>
               <Text style={[styles.listHeaderText, { flex: 1, marginLeft: 12 }]}>PLAYER</Text>
@@ -208,6 +209,7 @@ export default function LeaderboardsScreen() {
                   key={entry.id}
                   style={[
                     styles.row,
+                    entry.user.id === profile.user_id && styles.currentUserRow,
                     i < data.length - 1 && {
                       borderBottomWidth: 1,
                       borderBottomColor: C.border,
@@ -230,20 +232,10 @@ export default function LeaderboardsScreen() {
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={styles.name}>{entry.user.username}</Text>
                     {tab === "daily" ? (
-                      <Text style={styles.metaText}>{entry.time} · {entry.mistakes ?? 0}M {entry.hints ?? 0}H {entry.undos ?? 0}U</Text>
-                    ) : tab === "ranked" ? (
-                      <Text style={styles.metaText}>{entry.tier ?? entry.time}</Text>
-                    ) : tab === "friends" ? (
-                      <Text style={styles.metaText}>{entry.user.id === profile.user_id || entry.user.username === profile.username ? "You" : "Friend"}</Text>
+                      <Text style={styles.metaText}>{entry.time} - {entry.mistakes ?? 0}M {entry.hints ?? 0}H {entry.undos ?? 0}U</Text>
                     ) : null}
                   </View>
-                  <Text style={styles.score}>
-                    {tab === "ranked"
-                      ? `${entry.rp ?? entry.score} RP`
-                      : tab === "daily"
-                      ? entry.score.toLocaleString()
-                      : (entry.weeklyPoints ?? entry.score).toLocaleString()}
-                  </Text>
+                  <Text style={styles.score}>{entry.score.toLocaleString()}</Text>
                 </View>
               ))}
             </Card>
@@ -355,6 +347,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
   },
+  currentUserRow: {
+    backgroundColor: C.accentSoft,
+  },
   rank: {
     width: 28,
     fontSize: 14,
@@ -378,25 +373,12 @@ const styles = StyleSheet.create({
     color: C.ink,
     fontVariant: ["tabular-nums"],
   },
-  demoLabel: {
-    alignSelf: "center",
-    backgroundColor: C.amberSoft,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 999,
-    marginBottom: 12,
-  },
-  demoLabelText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: C.amber,
-    letterSpacing: 0.8,
-  },
   emptyTitle: {
     fontSize: 16,
     fontWeight: "700",
     color: C.ink,
     marginTop: 12,
+    textAlign: "center",
   },
   emptySub: {
     fontSize: 13,
