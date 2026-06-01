@@ -843,6 +843,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
 
   const summaryFromOfficialPayload = useCallback((payload: OfficialResultPayload, previousProfile: PlayerProfile): ProfileUpdateSummary => {
     const stats = payload.updated_profile_stats;
+    const xpEarned = payload.already_finalized ? 0 : payload.xp_earned;
     const officialResult: RecentResult = {
       session_id: payload.session_id,
       puzzle_id: payload.puzzle_id,
@@ -887,7 +888,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       badges_unlocked: Array.from(badgeMap.values()),
     });
     return {
-      xpEarned: payload.xp_earned,
+      xpEarned,
       didLevelUp: nextProfile.account_level > previousLevel,
       previousLevel,
       newLevel: nextProfile.account_level,
