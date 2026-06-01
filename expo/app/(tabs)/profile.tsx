@@ -1,7 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { Award, Bell, ChevronRight, Crown, Flame, Settings as SettingsIcon, Shield, Sparkles, Target, Timer, Trophy } from "lucide-react-native";
-import React, { useMemo, useState } from "react";
+import { Award, Bell, ChevronRight, Crown, Flame, Settings as SettingsIcon, Shield, Sparkles, Target, Timer, Trophy, Users } from "lucide-react-native";
+import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -27,8 +27,9 @@ function modeLabel(mode: string): string {
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { profile } = usePlayerProfile();
+  const { profile, fetchFriends } = usePlayerProfile();
   const [selectedBadge, setSelectedBadge] = useState<AchievementBadge | null>(null);
+  const [friendsCount, setFriendsCount] = useState<number | null>(null);
   const level = getLevelFromXp(profile.total_mastery_xp);
   const rank = getRankFromRp(profile.rank_points);
   const nextRank = rank.nextMin !== null ? RANKS.find((r) => r.min === rank.nextMin) : null;
@@ -48,12 +49,18 @@ export default function ProfileScreen() {
     const milestones = profile.badges_unlocked.filter((b) => ["puzzle_10", "streak_7", "gold_mind"].includes(b.badge_id));
     return Array.from(new Map([...recent, ...close, ...milestones].map((b) => [b.badge_id, b])).values()).slice(0, 8);
   }, [profile.badges_unlocked, unlocked]);
+  useEffect(() => {
+    let mounted = true;
+    void fetchFriends().then((friends) => { if (mounted) setFriendsCount(friends.length); });
+    return () => { mounted = false; };
+  }, [fetchFriends]);
 
   return <SafeAreaView style={styles.safe} edges={["top"]}><ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 118, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
     <View style={styles.headerRow}><Text style={styles.kicker}>PROFILE</Text><Pressable onPress={() => router.push("/settings")} hitSlop={10}><SettingsIcon color={C.inkSoft} size={22} /></Pressable></View>
     <View style={styles.avatarBlock}><Avatar initials={profile.initials} color={profile.avatar_color} size={84} /><Text style={styles.username}>{profile.display_name ?? profile.username}</Text>{profile.username_handle ? <Text style={styles.handle}>@{profile.username_handle}</Text> : null}<View style={styles.rankBadge}><Shield size={12} color={C.gold} fill={C.goldSoft} /><Text style={styles.rankBadgeText}>{profile.rank_tier}{profile.rank_division ? ` ${profile.rank_division}` : ""}</Text><View style={styles.dotSep} /><Text style={styles.ratingText}>{profile.rank_points} RP</Text></View></View>
     <Card><View style={styles.progressHeader}><View><Text style={styles.progressKicker}>MASTERY XP</Text><Text style={styles.levelText}>Level {level.level}</Text></View><Text style={styles.progressValue}>{profile.total_mastery_xp.toLocaleString()} XP</Text></View><View style={styles.barTrack}><View style={[styles.xpBar, { width: `${level.progress * 100}%` }]} /></View><Text style={styles.progressSub}>{level.xpInLevel.toLocaleString()}/{level.xpNeededForLevel.toLocaleString()} XP · {level.xpToNext.toLocaleString()} to next level</Text></Card>
     <View style={{ marginTop: 12 }}><Card><View style={styles.progressHeader}><View><Text style={styles.progressKicker}>COMPETITIVE RANK</Text><Text style={styles.levelText}>{profile.rank_tier}{profile.rank_division ? ` ${profile.rank_division}` : ""}</Text></View><Text style={styles.progressValue}>{profile.rank_points} RP</Text></View><View style={styles.barTrack}><View style={[styles.rankBar, { width: `${Math.max(0, Math.min(1, rankProgress)) * 100}%` }]} /></View><Text style={styles.progressSub}>{nextRank ? `${nextRank.min - profile.rank_points} RP to ${nextRank.tier}${nextRank.division ? ` ${nextRank.division}` : ""}` : "Top rank reached"}</Text></Card></View>
+    <Pressable style={{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.border, padding: 14, marginBottom: 12 }} onPress={() => router.push("/friends")}><View style={[styles.statIcon, { backgroundColor: C.accentSoft, marginBottom: 0 }]}><Users size={18} color={C.accent} /></View><View style={{ flex: 1 }}><Text style={styles.settingsLabel}>Friends</Text><Text style={styles.settingsDetail}>{friendsCount ?? 0} friends / find players by @username</Text></View><ChevronRight color={C.mutedSoft} size={20} /></Pressable>
     <View style={styles.statsGrid}>
       <StatCard icon={<Target size={18} color={C.accent} />} tone={C.accentSoft} label="Puzzles" value={`${profile.puzzles_completed}`} sub={`Easy ${profile.easy_completed} · Medium ${profile.medium_completed} · Hard ${profile.hard_completed}`} onPress={() => router.push("/stats-puzzles")} />
       <StatCard icon={<Trophy size={18} color={C.gold} />} tone={C.goldSoft} label="Win rate" value={duelWinRateValue} sub={duelWinRateSub} onPress={() => router.push("/stats-win-rate")} />
