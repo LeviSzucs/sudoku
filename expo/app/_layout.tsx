@@ -7,7 +7,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
-import { PlayerProfileProvider } from "@/hooks/usePlayerProfile";
+import { PlayerProfileProvider, usePlayerProfile } from "@/hooks/usePlayerProfile";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -15,11 +15,17 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   const auth = useAuth();
-  const showApp = auth.mode === "signed_in" || auth.mode === "guest";
+  const { isLoaded, profileSetupRequired } = usePlayerProfile();
+  const showAuth = auth.mode !== "signed_in";
+  const showSetup = auth.mode === "signed_in" && (!isLoaded || profileSetupRequired);
+  const showApp = auth.mode === "signed_in" && isLoaded && !profileSetupRequired;
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
-      <Stack.Protected guard={!showApp}>
+      <Stack.Protected guard={showAuth}>
         <Stack.Screen name="auth" options={{ headerShown: false, animation: "fade" }} />
+      </Stack.Protected>
+      <Stack.Protected guard={showSetup}>
+        <Stack.Screen name="username-setup" options={{ headerShown: false, animation: "fade" }} />
       </Stack.Protected>
       <Stack.Protected guard={showApp}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
