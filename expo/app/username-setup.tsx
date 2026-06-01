@@ -19,13 +19,15 @@ function normalizeUsernameInput(value: string): string {
 export default function UsernameSetupScreen() {
   const auth = useAuth();
   const { completeProfileSetup, checkUsernameAvailable, isLoaded, profile, profileSetupRequired } = usePlayerProfile();
+  const [displayName, setDisplayName] = useState<string>(profile.display_name ?? "");
   const [username, setUsername] = useState<string>(profile.username_handle ?? "");
   const [availability, setAvailability] = useState<UsernameAvailability | null>(null);
   const [checking, setChecking] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const normalized = normalizeUsernameInput(username);
-  const previewInitials = useMemo(() => initialsFromName(normalized || "??"), [normalized]);
+  const trimmedDisplayName = displayName.trim();
+  const previewInitials = useMemo(() => initialsFromName(trimmedDisplayName || normalized || "??"), [normalized, trimmedDisplayName]);
 
   useEffect(() => {
     if (auth.mode !== "signed_in") router.replace("/auth");
@@ -62,10 +64,15 @@ export default function UsernameSetupScreen() {
     setUsername(normalizeUsernameInput(value));
   };
 
+  const handleDisplayNameChange = (value: string) => {
+    setDisplayName(value);
+    setError(null);
+  };
+
   const submit = async () => {
     setSaving(true);
     setError(null);
-    const result = await completeProfileSetup(normalized);
+    const result = await completeProfileSetup(trimmedDisplayName, normalized);
     setSaving(false);
     if (!result.ok) {
       setError(result.error ?? "Could not save username.");
@@ -75,7 +82,8 @@ export default function UsernameSetupScreen() {
   };
 
   const availabilityText = checking ? "Checking..." : availability?.message ?? "Use lowercase letters, numbers, and underscores.";
-  const canSubmit = !saving && !checking && availability?.status === "available";
+  const displayNameValid = trimmedDisplayName.length >= 2 && trimmedDisplayName.length <= 30;
+  const canSubmit = !saving && !checking && displayNameValid && availability?.status === "available";
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -89,20 +97,34 @@ export default function UsernameSetupScreen() {
             <Text style={styles.tagline}>Choose the username people will use to find you.</Text>
           </View>
           <View style={styles.panel}>
-            <Text style={styles.formTitle}>Choose your username</Text>
+            <Text style={styles.formTitle}>Set up your profile</Text>
             <View style={styles.avatarWrap}>
               <Avatar initials={previewInitials} color={DEFAULT_AVATAR_COLOR} size={82} />
             </View>
+            <Text style={styles.label}>Display name</Text>
+            <TextInput
+              autoCapitalize="words"
+              autoCorrect={false}
+              value={displayName}
+              onChangeText={handleDisplayNameChange}
+              maxLength={30}
+              placeholder="Levi"
+              placeholderTextColor={C.mutedSoft}
+              style={styles.input}
+            />
+            <Text style={[styles.helper, displayName.length > 0 && !displayNameValid && styles.errorText]}>2-30 characters. Capitals and spaces are okay.</Text>
+            <Text style={styles.label}>Username</Text>
             <TextInput
               autoCapitalize="none"
               autoCorrect={false}
               value={username}
               onChangeText={handleUsernameChange}
               maxLength={20}
-              placeholder="username"
+              placeholder="levi_s"
               placeholderTextColor={C.mutedSoft}
               style={styles.input}
             />
+            <Text style={styles.helper}>Used for friend search. Lowercase only.</Text>
             <Text style={[styles.helper, availability?.status === "available" && styles.available, (availability?.status === "invalid" || availability?.status === "unavailable" || availability?.status === "error") && styles.errorText]}>{availabilityText}</Text>
             {error ? <Text style={styles.error}>{error}</Text> : null}
             <Pressable disabled={!canSubmit} onPress={submit} style={[styles.primary, !canSubmit && { opacity: 0.55 }]}>
@@ -125,6 +147,7 @@ const styles = StyleSheet.create({
   panel: { backgroundColor: C.card, borderRadius: 28, padding: 20, borderWidth: 1, borderColor: C.border },
   formTitle: { fontSize: 26, fontWeight: "900", color: C.ink, marginBottom: 16, letterSpacing: -0.5 },
   avatarWrap: { alignItems: "center", marginBottom: 8 },
+  label: { color: C.ink, fontWeight: "900", fontSize: 13, marginTop: 12 },
   input: { backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, borderRadius: 15, paddingHorizontal: 14, paddingVertical: 13, color: C.ink, fontSize: 16, fontWeight: "700", marginTop: 10 },
   helper: { color: C.muted, fontSize: 12, marginTop: 8, fontWeight: "700" },
   available: { color: C.success },

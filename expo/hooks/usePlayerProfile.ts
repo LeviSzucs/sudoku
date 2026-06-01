@@ -1289,17 +1289,19 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     };
   }, [auth.user, updateDiagnostics]);
 
-  const completeProfileSetup = useCallback(async (usernameInput: string): Promise<SaveResult> => {
+  const completeProfileSetup = useCallback(async (displayNameInput: string, usernameInput: string): Promise<SaveResult> => {
+    const displayName = displayNameInput.trim();
+    if (displayName.length < 2 || displayName.length > 30) return { ok: false, error: "Display name must be 2-30 characters." };
     const invalid = validateUsernameHandle(usernameInput);
     if (invalid) return { ok: false, error: invalid.message };
     if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before setting up your profile." };
 
     const username = normalizeUsernameHandle(usernameInput);
-    const nextInitials = initialsFromName(username);
+    const nextInitials = initialsFromName(displayName);
     const { error } = await supabase.from("profiles").update({
-      username,
+      username: displayName,
       username_handle: username,
-      display_name: username,
+      display_name: displayName,
       initials: nextInitials,
       profile_setup_completed: true,
       updated_at: new Date().toISOString(),
@@ -1310,7 +1312,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       return { ok: false, error: message };
     }
 
-    setProfile((current) => normalizeProfile({ ...current, username, username_handle: username, display_name: username, initials: nextInitials, profile_setup_completed: true }));
+    setProfile((current) => normalizeProfile({ ...current, username: displayName, username_handle: username, display_name: displayName, initials: nextInitials, profile_setup_completed: true }));
     await loadBackendProfile();
     return { ok: true };
   }, [auth.user, loadBackendProfile, updateDiagnostics]);
