@@ -33,7 +33,7 @@ function formatElapsed(seconds: number): string {
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { profile, activeSessions, startPuzzleSession } = usePlayerProfile();
+  const { profile, activeSessions, startPuzzleSession, getInProgressDailySession, getCompletedDailyResult } = usePlayerProfile();
   const auth = useAuth();
 
   const today = new Date();
@@ -51,7 +51,35 @@ export default function HomeScreen() {
       return;
     }
     try {
-      const puzzle = await fetchDailyPuzzle(new Date().toISOString().slice(0, 10), mode === "daily" ? "daily" : "daily_duel");
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const puzzle = await fetchDailyPuzzle(dateStr, mode === "daily" ? "daily" : "daily_duel");
+      const completedResult = await getCompletedDailyResult(mode, puzzle.puzzle_id, dateStr);
+      if (completedResult) {
+        Alert.alert(mode === "daily" ? "Daily Sudoku" : "Daily Duel", mode === "daily" ? "You’ve completed today’s Daily Sudoku." : "You’ve completed today’s Daily Duel.");
+        return;
+      }
+
+      const existingSession = await getInProgressDailySession(mode, puzzle.puzzle_id, dateStr);
+      if (existingSession) {
+        const params = {
+          mode,
+          difficulty: existingSession.difficulty,
+          sessionId: existingSession.session_id,
+          session_id: existingSession.session_id,
+          ...(existingSession.puzzle_id ? { puzzleId: existingSession.puzzle_id, puzzle_id: existingSession.puzzle_id } : {}),
+        };
+        logDevDiagnostic("daily session resume", {
+          authUserId: auth.user.id,
+          mode,
+          date: dateStr,
+          puzzleId: existingSession.puzzle_id,
+          sessionId: existingSession.session_id,
+          routeParams: params,
+        });
+        router.push({ pathname: "/game", params });
+        return;
+      }
+
       logDevDiagnostic("puzzle session create attempt", {
         authUserId: auth.user.id,
         selectedPuzzleId: puzzle.puzzle_id,
@@ -90,11 +118,11 @@ export default function HomeScreen() {
   };
 
   const openDaily = () => {
-    const session = inProgressSessions.find((entry) => entry.mode === "daily");
-    if (!session && auth.isSignedIn) {
+    if (auth.isSignedIn) {
       void openSignedInDailyMode("daily");
       return;
     }
+    const session = inProgressSessions.find((entry) => entry.mode === "daily");
     router.push({
       pathname: "/game",
       params: session
@@ -103,11 +131,11 @@ export default function HomeScreen() {
     });
   };
   const openDuel = () => {
-    const session = inProgressSessions.find((entry) => entry.mode === "duel");
-    if (!session && auth.isSignedIn) {
+    if (auth.isSignedIn) {
       void openSignedInDailyMode("duel");
       return;
     }
+    const session = inProgressSessions.find((entry) => entry.mode === "duel");
     router.push({
       pathname: "/game",
       params: session

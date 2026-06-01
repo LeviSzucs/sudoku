@@ -151,6 +151,7 @@ export interface PuzzleSessionRow {
   undo_count: number;
   move_history: unknown;
   status: string;
+  created_at?: string;
   updated_at?: string;
 }
 

@@ -23,6 +23,7 @@ const GUEST_SESSIONS_KEY = "sudoku.guest_sessions.v1";
 
 type SaveResult = { ok: boolean; error?: string };
 type SessionStatus = "in_progress" | "completed" | "failed" | "abandoned";
+type DailySessionMode = "daily" | "duel";
 
 interface RecordPuzzleResultOptions {
   sessionId?: string;
@@ -138,6 +139,12 @@ function deterministicResultId(userId: string, result: PuzzleResult, sessionId: 
 
 function isUniqueViolation(error: { code?: string; message?: string } | null): boolean {
   return error?.code === "23505" || error?.message?.toLowerCase().includes("duplicate") === true;
+}
+
+function nextDateString(dateStr: string): string {
+  const date = new Date(`${dateStr}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
 }
 
 function achievementFromRow(row: UserAchievementRow): AchievementBadge | null {
@@ -523,6 +530,73 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     return session;
   }, [activeSessions, auth.isSignedIn, auth.user, updateDiagnostics]);
 
+  const getInProgressDailySession = useCallback(async (mode: DailySessionMode, puzzleId: string, dateStr: string): Promise<PuzzleSessionRow | null> => {
+    const nextDate = nextDateString(dateStr);
+    const localSession = activeSessions.find((session) =>
+      session.mode === mode &&
+      session.puzzle_id === puzzleId &&
+      session.status === "in_progress" &&
+      (!session.created_at || (session.created_at >= `${dateStr}T00:00:00.000Z` && session.created_at < `${nextDate}T00:00:00.000Z`))
+    ) ?? null;
+    if (!auth.isSignedIn || !auth.user || !isSupabaseConfigured) return localSession;
+
+    const { data, error } = await supabase
+      .from("puzzle_sessions")
+      .select("*")
+      .eq("user_id", auth.user.id)
+      .eq("mode", mode)
+      .eq("puzzle_id", puzzleId)
+      .eq("status", "in_progress")
+      .gte("created_at", `${dateStr}T00:00:00.000Z`)
+      .lt("created_at", `${nextDate}T00:00:00.000Z`)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return localSession;
+    }
+
+    const session = (data as PuzzleSessionRow | null) ?? null;
+    if (session) {
+      setActiveSessions((prev) => [session, ...prev.filter((entry) => entry.session_id !== session.session_id && entry.status === "in_progress")]);
+    }
+    return session;
+  }, [activeSessions, auth.isSignedIn, auth.user, updateDiagnostics]);
+
+  const getCompletedDailyResult = useCallback(async (mode: DailySessionMode, puzzleId: string, dateStr: string): Promise<RecentResult | null> => {
+    const nextDate = nextDateString(dateStr);
+    const localResult = profile.recent_results.find((result) =>
+      result.mode === mode &&
+      result.puzzle_id === puzzleId &&
+      result.completed &&
+      result.completed_at >= `${dateStr}T00:00:00.000Z` &&
+      result.completed_at < `${nextDate}T00:00:00.000Z`
+    ) ?? null;
+    if (localResult || !auth.isSignedIn || !auth.user || !isSupabaseConfigured) return localResult;
+
+    const { data, error } = await supabase
+      .from("game_results")
+      .select("*")
+      .eq("user_id", auth.user.id)
+      .eq("mode", mode)
+      .eq("puzzle_id", puzzleId)
+      .eq("completed", true)
+      .gte("completed_at", `${dateStr}T00:00:00.000Z`)
+      .lt("completed_at", `${nextDate}T00:00:00.000Z`)
+      .order("completed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return null;
+    }
+
+    return data ? resultFromRow(data as GameResultRow) : null;
+  }, [auth.isSignedIn, auth.user, profile.recent_results, updateDiagnostics]);
+
   // ── Puzzle result recording ──────────────────────────────────────
 
   const recordPuzzleResult = useCallback((result: PuzzleResult, outcome?: RankOutcome, options?: RecordPuzzleResultOptions): ProfileUpdateSummary => {
@@ -744,7 +818,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     recordPuzzleResult, submitOfficialPuzzleResult, simulateResult, simulateRankedWin, simulateRankedLoss,
     resetLocalProfile, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
     repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, clearLastUpdate,
-    upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession,
+    upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
   }), [
     activeGuestSessions, activeSessions, auth.isSignedIn,
     clearLastUpdate, diagnostics, hasActiveSession, isLoaded, lastUpdate, loadError, profile,
@@ -752,6 +826,6 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     simulateRankedLoss, simulateRankedWin, simulateResult,
     testSupabaseRead, testSupabaseWrite,
     updateDisplayName, updateNotificationSettings, updatePrivacySettings,
-    upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession,
+    upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
   ]);
 });
