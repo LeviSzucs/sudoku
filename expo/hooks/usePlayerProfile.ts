@@ -65,6 +65,19 @@ export interface DailyLeaderboardEntry {
   completed_at: string;
 }
 
+export interface WeeklyLeaderboardEntry {
+  rank: number;
+  user_id: string;
+  username: string;
+  initials: string;
+  avatar_color: string;
+  total_score: number;
+  puzzles_completed: number;
+  best_score: number;
+  total_time: number;
+  latest_completed_at: string;
+}
+
 interface DailyLeaderboardRpcRow {
   rank?: number;
   result_id: string;
@@ -79,6 +92,19 @@ interface DailyLeaderboardRpcRow {
   hints_used: number;
   undo_count: number;
   completed_at: string;
+}
+
+interface WeeklyLeaderboardRpcRow {
+  rank?: number;
+  user_id: string;
+  username: string | null;
+  initials: string | null;
+  avatar_color: string | null;
+  total_score: number;
+  puzzles_completed: number;
+  best_score: number;
+  total_time: number;
+  latest_completed_at: string;
 }
 
 export interface DailyDiagnostics {
@@ -1135,6 +1161,45 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     return entries;
   }, [auth.user?.id, profile.avatar_color, profile.initials, profile.user_id, profile.username, updateDailyDiagnostics, updateDiagnostics]);
 
+  const fetchWeeklyLeaderboard = useCallback(async (dateStr: string): Promise<WeeklyLeaderboardEntry[]> => {
+    if (!isSupabaseConfigured) return [];
+
+    const { data, error } = await supabase.rpc("get_weekly_leaderboard", {
+      p_date: dateStr,
+    });
+    if (error) {
+      logDevDiagnostic("weekly leaderboard rpc result", {
+        dateStr,
+        authUserId: auth.user?.id ?? null,
+        rowsReturned: 0,
+        supabaseError: error.message,
+      });
+      updateDiagnostics({ lastError: error.message });
+      return [];
+    }
+
+    const rows = (data ?? []) as WeeklyLeaderboardRpcRow[];
+    logDevDiagnostic("weekly leaderboard rpc result", {
+      dateStr,
+      authUserId: auth.user?.id ?? null,
+      rowsReturned: rows.length,
+      rows,
+      supabaseError: null,
+    });
+    return rows.map((row, index) => ({
+      rank: row.rank ?? index + 1,
+      user_id: row.user_id,
+      username: row.username ?? "Player",
+      initials: row.initials ?? "PL",
+      avatar_color: row.avatar_color ?? "#A8A294",
+      total_score: row.total_score,
+      puzzles_completed: row.puzzles_completed,
+      best_score: row.best_score,
+      total_time: row.total_time,
+      latest_completed_at: row.latest_completed_at,
+    }));
+  }, [auth.user?.id, updateDiagnostics]);
+
   const updateDisplayName = useCallback((username: string): SaveResult => {
     const trimmed = username.trim();
     if (trimmed.length === 0) return { ok: false, error: "Display name cannot be empty." };
@@ -1249,14 +1314,14 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     profile, isLoaded, loadError, lastUpdate,
     activeSessions: auth.isSignedIn ? activeSessions : activeGuestSessions.map(guestSessionToPuzzleSessionRow),
     diagnostics, hasActiveSession,
-    recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, simulateResult, simulateRankedWin, simulateRankedLoss,
+    recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, simulateResult, simulateRankedWin, simulateRankedLoss,
     resetLocalProfile, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
     repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, testDailyResultQuery, clearLastUpdate,
     upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
   }), [
     activeGuestSessions, activeSessions, auth.isSignedIn,
     clearLastUpdate, diagnostics, hasActiveSession, isLoaded, lastUpdate, loadError, profile,
-    recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
+    recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
     simulateRankedLoss, simulateRankedWin, simulateResult,
     testSupabaseRead, testSupabaseWrite, testDailyResultQuery,
     updateDisplayName, updateNotificationSettings, updatePrivacySettings,
