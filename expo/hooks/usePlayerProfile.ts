@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "@/hooks/useAuth";
 import type { PuzzleResult, SessionSnapshot } from "@/hooks/useSudokuGame";
-import { getDailyDateWindow } from "@/lib/daily";
+import { getDailyDateKey, getDailyDateWindow } from "@/lib/daily";
 import { logDevDiagnostic, measureAsync } from "@/lib/performanceDiagnostics";
 import { BADGE_DEFINITIONS, applyPuzzleResult, createInitialPlayerProfile, createSimulatedResult, getRankFromRp, initialsFromName, normalizeProfile, type AchievementBadge, type BadgeCategory, type PlayerProfile, type ProfileSettings, type ProfileUpdateSummary, type RankOutcome, type RecentResult } from "@/lib/playerProfile";
 import { startPuzzleSession as insertPuzzleSession, type StartPuzzleSessionInput } from "@/lib/puzzleSessions";
@@ -65,6 +65,37 @@ export interface DailyLeaderboardEntry {
   completed_at: string;
 }
 
+interface DailyLeaderboardRpcRow {
+  rank?: number;
+  result_id: string;
+  user_id: string;
+  username: string | null;
+  initials: string | null;
+  avatar_color: string | null;
+  puzzle_id: string | null;
+  final_score: number;
+  elapsed_seconds: number;
+  mistakes: number;
+  hints_used: number;
+  undo_count: number;
+  completed_at: string;
+}
+
+export interface DailyDiagnostics {
+  currentUserId: string | null;
+  todayDateStr: string | null;
+  assignedDailyPuzzle: { puzzle_id: string; difficulty: string } | null;
+  assignedDailyPuzzleId: string | null;
+  replayQueryResultCount: number | null;
+  replayQueryRows: unknown[];
+  replayRpcResult: boolean | null;
+  leaderboardQueryResultCount: number | null;
+  leaderboardRawRows: unknown[];
+  leaderboardRpcResultCount: number | null;
+  leaderboardFinalDisplayedRowCount: number | null;
+  errors: string[];
+}
+
 interface GuestSessionEntry {
   sessionId: string;
   snapshot: SessionSnapshot;
@@ -84,6 +115,7 @@ export interface BackendDiagnostics {
   lastSessionSaveAttemptedAt: string | null;
   lastSessionSaveSucceeded: boolean | null;
   lastSessionSaveError: string | null;
+  daily: DailyDiagnostics | null;
 }
 
 function profileFromRows(profileRow: ProfileRow, statsRow: PlayerStatsRow, settingsRow: UserSettingsRow, fallback: PlayerProfile): PlayerProfile {
@@ -189,10 +221,34 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
   const [lastUpdate, setLastUpdate] = useState<ProfileUpdateSummary | null>(null);
   const [activeSessions, setActiveSessions] = useState<PuzzleSessionRow[]>([]);
   const [activeGuestSessions, setActiveGuestSessions] = useState<GuestSessionEntry[]>([]);
-  const [diagnostics, setDiagnostics] = useState<BackendDiagnostics>({ sessionStatus: "loading", userId: null, profileLoaded: false, statsLoaded: false, settingsLoaded: false, recentResultsCount: 0, activeSessionCount: 0, latestSessionStatus: null, latestResultPuzzleId: null, lastError: null, lastSessionSaveAttemptedAt: null, lastSessionSaveSucceeded: null, lastSessionSaveError: null });
+  const [diagnostics, setDiagnostics] = useState<BackendDiagnostics>({ sessionStatus: "loading", userId: null, profileLoaded: false, statsLoaded: false, settingsLoaded: false, recentResultsCount: 0, activeSessionCount: 0, latestSessionStatus: null, latestResultPuzzleId: null, lastError: null, lastSessionSaveAttemptedAt: null, lastSessionSaveSucceeded: null, lastSessionSaveError: null, daily: null });
 
   const updateDiagnostics = useCallback((patch: Partial<BackendDiagnostics>) => {
     setDiagnostics((current) => ({ ...current, sessionStatus: auth.mode, userId: auth.user?.id ?? null, ...patch }));
+  }, [auth.mode, auth.user?.id]);
+
+  const updateDailyDiagnostics = useCallback((patch: Partial<DailyDiagnostics>) => {
+    setDiagnostics((current) => ({
+      ...current,
+      sessionStatus: auth.mode,
+      userId: auth.user?.id ?? null,
+      daily: {
+        currentUserId: auth.user?.id ?? null,
+        todayDateStr: null,
+        assignedDailyPuzzle: null,
+        assignedDailyPuzzleId: null,
+        replayQueryResultCount: null,
+        replayQueryRows: [],
+        replayRpcResult: null,
+        leaderboardQueryResultCount: null,
+        leaderboardRawRows: [],
+        leaderboardRpcResultCount: null,
+        leaderboardFinalDisplayedRowCount: null,
+        errors: [],
+        ...current.daily,
+        ...patch,
+      },
+    }));
   }, [auth.mode, auth.user?.id]);
 
   useEffect(() => {
@@ -594,6 +650,13 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       },
       localRowsReturned: localResult ? 1 : 0,
     });
+    updateDailyDiagnostics({
+      currentUserId: auth.user?.id ?? null,
+      todayDateStr: dateStr,
+      assignedDailyPuzzleId: puzzleId,
+      replayQueryResultCount: localResult ? 1 : null,
+      replayQueryRows: localResult ? [localResult] : [],
+    });
     if (localResult || !auth.isSignedIn || !auth.user || !isSupabaseConfigured) {
       logDevDiagnostic("daily completion check result", {
         dateStr,
@@ -617,6 +680,14 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       .limit(1);
 
     if (error) {
+      updateDailyDiagnostics({
+        currentUserId: auth.user.id,
+        todayDateStr: dateStr,
+        assignedDailyPuzzleId: puzzleId,
+        replayQueryResultCount: 0,
+        replayQueryRows: [],
+        errors: [error.message],
+      });
       logDevDiagnostic("daily replay raw query result", {
         dateStr,
         authUserId: auth.user.id,
@@ -645,6 +716,14 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }
 
     const rows = (data ?? []) as GameResultRow[];
+    updateDailyDiagnostics({
+      currentUserId: auth.user.id,
+      todayDateStr: dateStr,
+      assignedDailyPuzzleId: puzzleId,
+      replayQueryResultCount: rows.length,
+      replayQueryRows: rows,
+      errors: [],
+    });
     logDevDiagnostic("daily replay raw query result", {
       dateStr,
       authUserId: auth.user.id,
@@ -668,8 +747,51 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       rows,
       supabaseError: null,
     });
-    return rows[0] ? resultFromRow(rows[0]) : null;
-  }, [auth.isSignedIn, auth.user, profile.recent_results, updateDiagnostics]);
+    if (rows[0]) return resultFromRow(rows[0]);
+
+    if (mode === "daily") {
+      const { data: hasCompleted, error: rpcError } = await supabase.rpc("has_completed_daily", {
+        p_date: dateStr,
+      });
+      updateDailyDiagnostics({
+        currentUserId: auth.user.id,
+        todayDateStr: dateStr,
+        assignedDailyPuzzleId: puzzleId,
+        replayRpcResult: Boolean(hasCompleted),
+        errors: rpcError ? [rpcError.message] : [],
+      });
+      logDevDiagnostic("daily replay rpc result", {
+        dateStr,
+        authUserId: auth.user.id,
+        assignedDailyPuzzleId: puzzleId,
+        hasCompleted: Boolean(hasCompleted),
+        supabaseError: rpcError?.message ?? null,
+      });
+      if (rpcError) {
+        updateDiagnostics({ lastError: rpcError.message });
+      }
+      if (hasCompleted === true) {
+        return {
+          puzzle_id: puzzleId,
+          mode: "daily",
+          difficulty: "Medium",
+          completed: true,
+          elapsed_seconds: 0,
+          mistakes: 0,
+          hints_used: 0,
+          undo_count: 0,
+          move_count: 0,
+          final_score: 0,
+          eligible_for_leaderboard: true,
+          eligible_for_ranked: false,
+          completed_at: new Date().toISOString(),
+          xp_earned: 0,
+        };
+      }
+    }
+
+    return null;
+  }, [auth.isSignedIn, auth.user, profile.recent_results, updateDailyDiagnostics, updateDiagnostics]);
 
   // ── Puzzle result recording ──────────────────────────────────────
 
@@ -852,6 +974,64 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
 
     const dailyPuzzle = await fetchDailyPuzzle(dateStr, "daily");
     const assignedPuzzleId = dailyPuzzle.puzzle_id;
+    updateDailyDiagnostics({
+      currentUserId: auth.user?.id ?? null,
+      todayDateStr: dateStr,
+      assignedDailyPuzzle: { puzzle_id: dailyPuzzle.puzzle_id, difficulty: dailyPuzzle.difficulty },
+      assignedDailyPuzzleId: assignedPuzzleId,
+      leaderboardQueryResultCount: rawData?.length ?? 0,
+      leaderboardRawRows: rawData ?? [],
+      errors: rawError ? [rawError.message] : [],
+    });
+
+    const { data: rpcData, error: rpcError } = await supabase.rpc("get_daily_leaderboard", {
+      p_date: dateStr,
+    });
+    const rpcRows = (rpcData ?? []) as DailyLeaderboardRpcRow[];
+    logDevDiagnostic("daily leaderboard rpc result", {
+      dateStr,
+      authUserId: auth.user?.id ?? null,
+      assignedDailyPuzzleId: assignedPuzzleId,
+      rowsReturned: rpcRows.length,
+      rows: rpcRows,
+      supabaseError: rpcError?.message ?? null,
+    });
+    if (!rpcError) {
+      const entries = rpcRows.map((row) => ({
+        result_id: row.result_id,
+        user_id: row.user_id,
+        username: row.username ?? "Player",
+        initials: row.initials ?? "PL",
+        avatar_color: row.avatar_color ?? "#A8A294",
+        final_score: row.final_score,
+        elapsed_seconds: row.elapsed_seconds,
+        mistakes: row.mistakes,
+        hints_used: row.hints_used,
+        undo_count: row.undo_count,
+        completed_at: row.completed_at,
+      }));
+      updateDailyDiagnostics({
+        currentUserId: auth.user?.id ?? null,
+        todayDateStr: dateStr,
+        assignedDailyPuzzle: { puzzle_id: dailyPuzzle.puzzle_id, difficulty: dailyPuzzle.difficulty },
+        assignedDailyPuzzleId: assignedPuzzleId,
+        leaderboardRpcResultCount: rpcRows.length,
+        leaderboardFinalDisplayedRowCount: entries.length,
+        errors: [],
+      });
+      return entries;
+    }
+
+    updateDailyDiagnostics({
+      currentUserId: auth.user?.id ?? null,
+      todayDateStr: dateStr,
+      assignedDailyPuzzle: { puzzle_id: dailyPuzzle.puzzle_id, difficulty: dailyPuzzle.difficulty },
+      assignedDailyPuzzleId: assignedPuzzleId,
+      leaderboardRpcResultCount: 0,
+      errors: [rpcError.message],
+    });
+    updateDiagnostics({ lastError: rpcError.message });
+
     const buildQuery = (requireEligibility: boolean) => {
       let query = supabase
         .from("game_results")
@@ -894,6 +1074,14 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
         supabaseError: error.message,
       });
       updateDiagnostics({ lastError: error.message });
+      updateDailyDiagnostics({
+        currentUserId: auth.user?.id ?? null,
+        todayDateStr: dateStr,
+        assignedDailyPuzzle: { puzzle_id: dailyPuzzle.puzzle_id, difficulty: dailyPuzzle.difficulty },
+        assignedDailyPuzzleId: assignedPuzzleId,
+        leaderboardFinalDisplayedRowCount: 0,
+        errors: [error.message],
+      });
       return [];
     }
 
@@ -917,7 +1105,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       }
     }
 
-    return rows
+    const entries = rows
       .map((row) => {
         const profileRow = profilesById.get(row.user_id);
         return {
@@ -935,7 +1123,16 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
         };
       })
       .sort((a, b) => b.final_score - a.final_score || a.elapsed_seconds - b.elapsed_seconds || new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime());
-  }, [auth.user?.id, profile.avatar_color, profile.initials, profile.user_id, profile.username, updateDiagnostics]);
+    updateDailyDiagnostics({
+      currentUserId: auth.user?.id ?? null,
+      todayDateStr: dateStr,
+      assignedDailyPuzzle: { puzzle_id: dailyPuzzle.puzzle_id, difficulty: dailyPuzzle.difficulty },
+      assignedDailyPuzzleId: assignedPuzzleId,
+      leaderboardFinalDisplayedRowCount: entries.length,
+      errors: [],
+    });
+    return entries;
+  }, [auth.user?.id, profile.avatar_color, profile.initials, profile.user_id, profile.username, updateDailyDiagnostics, updateDiagnostics]);
 
   const updateDisplayName = useCallback((username: string): SaveResult => {
     const trimmed = username.trim();
@@ -971,6 +1168,55 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     return error ? { ok: false, error: error.message } : { ok: true };
   }, [auth.user, updateDiagnostics]);
 
+  const testDailyResultQuery = useCallback(async (): Promise<SaveResult> => {
+    if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Daily result query test requires a signed-in user." };
+    const todayDateStr = getDailyDateKey();
+    const errors: string[] = [];
+    const puzzle = await fetchDailyPuzzle(todayDateStr, "daily");
+    const { data: leaderboardRows, error: leaderboardError } = await supabase
+      .from("game_results")
+      .select("result_id,user_id,puzzle_id,mode,completed,eligible_for_leaderboard,final_score,elapsed_seconds,completed_at")
+      .eq("mode", "daily")
+      .eq("puzzle_id", puzzle.puzzle_id)
+      .eq("completed", true);
+    if (leaderboardError) errors.push(leaderboardError.message);
+
+    const { data: replayRows, error: replayError } = await supabase
+      .from("game_results")
+      .select("result_id,user_id,puzzle_id,mode,completed,eligible_for_leaderboard,final_score,elapsed_seconds,completed_at")
+      .eq("user_id", auth.user.id)
+      .eq("mode", "daily")
+      .eq("puzzle_id", puzzle.puzzle_id)
+      .eq("completed", true);
+    if (replayError) errors.push(replayError.message);
+
+    const { data: hasCompleted, error: completedRpcError } = await supabase.rpc("has_completed_daily", { p_date: todayDateStr });
+    if (completedRpcError) errors.push(completedRpcError.message);
+
+    const { data: leaderboardRpcRows, error: leaderboardRpcError } = await supabase.rpc("get_daily_leaderboard", { p_date: todayDateStr });
+    if (leaderboardRpcError) errors.push(leaderboardRpcError.message);
+
+    updateDailyDiagnostics({
+      currentUserId: auth.user.id,
+      todayDateStr,
+      assignedDailyPuzzle: { puzzle_id: puzzle.puzzle_id, difficulty: puzzle.difficulty },
+      assignedDailyPuzzleId: puzzle.puzzle_id,
+      replayQueryResultCount: replayRows?.length ?? 0,
+      replayQueryRows: replayRows ?? [],
+      replayRpcResult: Boolean(hasCompleted),
+      leaderboardQueryResultCount: leaderboardRows?.length ?? 0,
+      leaderboardRawRows: leaderboardRows ?? [],
+      leaderboardRpcResultCount: leaderboardRpcRows?.length ?? 0,
+      leaderboardFinalDisplayedRowCount: leaderboardRpcRows?.length ?? 0,
+      errors,
+    });
+    updateDiagnostics({ lastError: errors[0] ?? null });
+
+    return errors.length > 0
+      ? { ok: false, error: errors.join("\n") }
+      : { ok: true };
+  }, [auth.user, updateDailyDiagnostics, updateDiagnostics]);
+
   const simulateResult = useCallback((): ProfileUpdateSummary => recordPuzzleResult(createSimulatedResult()), [recordPuzzleResult]);
   const simulateRankedWin = useCallback((): ProfileUpdateSummary => recordPuzzleResult(createSimulatedResult("ranked", "win"), "win"), [recordPuzzleResult]);
   const simulateRankedLoss = useCallback((): ProfileUpdateSummary => recordPuzzleResult(createSimulatedResult("ranked", "loss"), "loss"), [recordPuzzleResult]);
@@ -1004,14 +1250,14 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     diagnostics, hasActiveSession,
     recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, simulateResult, simulateRankedWin, simulateRankedLoss,
     resetLocalProfile, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
-    repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, clearLastUpdate,
+    repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, testDailyResultQuery, clearLastUpdate,
     upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
   }), [
     activeGuestSessions, activeSessions, auth.isSignedIn,
     clearLastUpdate, diagnostics, hasActiveSession, isLoaded, lastUpdate, loadError, profile,
     recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
     simulateRankedLoss, simulateRankedWin, simulateResult,
-    testSupabaseRead, testSupabaseWrite,
+    testSupabaseRead, testSupabaseWrite, testDailyResultQuery,
     updateDisplayName, updateNotificationSettings, updatePrivacySettings,
     upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
   ]);
