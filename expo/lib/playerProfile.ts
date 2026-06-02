@@ -1,6 +1,7 @@
 import { DEFAULT_AVATAR_COLOR, DEFAULT_INITIALS, DEFAULT_USERNAME } from "@/constants/branding";
 import type { Difficulty } from "@/constants/mockData";
 import type { GameMode, PuzzleResult } from "@/hooks/useSudokuGame";
+import { calculateMasteryXpFromScore, TARGET_SECONDS } from "@/lib/scoring";
 
 export type RankOutcome = "win" | "loss" | "draw" | "abandon";
 export type BadgeCategory = "Starter" | "Streak" | "Speed" | "Difficulty" | "Competitive" | "Completion" | "Precision";
@@ -83,9 +84,6 @@ export interface ProfileUpdateSummary {
   unlockedBadges: AchievementBadge[];
   updatedProfile: PlayerProfile;
 }
-
-const TARGET_TIMES: Record<Difficulty, number> = { Easy: 180, Medium: 300, Hard: 480, Expert: 720, Master: 1200 };
-const XP_BY_DIFFICULTY: Record<Difficulty, number> = { Easy: 40, Medium: 70, Hard: 110, Expert: 160, Master: 220 };
 
 export const RANKS: { tier: string; division: string; min: number }[] = [
   { tier: "Bronze", division: "III", min: 0 }, { tier: "Bronze", division: "II", min: 100 }, { tier: "Bronze", division: "I", min: 200 },
@@ -218,14 +216,14 @@ function dateKey(iso: string): string { return iso.slice(0, 10); }
 function dayDiff(a: string, b: string): number { return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000); }
 
 export function calculateMasteryXp(result: PuzzleResult, didWin = false): number {
-  let xp = XP_BY_DIFFICULTY[result.difficulty];
-  if (result.mistakes === 0) xp += 25;
-  if (result.hints_used === 0) xp += 25;
-  if (result.elapsed_seconds < TARGET_TIMES[result.difficulty]) xp += 25;
-  if (result.mode === "daily") xp += 50;
-  if (result.mode === "duel" && didWin) xp += 40;
-  if (result.mode === "ranked" && didWin) xp += 60;
-  return xp;
+  return calculateMasteryXpFromScore(
+    result.difficulty,
+    result.final_score,
+    result.mode,
+    result.mistakes === 0 && result.hints_used === 0,
+    result.elapsed_seconds < TARGET_SECONDS[result.difficulty],
+    didWin
+  );
 }
 
 function progressBadges(profile: PlayerProfile, nowIso: string): { badges: AchievementBadge[]; unlocked: AchievementBadge[] } {

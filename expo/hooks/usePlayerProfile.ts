@@ -8,6 +8,7 @@ import { getDailyDateKey, getDailyDateWindow } from "@/lib/daily";
 import { logDevDiagnostic, measureAsync } from "@/lib/performanceDiagnostics";
 import { applyPuzzleResult, createInitialPlayerProfile, createSimulatedResult, getRankFromRp, initialsFromName, normalizeProfile, type AchievementBadge, type BadgeCategory, type PlayerProfile, type ProfileSettings, type ProfileUpdateSummary, type RankOutcome, type RecentResult } from "@/lib/playerProfile";
 import { startPuzzleSession as insertPuzzleSession, type StartPuzzleSessionInput } from "@/lib/puzzleSessions";
+import type { ScoreBreakdown } from "@/lib/scoring";
 import { fetchDailyPuzzle } from "@/lib/sudoku";
 import { isSupabaseConfigured, supabase, type AchievementRow, type GameResultRow, type PlayerStatsRow, type ProfileRow, type PuzzleSessionRow, type UserAchievementRow, type UserSettingsRow } from "@/lib/supabase";
 
@@ -51,6 +52,7 @@ export interface OfficialResultPayload {
   hints_used: number;
   undo_count: number;
   final_score: number;
+  score_breakdown?: ScoreBreakdown | null;
   xp_earned: number;
   leaderboard_eligible: boolean;
   ranked_eligible?: boolean;
@@ -1088,6 +1090,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       undo_count: payload.undo_count,
       move_count: 0,
       final_score: payload.final_score,
+      score_breakdown: payload.score_breakdown ?? undefined,
       eligible_for_leaderboard: payload.leaderboard_eligible,
       eligible_for_ranked: payload.ranked_eligible ?? false,
       completed_at: payload.completed_at ?? new Date().toISOString(),
