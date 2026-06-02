@@ -424,28 +424,31 @@ function ChallengeRow({ challenge, currentUserId, last, working, onAccept, onDec
   const friendUndos = currentIsChallenger ? challenge.challenged_undo_count : challenge.challenger_undo_count;
   const yourCompleted = Boolean(currentIsChallenger ? challenge.challenger_result_id : challenge.challenged_result_id);
   const friendCompleted = Boolean(currentIsChallenger ? challenge.challenged_result_id : challenge.challenger_result_id);
-  const waitingForFriend = `Waiting for ${challenge.friend_display_name}`;
-  const statusLabel = challenge.status === "completed"
-    ? challenge.winner_user_id === null
-      ? "Draw"
-      : challenge.winner_user_id === currentUserId
-      ? "You won"
-      : `${challenge.friend_display_name} won`
-    : onAccept
-    ? friendCompleted
-      ? `${challenge.friend_display_name} finished`
-      : "Challenge received"
-    : yourCompleted && !friendCompleted
-    ? `You finished · waiting for ${challenge.friend_display_name}`
-    : friendCompleted && !yourCompleted
-    ? `${challenge.friend_display_name} finished`
-    : challenge.direction === "outgoing" && challenge.status === "pending"
-    ? `${waitingForFriend} to accept`
-    : challenge.status === "accepted"
-    ? "Ready to play"
-    : "In progress";
   const showWaitingButton = yourCompleted && !friendCompleted;
   const showViewResultsButton = challenge.status === "completed";
+  const displayStatus = challenge.status === "completed"
+    ? {
+      label: challenge.winner_user_id === null
+        ? "Draw"
+        : challenge.winner_user_id === currentUserId
+        ? "You won"
+        : `${challenge.friend_display_name} won`,
+      sub: "View final scores",
+    }
+    : onAccept
+    ? {
+      label: friendCompleted ? `${challenge.friend_display_name} finished` : "Challenge received",
+      sub: friendCompleted ? "Play your turn" : "Accept to start your run",
+    }
+    : yourCompleted && !friendCompleted
+    ? { label: "You finished", sub: `Waiting for ${challenge.friend_display_name}` }
+    : friendCompleted && !yourCompleted
+    ? { label: `${challenge.friend_display_name} finished`, sub: "Play your turn" }
+    : challenge.direction === "outgoing" && challenge.status === "pending"
+    ? { label: "Awaiting acceptance", sub: `Waiting for ${challenge.friend_display_name}` }
+    : challenge.status === "accepted"
+    ? { label: "Ready to play", sub: "Both players have the puzzle" }
+    : { label: "In progress", sub: "Challenge active" };
   return (
     <View style={[styles.challengeRow, !last && styles.rowBorder]}>
       <View style={styles.challengeHeader}>
@@ -453,8 +456,9 @@ function ChallengeRow({ challenge, currentUserId, last, working, onAccept, onDec
         <View style={{ flex: 1 }}>
           <Text style={styles.rowTitle}>{challenge.friend_display_name}</Text>
           <Text style={styles.rowSub}>@{challenge.friend_username_handle} / {challenge.difficulty}</Text>
+          <Text style={styles.challengeSubstatus}>{displayStatus.sub}</Text>
         </View>
-        <Text style={styles.statusPill}>{statusLabel}</Text>
+        <Text style={styles.statusPill}>{displayStatus.label}</Text>
       </View>
       {challenge.status === "completed" ? (
         <View style={styles.resultCompare}>
@@ -509,12 +513,13 @@ const styles = StyleSheet.create({
   addButton: { minHeight: 38, borderRadius: 999, backgroundColor: C.accent, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 13 },
   challengeButton: { minHeight: 38, borderRadius: 999, backgroundColor: C.ink, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 13 },
   addButtonText: { color: "#FBF8F2", fontWeight: "900", fontSize: 12 },
-  statusPill: { color: C.accent, fontWeight: "900", fontSize: 12, textTransform: "capitalize" },
+  statusPill: { color: C.accent, fontWeight: "900", fontSize: 12, maxWidth: 136, textAlign: "right" },
   requestActions: { flexDirection: "row", gap: 8 },
   acceptButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: C.success },
   declineButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border },
   challengeRow: { padding: 14, gap: 12 },
-  challengeHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+  challengeHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  challengeSubstatus: { color: C.muted, fontSize: 12, fontWeight: "800", marginTop: 5 },
   challengeActions: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   acceptTextButton: { minHeight: 36, borderRadius: 999, backgroundColor: C.accent, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 14 },
   acceptText: { color: "#FBF8F2", fontWeight: "900", fontSize: 12 },
