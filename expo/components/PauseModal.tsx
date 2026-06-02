@@ -82,6 +82,7 @@ export default function PauseModal({
             </Pressable>
           )}
 
+          {!isGameOver || allowRetry ? (
           <View style={styles.secondaryRow}>
             {!isGameOver ? (
               <Pressable style={styles.secondary} onPress={onRestart}>
@@ -94,6 +95,7 @@ export default function PauseModal({
               <Text style={styles.secondaryText}>{isGameOver ? "Back Home" : "Save and Exit"}</Text>
             </Pressable>
           </View>
+          ) : null}
 
           {!isGameOver && onResume ? (
             <Pressable style={styles.close} onPress={onResume} hitSlop={10}>
