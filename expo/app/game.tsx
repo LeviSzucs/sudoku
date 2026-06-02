@@ -19,6 +19,7 @@ import useSudokuGame, { type GameMode, type PuzzleResult, type SessionSnapshot }
 import { getDailyDateKey } from "@/lib/daily";
 import { logDevDiagnostic, measureAsync } from "@/lib/performanceDiagnostics";
 import type { ProfileUpdateSummary } from "@/lib/playerProfile";
+import type { ScoreBreakdown } from "@/lib/scoring";
 import { fetchClassicPuzzle, fetchDailyPuzzle, fetchPuzzleById, formatTime, makeEmptyNotes, type RawPuzzleData } from "@/lib/sudoku";
 
 const MODE_LABEL: Record<GameMode, string> = {
@@ -150,6 +151,7 @@ export default function GameScreen() {
   const { recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchFriendChallenges } = usePlayerProfile();
   const [completionSummary, setCompletionSummary] = useState<ProfileUpdateSummary | null>(null);
   const [officialScore, setOfficialScore] = useState<number | null>(null);
+  const [officialScoreBreakdown, setOfficialScoreBreakdown] = useState<ScoreBreakdown | null>(null);
   const [officialLeaderboardEligible, setOfficialLeaderboardEligible] = useState<boolean | null>(null);
   const [officialSubmitError, setOfficialSubmitError] = useState<string | null>(null);
   const [challengeOutcome, setChallengeOutcome] = useState<ChallengeOutcomeCopy | null>(null);
@@ -442,6 +444,7 @@ export default function GameScreen() {
     if (!game.result || processedResultId?.startsWith(`${game.result.puzzle_id}:`) || isSubmittingResult) return;
     setIsSubmittingResult(true);
     setOfficialScore(null);
+    setOfficialScoreBreakdown(null);
     setOfficialLeaderboardEligible(null);
     setOfficialSubmitError(null);
     setChallengeOutcome(null);
@@ -480,6 +483,7 @@ export default function GameScreen() {
           setCompletionSummary(summary);
           const officialResult = summary.updatedProfile.recent_results[0];
           setOfficialScore(officialResult?.final_score ?? null);
+          setOfficialScoreBreakdown(officialResult?.score_breakdown ?? game.result?.score_breakdown ?? null);
           setOfficialLeaderboardEligible(officialResult?.eligible_for_leaderboard ?? false);
           if (effectiveMode === "friend_challenge" && completedSessionId) {
             const challenges = await fetchFriendChallenges();
@@ -509,6 +513,7 @@ export default function GameScreen() {
     const summary = recordPuzzleResult(resultWithSession, outcome, { sessionId: completedSessionId });
     setCompletionSummary(summary);
     setOfficialScore(summary.updatedProfile.recent_results[0]?.final_score ?? null);
+    setOfficialScoreBreakdown(summary.updatedProfile.recent_results[0]?.score_breakdown ?? game.result.score_breakdown ?? null);
     setOfficialLeaderboardEligible(summary.updatedProfile.recent_results[0]?.eligible_for_leaderboard ?? false);
     void closeSessionForPuzzle(game.result.puzzle_id, completedSessionId).finally(() => {
       currentSessionIdRef.current = null;
@@ -525,6 +530,7 @@ export default function GameScreen() {
     setProcessedFailedSessionId(failedSessionId);
     setIsSubmittingFailedResult(true);
     setOfficialScore(0);
+    setOfficialScoreBreakdown(null);
     setOfficialLeaderboardEligible(false);
     setOfficialSubmitError(null);
     setChallengeOutcome(null);
@@ -568,6 +574,7 @@ export default function GameScreen() {
         setCompletionSummary(summary);
         const officialResult = summary.updatedProfile.recent_results[0];
         setOfficialScore(officialResult?.final_score ?? 0);
+        setOfficialScoreBreakdown(null);
         setOfficialLeaderboardEligible(officialResult?.eligible_for_leaderboard ?? false);
         if (effectiveMode === "friend_challenge") {
           const challenges = await fetchFriendChallenges();
@@ -608,6 +615,7 @@ export default function GameScreen() {
     cleanupCompletedSession();
     setCompletionSummary(null);
     setOfficialScore(null);
+    setOfficialScoreBreakdown(null);
     setOfficialLeaderboardEligible(null);
     setOfficialSubmitError(null);
     setChallengeOutcome(null);
@@ -855,6 +863,7 @@ export default function GameScreen() {
         undoCount={game.undoCount}
         leaderboardEligible={completionOfficialStatus === "saved" ? officialLeaderboardEligible ?? false : !auth.isSignedIn ? game.result?.eligible_for_leaderboard ?? false : false}
         score={officialScore ?? game.score}
+        scoreBreakdown={officialScoreBreakdown ?? game.result?.score_breakdown ?? null}
         streak={completionSummary?.updatedProfile.current_streak ?? 0}
         difficulty={game.difficulty}
         mode={MODE_LABEL[effectiveMode]}
@@ -868,6 +877,7 @@ export default function GameScreen() {
         onHome={() => {
           cleanupCompletedSession();
           setOfficialScore(null);
+          setOfficialScoreBreakdown(null);
           setOfficialLeaderboardEligible(null);
           setOfficialSubmitError(null);
           setChallengeOutcome(null);
@@ -877,6 +887,7 @@ export default function GameScreen() {
         onClose={() => {
           cleanupCompletedSession();
           setOfficialScore(null);
+          setOfficialScoreBreakdown(null);
           setOfficialLeaderboardEligible(null);
           setOfficialSubmitError(null);
           setChallengeOutcome(null);

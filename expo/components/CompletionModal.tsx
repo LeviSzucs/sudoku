@@ -2,6 +2,7 @@ import { Flame, Home, RotateCw, Share2, X } from "lucide-react-native";
 import React from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { C } from "@/constants/colors";
+import type { ScoreBreakdown } from "@/lib/scoring";
 import { formatTime } from "@/lib/sudoku";
 
 interface Props {
@@ -12,6 +13,7 @@ interface Props {
   undoCount: number;
   leaderboardEligible: boolean;
   score: number;
+  scoreBreakdown?: ScoreBreakdown | null;
   streak: number;
   difficulty: string;
   mode: string;
@@ -36,6 +38,7 @@ export default function CompletionModal({
   undoCount,
   leaderboardEligible,
   score,
+  scoreBreakdown = null,
   streak,
   difficulty,
   mode,
@@ -87,6 +90,13 @@ export default function CompletionModal({
           <View style={styles.scoreBox}>
             <Text style={styles.scoreLabel}>FINAL SCORE</Text>
             <Text style={styles.scoreValue}>{score.toLocaleString()}</Text>
+            {scoreBreakdown ? (
+              <View style={styles.breakdown}>
+                <BreakdownLine label="Placements" value={scoreBreakdown.placementPoints} />
+                <BreakdownLine label="Bonuses" value={scoreBreakdown.streakBonus + scoreBreakdown.unitBonus + scoreBreakdown.completionBonus + scoreBreakdown.speedBonus} />
+                <BreakdownLine label="Penalties" value={-(scoreBreakdown.mistakePenalty + scoreBreakdown.hintPenalty + scoreBreakdown.undoPenalty + scoreBreakdown.slowPenalty)} />
+              </View>
+            ) : null}
             {showOfficialPending ? <Text style={styles.eligibleText}>Saving official result...</Text> : null}
             {showOfficialFailure ? <Text style={styles.errorText}>Official result not saved</Text> : null}
             {showOfficialFailure && officialError ? <Text style={styles.errorDetail}>{officialError}</Text> : null}
@@ -152,6 +162,16 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+function BreakdownLine({ label, value }: { label: string; value: number }) {
+  const sign = value > 0 ? "+" : "";
+  return (
+    <View style={styles.breakdownLine}>
+      <Text style={styles.breakdownLabel}>{label}</Text>
+      <Text style={styles.breakdownValue}>{sign}{value.toLocaleString()}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
@@ -196,6 +216,10 @@ const styles = StyleSheet.create({
   scoreBox: { marginTop: 14, alignItems: "center" },
   scoreLabel: { fontSize: 10, color: C.muted, fontWeight: "800", letterSpacing: 1.6 },
   scoreValue: { fontSize: 38, fontWeight: "800", color: C.ink, letterSpacing: -1, marginTop: 4 },
+  breakdown: { width: "100%", minWidth: 220, marginTop: 8, gap: 3 },
+  breakdownLine: { flexDirection: "row", justifyContent: "space-between", gap: 16 },
+  breakdownLabel: { color: C.muted, fontSize: 11, fontWeight: "800" },
+  breakdownValue: { color: C.ink, fontSize: 11, fontWeight: "900" },
   eligibleText: { fontSize: 12, color: C.muted, fontWeight: "700", marginTop: 2 },
   errorText: { fontSize: 13, color: C.danger, fontWeight: "800", marginTop: 6 },
   errorDetail: { fontSize: 11, color: C.muted, fontWeight: "700", marginTop: 2, textAlign: "center" },

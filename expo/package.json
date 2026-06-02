@@ -11,6 +11,7 @@
     "generate:puzzles": "node scripts/generate-puzzles.js",
     "validate:puzzles": "node scripts/validate-puzzles.js",
     "validate:unique-puzzles": "node scripts/validate-puzzles.js",
+    "validate:scoring": "node scripts/validate-scoring.js",
     "export:puzzles-sql": "node scripts/export-puzzles-sql.js",
     "validate:givens": "node scripts/validate-given-cells.js"
   },

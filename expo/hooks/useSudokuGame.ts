@@ -17,20 +17,13 @@ import {
 import type { Difficulty } from "@/constants/mockData";
 import { isEditableGivenCell, isGivenCell } from "@/lib/givenCells";
 import { logDevDiagnostic, measureInteraction } from "@/lib/performanceDiagnostics";
+import { calculateSudokuScore, type ScoreBreakdown } from "@/lib/scoring";
 
 export type GameMode = "daily" | "classic" | "duel" | "friend_challenge" | "ranked";
 
 export const MAX_MISTAKES = 3;
 
 const COMPLETED_RESULTS_KEY = "sudoku.completed_results";
-
-const DIFFICULTY_BASE: Record<Difficulty, number> = {
-  Easy: 1000,
-  Medium: 3000,
-  Hard: 5000,
-  Expert: 8000,
-  Master: 12000,
-};
 
 export type MoveType = "entry" | "erase" | "note" | "undo" | "hint";
 
@@ -43,6 +36,12 @@ export interface MoveHistoryEntry {
   previous_value: number | number[] | null;
   new_value: number | number[] | null;
   was_correct?: boolean;
+  accepted?: boolean;
+  notes_mode_active?: boolean;
+  cell_index?: number;
+  completed_row?: boolean;
+  completed_column?: boolean;
+  completed_box?: boolean;
   mode: GameMode;
 }
 
@@ -71,6 +70,7 @@ export interface PuzzleResult {
   undo_count: number;
   move_count: number;
   final_score: number;
+  score_breakdown?: ScoreBreakdown;
   eligible_for_leaderboard: boolean;
   eligible_for_ranked: boolean;
   completed_at: string;
@@ -81,14 +81,25 @@ export function calculateScore(
   elapsedSeconds: number,
   mistakes: number,
   hintsUsed: number,
-  undoCount: number
+  undoCount: number,
+  moveHistory: MoveHistoryEntry[] = [],
+  givens: Board = Array.from({ length: 9 }, () => Array(9).fill(0)),
+  solution: Board = Array.from({ length: 9 }, () => Array(9).fill(0)),
+  completed = false,
+  failed = false
 ): number {
-  const difficultyBase = DIFFICULTY_BASE[difficulty];
-  const mistakePenalty = mistakes * 250;
-  const hintPenalty = hintsUsed * 500;
-  const undoPenalty = undoCount * 25;
-  const bonuses = (mistakes === 0 ? 250 : 0) + (hintsUsed === 0 ? 250 : 0) + (undoCount === 0 ? 100 : 0);
-  return Math.max(0, difficultyBase - elapsedSeconds - mistakePenalty - hintPenalty - undoPenalty + bonuses);
+  return calculateSudokuScore({
+    difficulty,
+    elapsedSeconds,
+    mistakes,
+    hintsUsed,
+    undoCount,
+    moveHistory,
+    givens,
+    solution,
+    completed,
+    failed,
+  }).finalScore;
 }
 
 interface HistoryEntry {
@@ -198,6 +209,25 @@ function getFallbackSolution(difficulty: Difficulty): Board {
 function firstEditableCell(givens: Board): { r: number; c: number } | null {
   for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) if (isEditableGivenCell(givens[r][c])) return { r, c };
   return null;
+}
+
+function isSolvedRow(board: Board, solution: Board, row: number): boolean {
+  return board[row].every((value, column) => value === solution[row][column]);
+}
+
+function isSolvedColumn(board: Board, solution: Board, column: number): boolean {
+  return board.every((row, rowIndex) => row[column] === solution[rowIndex][column]);
+}
+
+function isSolvedBox(board: Board, solution: Board, row: number, column: number): boolean {
+  const startRow = Math.floor(row / 3) * 3;
+  const startColumn = Math.floor(column / 3) * 3;
+  for (let r = startRow; r < startRow + 3; r += 1) {
+    for (let c = startColumn; c < startColumn + 3; c += 1) {
+      if (board[r][c] !== solution[r][c]) return false;
+    }
+  }
+  return true;
 }
 
 function cellBlockReason({
@@ -333,6 +363,7 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
         move_id: `${resolvedPuzzleId}-${moveSequence.current}`,
         timestamp_seconds: elapsedSeconds,
         mode,
+        cell_index: move.row * 9 + move.column,
         ...move,
       };
       setMoveHistory((prev) => [...prev, nextMove]);
@@ -349,12 +380,24 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
       completedMistakes: number,
       completedHints: number,
       completedUndoCount: number,
-      nextMoveCount: number
+      nextMoveCount: number,
+      completedMoveHistory: MoveHistoryEntry[] = moveHistory
     ) => {
       if (completed || gameOver || completedMistakes >= MAX_MISTAKES) return;
       if (countFilled(completedBoard) !== 81 || !isComplete(completedBoard, solution)) return;
 
-      const computedScore = calculateScore(difficulty, elapsedSeconds, completedMistakes, completedHints, completedUndoCount);
+      const scoreBreakdown = calculateSudokuScore({
+        difficulty,
+        elapsedSeconds,
+        mistakes: completedMistakes,
+        hintsUsed: completedHints,
+        undoCount: completedUndoCount,
+        moveHistory: completedMoveHistory,
+        givens,
+        solution,
+        completed: true,
+      });
+      const computedScore = scoreBreakdown.finalScore;
       const eligibleForLeaderboard = getEligibleForLeaderboard(true, completedHints, false);
       const eligibleForRanked = getEligibleForRanked(mode, true, completedHints, resolvedPuzzleId, elapsedSeconds, computedScore);
       const completedResult: PuzzleResult = {
@@ -368,6 +411,7 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
         undo_count: completedUndoCount,
         move_count: nextMoveCount,
         final_score: computedScore,
+        score_breakdown: scoreBreakdown,
         eligible_for_leaderboard: eligibleForLeaderboard,
         eligible_for_ranked: eligibleForRanked,
         completed_at: new Date().toISOString(),
@@ -383,7 +427,7 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
         JSON.stringify({ [resolvedPuzzleId]: completedResult })
       ).catch(() => {});
     },
-    [completed, difficulty, gameOver, mode, solution, resolvedPuzzleId]
+    [completed, difficulty, gameOver, mode, solution, resolvedPuzzleId, moveHistory, givens]
   );
 
   // Auto-pause game-over
@@ -484,11 +528,15 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
             column: c,
             previous_value: previousNotes,
             new_value: [...cellNotes],
+            notes_mode_active: true,
           });
           return;
         }
 
         const previousValue = board[r][c];
+        const rowWasSolved = isSolvedRow(board, solution, r);
+        const columnWasSolved = isSolvedColumn(board, solution, c);
+        const boxWasSolved = isSolvedBox(board, solution, r, c);
         const nextBoard = board.map((row) => [...row]);
         nextBoard[r][c] = n;
         const wasCorrect = n === solution[r][c];
@@ -507,18 +555,23 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
           });
         }
 
-        addMove({
+        const move = addMove({
           type: "entry",
           row: r,
           column: c,
           previous_value: previousValue,
           new_value: n,
           was_correct: wasCorrect,
+          accepted: true,
+          notes_mode_active: false,
+          completed_row: wasCorrect && !rowWasSolved && isSolvedRow(nextBoard, solution, r),
+          completed_column: wasCorrect && !columnWasSolved && isSolvedColumn(nextBoard, solution, c),
+          completed_box: wasCorrect && !boxWasSolved && isSolvedBox(nextBoard, solution, r, c),
         });
-        completePuzzle(nextBoard, secondsRef.current, nextMistakes, hintsUsed, undoCount, moveCountRef.current);
+        completePuzzle(nextBoard, secondsRef.current, nextMistakes, hintsUsed, undoCount, moveCountRef.current, [...moveHistory, move]);
       });
     },
-    [selected, paused, completed, gameOver, notesMode, pushHistory, board, mistakes, completePuzzle, hintsUsed, undoCount, addMove, notes, givens, solution]
+    [selected, paused, completed, gameOver, notesMode, pushHistory, board, mistakes, completePuzzle, hintsUsed, undoCount, addMove, notes, givens, solution, moveHistory]
   );
 
   const erase = useCallback(() => {
@@ -552,6 +605,7 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
         column: c,
         previous_value: previousValue,
         new_value: board[r][c] !== 0 ? 0 : [],
+        accepted: true,
       });
     });
   }, [selected, paused, completed, gameOver, pushHistory, board, notes, addMove, givens]);
@@ -572,6 +626,7 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
         column: last.column,
         previous_value: board[last.row]?.[last.column] ?? null,
         new_value: last.board[last.row]?.[last.column] ?? null,
+        accepted: true,
       });
     });
   }, [paused, completed, gameOver, undoCount, addMove, board]);
@@ -608,17 +663,18 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
       const nextBoard = board.map((row) => [...row]);
       nextBoard[r][c] = solution[r][c];
       setHintsUsed(nextHintsUsed);
-      addMove({
+      const move = addMove({
         type: "hint",
         row: r,
         column: c,
         previous_value: previousValue,
         new_value: solution[r][c],
         was_correct: true,
+        accepted: true,
       });
-      completePuzzle(nextBoard, secondsRef.current, mistakes, nextHintsUsed, undoCount, moveCountRef.current);
+      completePuzzle(nextBoard, secondsRef.current, mistakes, nextHintsUsed, undoCount, moveCountRef.current, [...moveHistory, move]);
     });
-  }, [hintAllowed, selected, paused, completed, gameOver, pushHistory, board, hintsUsed, completePuzzle, mistakes, undoCount, addMove, givens, solution]);
+  }, [hintAllowed, selected, paused, completed, gameOver, pushHistory, board, hintsUsed, completePuzzle, mistakes, undoCount, addMove, givens, solution, moveHistory]);
 
   const toggleNotes = useCallback(() => {
     measureInteraction("notes toggle to state update", () => {
@@ -670,8 +726,8 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
 
   const score = useMemo(() => {
     if (finalScore !== null) return finalScore;
-    return calculateScore(difficulty, seconds, mistakes, hintsUsed, undoCount);
-  }, [difficulty, finalScore, hintsUsed, mistakes, seconds, undoCount]);
+    return calculateScore(difficulty, seconds, mistakes, hintsUsed, undoCount, moveHistory, givens, solution, completed, gameOver);
+  }, [difficulty, finalScore, hintsUsed, mistakes, seconds, undoCount, moveHistory, givens, solution, completed, gameOver]);
 
   return useMemo(() => ({
     puzzleId: resolvedPuzzleId,
