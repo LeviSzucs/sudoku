@@ -20,6 +20,8 @@ interface Props {
   xpEarned?: number;
   levelUpMessage?: string | null;
   unlockedBadges?: { name: string; icon: string }[];
+  outcomeTitle?: string | null;
+  outcomeSubtitle?: string | null;
   onNext: () => void;
   onShare: () => void;
   onHome: () => void;
@@ -42,6 +44,8 @@ export default function CompletionModal({
   xpEarned = 0,
   levelUpMessage = null,
   unlockedBadges = [],
+  outcomeTitle = null,
+  outcomeSubtitle = null,
   onNext,
   onShare,
   onHome,
@@ -69,8 +73,9 @@ export default function CompletionModal({
             <Text style={{ fontSize: 30 }}>★</Text>
           </View>
           <Text style={styles.kicker}>{mode.toUpperCase()} · COMPLETE</Text>
-          <Text style={styles.title}>Puzzle complete</Text>
+          <Text style={styles.title}>{outcomeTitle ?? "Puzzle complete"}</Text>
           <Text style={styles.sub}>{completionCopy}</Text>
+          {outcomeSubtitle ? <Text style={styles.outcomeSub}>{outcomeSubtitle}</Text> : null}
 
           <View style={styles.stats}>
             <Stat label="Time" value={formatTime(time)} />
@@ -175,6 +180,7 @@ const styles = StyleSheet.create({
   kicker: { fontSize: 11, color: C.gold, fontWeight: "800", letterSpacing: 1.6 },
   title: { fontSize: 25, fontWeight: "700", color: C.ink, marginTop: 6, letterSpacing: -0.5, textAlign: "center" },
   sub: { fontSize: 13, color: C.muted, marginTop: 4, textAlign: "center" },
+  outcomeSub: { fontSize: 13, color: C.accent, marginTop: 4, textAlign: "center", fontWeight: "800" },
   stats: {
     flexDirection: "row",
     width: "100%",
