@@ -21,6 +21,7 @@ export interface PuzzleValidationResult {
   valid: boolean;
   errors: string[];
   warnings: string[];
+  solutionCount?: number;
 }
 
 /** Convert an 81-char string to a 9x9 Board (0 = empty). */
@@ -35,6 +36,100 @@ export function parseTextToBoard(s: string): Board {
     board.push(row);
   }
   return board;
+}
+
+function flatGivensToBoard(givens: string): number[] {
+  return Array.from({ length: 81 }, (_, index) => givenCellToBoardValue(givens[index] ?? "0"));
+}
+
+function hasDuplicateUnitValues(board: number[]): boolean {
+  const hasDupes = (values: number[]): boolean => {
+    const seen = new Set<number>();
+    for (const value of values) {
+      if (value === 0) continue;
+      if (seen.has(value)) return true;
+      seen.add(value);
+    }
+    return false;
+  };
+
+  for (let row = 0; row < 9; row++) {
+    if (hasDupes(board.slice(row * 9, row * 9 + 9))) return true;
+  }
+  for (let col = 0; col < 9; col++) {
+    const values: number[] = [];
+    for (let row = 0; row < 9; row++) values.push(board[row * 9 + col]);
+    if (hasDupes(values)) return true;
+  }
+  for (let box = 0; box < 9; box++) {
+    const values: number[] = [];
+    const startRow = Math.floor(box / 3) * 3;
+    const startCol = (box % 3) * 3;
+    for (let row = startRow; row < startRow + 3; row++) {
+      for (let col = startCol; col < startCol + 3; col++) values.push(board[row * 9 + col]);
+    }
+    if (hasDupes(values)) return true;
+  }
+  return false;
+}
+
+function candidatesFor(board: number[], index: number): number[] {
+  if (board[index] !== 0) return [];
+  const used = new Set<number>();
+  const row = Math.floor(index / 9);
+  const col = index % 9;
+  const boxRow = Math.floor(row / 3) * 3;
+  const boxCol = Math.floor(col / 3) * 3;
+
+  for (let c = 0; c < 9; c++) used.add(board[row * 9 + c]);
+  for (let r = 0; r < 9; r++) used.add(board[r * 9 + col]);
+  for (let r = boxRow; r < boxRow + 3; r++) {
+    for (let c = boxCol; c < boxCol + 3; c++) used.add(board[r * 9 + c]);
+  }
+
+  const result: number[] = [];
+  for (let digit = 1; digit <= 9; digit++) {
+    if (!used.has(digit)) result.push(digit);
+  }
+  return result;
+}
+
+export function countPuzzleSolutions(givens: string, limit = 2): number {
+  const board = flatGivensToBoard(givens);
+  if (hasDuplicateUnitValues(board)) return 0;
+  let count = 0;
+
+  function search(): void {
+    if (count >= limit) return;
+    let bestIndex = -1;
+    let bestCandidates: number[] | null = null;
+
+    for (let index = 0; index < 81; index++) {
+      if (board[index] !== 0) continue;
+      const candidates = candidatesFor(board, index);
+      if (candidates.length === 0) return;
+      if (bestCandidates === null || candidates.length < bestCandidates.length) {
+        bestIndex = index;
+        bestCandidates = candidates;
+        if (candidates.length === 1) break;
+      }
+    }
+
+    if (bestIndex === -1 || bestCandidates === null) {
+      count += 1;
+      return;
+    }
+
+    for (const candidate of bestCandidates) {
+      board[bestIndex] = candidate;
+      search();
+      board[bestIndex] = 0;
+      if (count >= limit) return;
+    }
+  }
+
+  search();
+  return count;
 }
 
 /** Validate a puzzle's givens and solution. */
@@ -141,7 +236,14 @@ export function validatePuzzle(givens: string, solution: string): PuzzleValidati
     warnings.push(`${givenCount} givens — this puzzle may be too easy.`);
   }
 
-  return { valid: errors.length === 0, errors, warnings };
+  const solutionCount = countPuzzleSolutions(givens, 2);
+  if (solutionCount === 0) {
+    errors.push("Puzzle has no valid solution.");
+  } else if (solutionCount > 1) {
+    errors.push("Puzzle has more than one valid solution.");
+  }
+
+  return { valid: errors.length === 0, errors, warnings, solutionCount };
 }
 
 /** Check if a puzzle is valid (throws if not). Use for runtime guarding. */
