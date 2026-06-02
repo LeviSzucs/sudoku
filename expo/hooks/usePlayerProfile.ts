@@ -1091,7 +1091,6 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       .select(selectColumns)
       .eq("mode", "daily")
       .eq("completed", true)
-      .eq("eligible_for_leaderboard", true)
       .order("completed_at", { ascending: true });
 
     logDevDiagnostic("daily leaderboard raw query result", {
@@ -1101,7 +1100,6 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
         table: "game_results",
         mode: "daily",
         completed: true,
-        eligible_for_leaderboard: true,
       },
       rowsReturned: rawData?.length ?? 0,
       rows: rawData ?? [],
@@ -1168,8 +1166,8 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     });
     updateDiagnostics({ lastError: rpcError.message });
 
-    const buildQuery = (requireEligibility: boolean) => {
-      let query = supabase
+    const buildQuery = () => (
+      supabase
         .from("game_results")
         .select(selectColumns)
         .eq("mode", "daily")
@@ -1177,10 +1175,8 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
         .eq("completed", true)
         .order("final_score", { ascending: false })
         .order("elapsed_seconds", { ascending: true })
-        .order("completed_at", { ascending: true });
-      if (requireEligibility) query = query.eq("eligible_for_leaderboard", true);
-      return query;
-    };
+        .order("completed_at", { ascending: true })
+    );
 
     logDevDiagnostic("daily leaderboard fetch start", {
       dateStr,
@@ -1191,17 +1187,9 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
         mode: "daily",
         puzzle_id: assignedPuzzleId,
         completed: true,
-        eligible_for_leaderboard: true,
       },
     });
-    let { data, error } = await buildQuery(true);
-    if (error && (error.code === "42703" || error.message.toLowerCase().includes("eligible_for_leaderboard"))) {
-      logDevDiagnostic("daily leaderboard eligibility filter unavailable", {
-        dateStr,
-        supabaseError: error.message,
-      });
-      ({ data, error } = await buildQuery(false));
-    }
+    const { data, error } = await buildQuery();
     if (error) {
       logDevDiagnostic("daily leaderboard fetch result", {
         dateStr,
