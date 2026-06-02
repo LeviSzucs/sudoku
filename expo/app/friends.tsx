@@ -417,7 +417,7 @@ function UserRow({ user, last, action, working, challengeWorking, onPress, onCha
   return (
     <View style={[styles.userRow, !last && styles.rowBorder]}>
       <Avatar initials={user.initials} color={user.avatar_color} size={44} />
-      <View style={{ flex: 1 }}>
+      <View style={styles.userInfo}>
         <Text style={styles.rowTitle}>{user.display_name}</Text>
         <Text style={styles.rowSub}>@{user.username_handle}</Text>
       </View>
@@ -556,16 +556,17 @@ const styles = StyleSheet.create({
   searchButtonText: { color: "#FBF8F2", fontWeight: "900" },
   helper: { color: C.muted, fontSize: 12, fontWeight: "700", marginTop: 9 },
   userRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },
+  userInfo: { flex: 1, minWidth: 0 },
   row: { flexDirection: "row", alignItems: "center", gap: 10, padding: 16 },
   rowBorder: { borderBottomWidth: 1, borderBottomColor: C.border },
   rowTitle: { color: C.ink, fontWeight: "900", fontSize: 15 },
   rowSub: { color: C.muted, fontWeight: "700", fontSize: 12, marginTop: 2 },
   emptyRow: { alignItems: "center", justifyContent: "center", padding: 22, gap: 8 },
   emptyText: { color: C.muted, fontWeight: "700", textAlign: "center", marginTop: 10 },
-  friendActions: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", maxWidth: 190 },
+  friendActions: { alignItems: "stretch", gap: 8, minWidth: 108 },
   addButton: { minHeight: 38, borderRadius: 999, backgroundColor: C.accent, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 13 },
-  challengeButton: { minHeight: 38, borderRadius: 999, backgroundColor: C.ink, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 13 },
-  historyButton: { minHeight: 38, borderRadius: 999, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12 },
+  challengeButton: { minHeight: 38, minWidth: 108, borderRadius: 999, backgroundColor: C.ink, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 13 },
+  historyButton: { minHeight: 34, minWidth: 108, borderRadius: 999, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 12 },
   historyButtonText: { color: C.ink, fontWeight: "900", fontSize: 12 },
   addButtonText: { color: "#FBF8F2", fontWeight: "900", fontSize: 12 },
   statusPill: { color: C.accent, fontWeight: "900", fontSize: 12, maxWidth: 136, textAlign: "right" },

@@ -1,8 +1,7 @@
-import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, Swords, Trophy } from "lucide-react-native";
+import { useLocalSearchParams } from "expo-router";
+import { Swords, Trophy } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Pressable } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/components/Avatar";
@@ -52,16 +51,11 @@ export default function FriendHeadToHeadScreen() {
   }, [fetchFriendHeadToHead, friendId]);
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerRow}>
-          <Pressable onPress={() => router.back()} hitSlop={10} style={styles.iconButton}>
-            <ArrowLeft size={20} color={C.ink} />
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.kicker}>HEAD TO HEAD</Text>
-            <Text style={styles.title}>Challenge history</Text>
-          </View>
+    <SafeAreaView style={styles.safe} edges={["bottom"]}>
+      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32, paddingHorizontal: 20, paddingTop: 16 }} showsVerticalScrollIndicator={false}>
+        <View style={styles.pageIntro}>
+          <Text style={styles.kicker}>HEAD TO HEAD</Text>
+          <Text style={styles.title}>Challenge history</Text>
         </View>
 
         {loading ? (
@@ -92,7 +86,7 @@ export default function FriendHeadToHeadScreen() {
               </View>
               <Text style={styles.recordSub}>
                 {summary.total_completed} completed challenge{summary.total_completed === 1 ? "" : "s"}
-                {summary.draws > 0 ? ` · ${summary.draws} draw${summary.draws === 1 ? "" : "s"}` : ""}
+                {summary.draws > 0 ? ` / ${summary.draws} draw${summary.draws === 1 ? "" : "s"}` : ""}
               </Text>
             </Card>
 
@@ -180,11 +174,10 @@ function ResultMini({ label, score, seconds, mistakes, hints, undos }: { label: 
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
-  headerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 18, paddingTop: 12 },
-  iconButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
+  pageIntro: { marginBottom: 18 },
   kicker: { fontSize: 11, color: C.muted, fontWeight: "700", letterSpacing: 1.6 },
   title: { color: C.ink, fontSize: 28, fontWeight: "900", marginTop: 2 },
-  section: { marginTop: 22 },
+  section: { marginTop: 24 },
   friendHeader: { flexDirection: "row", alignItems: "center", gap: 14 },
   friendName: { color: C.ink, fontSize: 20, fontWeight: "900" },
   friendHandle: { color: C.muted, fontWeight: "800", marginTop: 3 },
@@ -194,7 +187,7 @@ const styles = StyleSheet.create({
   recordLabel: { color: C.muted, fontWeight: "800", marginTop: 2 },
   recordDash: { color: C.mutedSoft, fontSize: 30, fontWeight: "900" },
   recordSub: { color: C.muted, fontWeight: "800", textAlign: "center", marginTop: 10 },
-  grid: { gap: 10 },
+  grid: { gap: 12 },
   metricCard: { padding: 14 },
   metricLabel: { color: C.ink, fontWeight: "900", fontSize: 15, marginBottom: 8 },
   metricLine: { flexDirection: "row", justifyContent: "space-between", gap: 12, marginTop: 4 },
@@ -205,7 +198,7 @@ const styles = StyleSheet.create({
   emptyRow: { alignItems: "center", justifyContent: "center", padding: 22, gap: 8 },
   emptyTitle: { color: C.ink, fontSize: 18, fontWeight: "900" },
   emptyText: { color: C.muted, fontWeight: "700", textAlign: "center" },
-  matchRow: { padding: 14, gap: 12 },
+  matchRow: { padding: 16, gap: 12 },
   rowBorder: { borderBottomWidth: 1, borderBottomColor: C.border },
   matchTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
   matchTitle: { color: C.ink, fontWeight: "900", fontSize: 15 },
@@ -214,7 +207,7 @@ const styles = StyleSheet.create({
   winPill: { color: C.success, backgroundColor: "#E5F1E9" },
   lossPill: { color: C.danger, backgroundColor: "#F7DEDC" },
   drawPill: { color: C.muted, backgroundColor: C.bgElevated },
-  resultCompare: { flexDirection: "row", gap: 10 },
+  resultCompare: { flexDirection: "row", gap: 12 },
   resultMini: { flex: 1, borderRadius: 12, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, padding: 10 },
   resultMiniLabel: { color: C.muted, fontSize: 11, fontWeight: "800" },
   resultMiniScore: { color: C.ink, fontSize: 16, fontWeight: "900", marginTop: 2 },
