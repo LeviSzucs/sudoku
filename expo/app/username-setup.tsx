@@ -108,11 +108,11 @@ export default function UsernameSetupScreen() {
               value={displayName}
               onChangeText={handleDisplayNameChange}
               maxLength={30}
-              placeholder="Levi"
+              placeholder="Enter your display name"
               placeholderTextColor={C.mutedSoft}
               style={styles.input}
             />
-            <Text style={[styles.helper, displayName.length > 0 && !displayNameValid && styles.errorText]}>2-30 characters. Capitals and spaces are okay.</Text>
+            <Text style={[styles.helper, displayName.length > 0 && !displayNameValid && styles.errorText]}>2-30 characters. Capitals and spaces are okay. Example: Player</Text>
             <Text style={styles.label}>Username</Text>
             <TextInput
               autoCapitalize="none"
@@ -120,11 +120,11 @@ export default function UsernameSetupScreen() {
               value={username}
               onChangeText={handleUsernameChange}
               maxLength={20}
-              placeholder="levi_s"
+              placeholder="choose_username"
               placeholderTextColor={C.mutedSoft}
               style={styles.input}
             />
-            <Text style={styles.helper}>Used for friend search. Lowercase only.</Text>
+            <Text style={styles.helper}>Used for friend search. Lowercase letters, numbers and underscores only. Example: player_1</Text>
             <Text style={[styles.helper, availability?.status === "available" && styles.available, (availability?.status === "invalid" || availability?.status === "unavailable" || availability?.status === "error") && styles.errorText]}>{availabilityText}</Text>
             {error ? <Text style={styles.error}>{error}</Text> : null}
             <Pressable disabled={!canSubmit} onPress={submit} style={[styles.primary, !canSubmit && { opacity: 0.55 }]}>

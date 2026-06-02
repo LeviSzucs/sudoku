@@ -16,11 +16,16 @@ const queryClient = new QueryClient();
 function RootLayoutNav() {
   const auth = useAuth();
   const { isLoaded, profileSetupRequired } = usePlayerProfile();
-  const showAuth = auth.mode !== "signed_in";
-  const showSetup = auth.mode === "signed_in" && (!isLoaded || profileSetupRequired);
+  const isCheckingProfile = auth.mode === "signed_in" && !isLoaded;
+  const showLoading = auth.mode === "loading" || isCheckingProfile;
+  const showAuth = auth.mode === "signed_out";
+  const showSetup = auth.mode === "signed_in" && isLoaded && profileSetupRequired;
   const showApp = auth.mode === "signed_in" && isLoaded && !profileSetupRequired;
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
+      <Stack.Protected guard={showLoading}>
+        <Stack.Screen name="loading" options={{ headerShown: false, animation: "fade" }} />
+      </Stack.Protected>
       <Stack.Protected guard={showAuth}>
         <Stack.Screen name="auth" options={{ headerShown: false, animation: "fade" }} />
       </Stack.Protected>

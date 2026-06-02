@@ -432,7 +432,16 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
         }
         if (!selected) return;
         const { r, c } = selected;
-        if (board[r][c] === n && !notesMode) return;
+        if (board[r][c] === n && !notesMode) {
+          if (notes[r][c].length > 0) {
+            setNotes((prev) => {
+              const next = prev.map((row) => row.map((cell) => [...cell]));
+              next[r][c] = [];
+              return next;
+            });
+          }
+          return;
+        }
         logDevDiagnostic("number press accepted", {
           selectedCell: selected,
           attemptedNumber: n,
