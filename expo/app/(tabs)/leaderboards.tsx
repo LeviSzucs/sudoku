@@ -43,11 +43,14 @@ export default function LeaderboardsScreen() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>("daily");
   const auth = useAuth();
-  const { profile, fetchDailyLeaderboard, fetchWeeklyLeaderboard } = usePlayerProfile();
+  const { profile, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, fetchFriends } = usePlayerProfile();
   const [dailyData, setDailyData] = useState<LeaderboardEntry[]>([]);
   const [weeklyData, setWeeklyData] = useState<LeaderboardEntry[]>([]);
+  const [friendsData, setFriendsData] = useState<LeaderboardEntry[]>([]);
+  const [friendsCount, setFriendsCount] = useState(0);
   const [isLoadingDaily, setIsLoadingDaily] = useState(false);
   const [isLoadingWeekly, setIsLoadingWeekly] = useState(false);
+  const [isLoadingFriends, setIsLoadingFriends] = useState(false);
   const today = useMemo(() => getDailyDateKey(), []);
   const currentUserId = auth.user?.id ?? profile.user_id;
 
@@ -102,11 +105,38 @@ export default function LeaderboardsScreen() {
     return () => { active = false; };
   }, [fetchWeeklyLeaderboard, tab, today]);
 
+  useEffect(() => {
+    let active = true;
+    if (tab !== "friends") return () => { active = false; };
+
+    setIsLoadingFriends(true);
+    void Promise.all([fetchFriends(), fetchFriendsWeeklyLeaderboard(today)])
+      .then(([friends, rows]) => {
+        if (!active) return;
+        setFriendsCount(friends.length);
+        setFriendsData(rows.map((row) => ({
+          id: row.user_id,
+          rank: row.rank,
+          user: { id: row.user_id, username: row.username, initials: row.initials, avatarColor: row.avatar_color },
+          score: row.total_score,
+          time: secondsToTime(row.total_time),
+          puzzlesCompleted: row.puzzles_completed,
+          bestScore: row.best_score,
+        })));
+      })
+      .finally(() => {
+        if (active) setIsLoadingFriends(false);
+      });
+
+    return () => { active = false; };
+  }, [fetchFriends, fetchFriendsWeeklyLeaderboard, tab, today]);
+
   const data = useMemo<LeaderboardEntry[]>(() => {
     if (tab === "daily") return dailyData;
     if (tab === "weekly") return weeklyData;
+    if (tab === "friends") return friendsData;
     return [];
-  }, [dailyData, tab, weeklyData]);
+  }, [dailyData, friendsData, tab, weeklyData]);
 
   const valueLabel = tab === "ranked" ? "RP" : tab === "daily" ? "SCORE" : "POINTS";
   const podiumEntries = [2, 1, 3].map((rankPosition) => data.find((entry) => entry.rank === rankPosition));
@@ -132,7 +162,9 @@ export default function LeaderboardsScreen() {
       };
     }
     if (tab === "friends") {
-      return { title: "Add friends to compare scores", sub: "Friends leaderboards will appear here once friends are available.", icon: <Crown size={36} color={C.mutedSoft} strokeWidth={1.5} /> };
+      if (isLoadingFriends) return { title: "Loading friend scores", sub: "Checking this week's scores", icon: <Crown size={36} color={C.mutedSoft} strokeWidth={1.5} /> };
+      if (friendsCount === 0) return { title: "Add friends to compare scores", sub: "Search by username to build your friends leaderboard.", icon: <Crown size={36} color={C.mutedSoft} strokeWidth={1.5} /> };
+      return { title: "No friend scores this week", sub: "Complete puzzles this week to compare with friends.", icon: <Crown size={36} color={C.mutedSoft} strokeWidth={1.5} /> };
     }
     return { title: "Ranked leaderboard coming soon", sub: "Ranked results will appear once ranked mode is live.", icon: <Trophy size={36} color={C.mutedSoft} strokeWidth={1.5} /> };
   })();
@@ -283,7 +315,7 @@ export default function LeaderboardsScreen() {
                     {tab === "daily" ? (
                       <Text style={styles.metaText}>{entry.time} - {entry.mistakes ?? 0}M {entry.hints ?? 0}H {entry.undos ?? 0}U</Text>
                     ) : null}
-                    {tab === "weekly" ? (
+                    {tab === "weekly" || tab === "friends" ? (
                       <Text style={styles.metaText}>{entry.puzzlesCompleted ?? 0} puzzles - best {(entry.bestScore ?? 0).toLocaleString()} - {entry.time}</Text>
                     ) : null}
                   </View>
