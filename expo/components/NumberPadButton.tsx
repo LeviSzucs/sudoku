@@ -36,7 +36,7 @@ function NumberPadButton({ value, remaining, highlighted, disabled, onPress }: P
         style={[
           styles.num,
           { fontFamily: mono },
-          highlighted && { color: C.accent },
+          highlighted && { color: "#FBF8F2" },
         ]}
         allowFontScaling={false}
       >
@@ -59,8 +59,8 @@ const styles = StyleSheet.create({
     borderColor: C.border,
   },
   btnHighlight: {
-    backgroundColor: C.cellSelected,
-    borderColor: C.borderStrong,
+    backgroundColor: C.accent,
+    borderColor: C.accent,
   },
   num: {
     fontSize: 26,

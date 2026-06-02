@@ -13,9 +13,9 @@ const palette = {
   border: "#E7E1D3",
   borderStrong: "#D4CCB8",
   // Sudoku-specific
-  cellSelected: "#E6DFC9",
-  cellPeer: "#EFEAD9",
-  cellSame: "#D9CFA8",
+  cellSelected: "#D8C57A",
+  cellPeer: "#F1E8CC",
+  cellSame: "#E3D18F",
   cellError: "#F4D4D4",
   // Accents
   accent: "#1E1B4B", // deep indigo
