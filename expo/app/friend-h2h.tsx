@@ -1,7 +1,7 @@
-import { useLocalSearchParams } from "expo-router";
-import { Swords, Trophy } from "lucide-react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import { ArrowLeft, Swords, Trophy } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/components/Avatar";
@@ -30,6 +30,14 @@ function outcomeLabel(outcome: FriendHeadToHeadMatch["outcome"]): string {
   return "Draw";
 }
 
+function goBackSafely() {
+  if (router.canGoBack()) {
+    router.back();
+    return;
+  }
+  router.replace({ pathname: "/friends", params: { mode: "challenge" } });
+}
+
 export default function FriendHeadToHeadScreen() {
   const { friendId } = useLocalSearchParams<{ friendId?: string }>();
   const insets = useSafeAreaInsets();
@@ -51,11 +59,16 @@ export default function FriendHeadToHeadScreen() {
   }, [fetchFriendHeadToHead, friendId]);
 
   return (
-    <SafeAreaView style={styles.safe} edges={["bottom"]}>
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32, paddingHorizontal: 20, paddingTop: 16 }} showsVerticalScrollIndicator={false}>
-        <View style={styles.pageIntro}>
-          <Text style={styles.kicker}>HEAD TO HEAD</Text>
-          <Text style={styles.title}>Challenge history</Text>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
+        <View style={styles.headerRow}>
+          <Pressable onPress={goBackSafely} hitSlop={10} style={styles.iconButton}>
+            <ArrowLeft size={20} color={C.ink} />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.kicker}>HEAD TO HEAD</Text>
+            <Text style={styles.title}>Challenge history</Text>
+          </View>
         </View>
 
         {loading ? (
@@ -174,7 +187,8 @@ function ResultMini({ label, score, seconds, mistakes, hints, undos }: { label: 
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
-  pageIntro: { marginBottom: 18 },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 18, paddingTop: 12 },
+  iconButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
   kicker: { fontSize: 11, color: C.muted, fontWeight: "700", letterSpacing: 1.6 },
   title: { color: C.ink, fontSize: 28, fontWeight: "900", marginTop: 2 },
   section: { marginTop: 24 },
