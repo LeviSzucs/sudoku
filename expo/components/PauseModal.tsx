@@ -9,6 +9,9 @@ interface Props {
   variant?: "pause" | "gameover";
   time: number;
   mistakes: number;
+  allowRetry?: boolean;
+  statusText?: string;
+  primaryGameOverLabel?: string;
   onResume?: () => void;
   onRestart: () => void;
   onExit: () => void;
@@ -19,6 +22,9 @@ export default function PauseModal({
   variant = "pause",
   time,
   mistakes,
+  allowRetry = true,
+  statusText,
+  primaryGameOverLabel,
   onResume,
   onRestart,
   onExit,
@@ -50,7 +56,7 @@ export default function PauseModal({
           </Text>
           <Text style={styles.sub}>
             {isGameOver
-              ? "You reached the mistake limit. Try again?"
+              ? statusText ?? (allowRetry ? "You reached the mistake limit. Try again?" : "You reached the mistake limit. This attempt has been recorded.")
               : "Your puzzle is safe. Resume when ready."}
           </Text>
 
@@ -63,6 +69,11 @@ export default function PauseModal({
             <Pressable style={styles.primary} onPress={onResume}>
               <Play size={16} color="#FBF8F2" fill="#FBF8F2" />
               <Text style={styles.primaryText}>Resume</Text>
+            </Pressable>
+          ) : isGameOver && !allowRetry ? (
+            <Pressable style={styles.primary} onPress={onExit}>
+              <Home size={16} color="#FBF8F2" />
+              <Text style={styles.primaryText}>{primaryGameOverLabel ?? "Back Home"}</Text>
             </Pressable>
           ) : (
             <Pressable style={styles.primary} onPress={onRestart}>

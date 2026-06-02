@@ -58,6 +58,7 @@ export interface OfficialResultPayload {
   badges_unlocked?: AchievementBadge[];
   updated_profile_stats?: Partial<PlayerStatsRow> | null;
   already_finalized?: boolean;
+  won?: boolean | null;
 }
 
 export interface DailyLeaderboardEntry {
@@ -1039,6 +1040,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       eligible_for_ranked: payload.ranked_eligible ?? false,
       completed_at: payload.completed_at ?? new Date().toISOString(),
       xp_earned: payload.xp_earned,
+      result_outcome: payload.won === true ? "win" : payload.won === false ? "loss" : undefined,
     };
     const previousLevel = previousProfile.account_level;
     const unlockedBadges = payload.badges_unlocked ?? [];
@@ -1133,6 +1135,54 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
         updateDiagnostics({ lastError: challengeError.message });
       }
     }
+    const summary = summaryFromOfficialPayload(payload, previousProfile);
+    setLastUpdate(summary);
+    setProfile(summary.updatedProfile);
+    setActiveSessions((prev) => prev.filter((session) => session.session_id !== sessionId));
+    await loadBackendProfile();
+    return summary;
+  }, [auth.isSignedIn, auth.user, loadBackendProfile, profile, recordPuzzleResult, summaryFromOfficialPayload, updateDiagnostics, verifyOwnedInProgressSession]);
+
+  const submitFailedPuzzleResult = useCallback(async (
+    result: PuzzleResult,
+    options?: RecordPuzzleResultOptions
+  ): Promise<ProfileUpdateSummary> => {
+    const sessionId = options?.sessionId ?? result.session_id;
+    if (!auth.isSignedIn) {
+      return recordPuzzleResult(result, "loss", options);
+    }
+
+    if (!auth.user || !isSupabaseConfigured || !sessionId) {
+      const message = !sessionId ? "Could not save official result. Missing puzzle session." : "Could not save failed result. Try again.";
+      updateDiagnostics({ lastError: message });
+      throw new Error(message);
+    }
+
+    logDevDiagnostic("failed result submit start", {
+      authUserId: auth.user.id,
+      activeSessionId: sessionId,
+      puzzleId: result.puzzle_id,
+      mode: result.mode,
+      difficulty: result.difficulty,
+    });
+    await verifyOwnedInProgressSession(sessionId);
+
+    const previousProfile = profile;
+    const { data, error } = await measureAsync("failed result submit duration", () => supabase.rpc("submit_failed_puzzle_result", {
+      p_session_id: sessionId,
+      p_elapsed_seconds: result.elapsed_seconds,
+      p_mistakes: result.mistakes,
+      p_hints_used: result.hints_used,
+      p_undo_count: result.undo_count,
+      p_completed_at: result.completed_at,
+    }));
+
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      throw new Error(error.message);
+    }
+
+    const payload = data as OfficialResultPayload;
     const summary = summaryFromOfficialPayload(payload, previousProfile);
     setLastUpdate(summary);
     setProfile(summary.updatedProfile);
@@ -1739,7 +1789,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     profile, isLoaded, loadError, lastUpdate,
     activeSessions: auth.isSignedIn ? activeSessions : activeGuestSessions.map(guestSessionToPuzzleSessionRow),
     diagnostics, hasActiveSession, profileSetupRequired,
-    recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, simulateResult, simulateRankedWin, simulateRankedLoss,
+    recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, simulateResult, simulateRankedWin, simulateRankedLoss,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge,
     resetLocalProfile, checkUsernameAvailable, completeProfileSetup, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
@@ -1748,7 +1798,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
   }), [
     activeGuestSessions, activeSessions, auth.isSignedIn,
     checkUsernameAvailable, clearLastUpdate, completeProfileSetup, diagnostics, hasActiveSession, isLoaded, lastUpdate, loadError, profile, profileSetupRequired,
-    recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard,
+    recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge,
     repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
