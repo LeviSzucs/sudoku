@@ -9,6 +9,7 @@
     "start-web-dev": "DEBUG=expo* bunx rork start -p okidsmkev7mo0mtc0ic0z --web --tunnel",
     "lint": "expo lint",
     "validate:puzzles": "node scripts/validate-puzzles.js",
+    "validate:unique-puzzles": "node scripts/validate-puzzles.js",
     "validate:givens": "node scripts/validate-given-cells.js"
   },
   "dependencies": {
