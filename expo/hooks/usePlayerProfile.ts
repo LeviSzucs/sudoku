@@ -112,6 +112,50 @@ export interface FriendRequestEntry {
   created_at: string;
 }
 
+export interface FriendChallengeEntry {
+  challenge_id: string;
+  direction: "incoming" | "outgoing";
+  status: "pending" | "accepted" | "challenger_completed" | "challenged_completed" | "completed" | "declined" | "cancelled" | "expired";
+  puzzle_id: string;
+  difficulty: PuzzleResult["difficulty"];
+  challenger_id: string;
+  challenged_id: string;
+  friend_user_id: string;
+  friend_display_name: string;
+  friend_username_handle: string;
+  friend_initials: string;
+  friend_avatar_color: string;
+  challenger_session_id: string | null;
+  challenged_session_id: string | null;
+  current_user_session_id: string | null;
+  challenger_result_id: string | null;
+  challenged_result_id: string | null;
+  challenger_score: number | null;
+  challenged_score: number | null;
+  challenger_elapsed_seconds: number | null;
+  challenged_elapsed_seconds: number | null;
+  challenger_mistakes: number | null;
+  challenged_mistakes: number | null;
+  challenger_hints_used: number | null;
+  challenged_hints_used: number | null;
+  challenger_undo_count: number | null;
+  challenged_undo_count: number | null;
+  challenger_completed_at: string | null;
+  challenged_completed_at: string | null;
+  winner_user_id: string | null;
+  created_at: string;
+  accepted_at: string | null;
+  completed_at: string | null;
+}
+
+export interface FriendChallengeStart {
+  challenge_id: string;
+  status: FriendChallengeEntry["status"];
+  puzzle_id: string;
+  difficulty: PuzzleResult["difficulty"];
+  session_id: string;
+}
+
 interface DailyLeaderboardRpcRow {
   rank?: number;
   result_id: string;
@@ -1074,6 +1118,21 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }
 
     const payload = data as OfficialResultPayload;
+    if (payload.mode === "friend_challenge") {
+      const { error: challengeError } = await supabase.rpc("complete_friend_challenge_result", {
+        p_session_id: sessionId,
+        p_result_id: payload.result_id,
+      });
+      if (challengeError) {
+        logDevDiagnostic("friend challenge completion update failed", {
+          authUserId: auth.user.id,
+          sessionId,
+          resultId: payload.result_id,
+          supabaseError: challengeError.message,
+        });
+        updateDiagnostics({ lastError: challengeError.message });
+      }
+    }
     const summary = summaryFromOfficialPayload(payload, previousProfile);
     setLastUpdate(summary);
     setProfile(summary.updatedProfile);
@@ -1467,6 +1526,104 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     return { ok: true };
   }, [auth.user, updateDiagnostics]);
 
+  const fetchFriendChallenges = useCallback(async (): Promise<FriendChallengeEntry[]> => {
+    if (!auth.user || !isSupabaseConfigured) return [];
+    const { data, error } = await supabase.rpc("get_friend_challenges");
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return [];
+    }
+    return ((data ?? []) as FriendChallengeEntry[]).map((row) => ({
+      ...row,
+      friend_display_name: row.friend_display_name ?? "Player",
+      friend_username_handle: row.friend_username_handle ?? "",
+      friend_initials: row.friend_initials ?? "PL",
+      friend_avatar_color: row.friend_avatar_color ?? "#A8A294",
+    }));
+  }, [auth.user, updateDiagnostics]);
+
+  const createFriendChallenge = useCallback(async (friendUsername: string, difficulty: PuzzleResult["difficulty"]): Promise<{ ok: boolean; error?: string; challenge?: FriendChallengeStart }> => {
+    if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before challenging friends." };
+    const username = friendUsername.trim().replace(/^@+/, "").toLowerCase();
+    const { data, error } = await supabase.rpc("create_friend_challenge", {
+      p_friend_username: username,
+      p_difficulty: difficulty,
+    });
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return { ok: false, error: error.message };
+    }
+    const row = Array.isArray(data) ? data[0] : null;
+    if (!row?.session_id) return { ok: false, error: "Challenge created without a puzzle session." };
+    const challenge: FriendChallengeStart = {
+      challenge_id: row.challenge_id,
+      status: row.status,
+      puzzle_id: row.puzzle_id,
+      difficulty: row.difficulty,
+      session_id: row.session_id,
+    };
+    const { data: sessionData, error: sessionError } = await supabase
+      .from("puzzle_sessions")
+      .select("*")
+      .eq("session_id", challenge.session_id)
+      .maybeSingle();
+    if (sessionError) updateDiagnostics({ lastError: sessionError.message });
+    if (sessionData) {
+      const session = sessionData as PuzzleSessionRow;
+      setActiveSessions((prev) => [session, ...prev.filter((entry) => entry.session_id !== session.session_id && entry.status === "in_progress")]);
+    }
+    return { ok: true, challenge };
+  }, [auth.user, updateDiagnostics]);
+
+  const acceptFriendChallenge = useCallback(async (challengeId: string): Promise<{ ok: boolean; error?: string; challenge?: FriendChallengeStart }> => {
+    if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before accepting challenges." };
+    const { data, error } = await supabase.rpc("accept_friend_challenge", { p_challenge_id: challengeId });
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return { ok: false, error: error.message };
+    }
+    const row = Array.isArray(data) ? data[0] : null;
+    if (!row?.session_id) return { ok: false, error: "Challenge accepted without a puzzle session." };
+    const challenge: FriendChallengeStart = {
+      challenge_id: row.challenge_id,
+      status: row.status,
+      puzzle_id: row.puzzle_id,
+      difficulty: row.difficulty,
+      session_id: row.session_id,
+    };
+    const { data: sessionData, error: sessionError } = await supabase
+      .from("puzzle_sessions")
+      .select("*")
+      .eq("session_id", challenge.session_id)
+      .maybeSingle();
+    if (sessionError) updateDiagnostics({ lastError: sessionError.message });
+    if (sessionData) {
+      const session = sessionData as PuzzleSessionRow;
+      setActiveSessions((prev) => [session, ...prev.filter((entry) => entry.session_id !== session.session_id && entry.status === "in_progress")]);
+    }
+    return { ok: true, challenge };
+  }, [auth.user, updateDiagnostics]);
+
+  const declineFriendChallenge = useCallback(async (challengeId: string): Promise<SaveResult> => {
+    if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before declining challenges." };
+    const { error } = await supabase.rpc("decline_friend_challenge", { p_challenge_id: challengeId });
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  }, [auth.user, updateDiagnostics]);
+
+  const cancelFriendChallenge = useCallback(async (challengeId: string): Promise<SaveResult> => {
+    if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before cancelling challenges." };
+    const { error } = await supabase.rpc("cancel_friend_challenge", { p_challenge_id: challengeId });
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  }, [auth.user, updateDiagnostics]);
+
   const updateDisplayName = useCallback((username: string): SaveResult => {
     const trimmed = username.trim();
     if (trimmed.length === 0) return { ok: false, error: "Display name cannot be empty." };
@@ -1584,6 +1741,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     diagnostics, hasActiveSession, profileSetupRequired,
     recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, simulateResult, simulateRankedWin, simulateRankedLoss,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
+    fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge,
     resetLocalProfile, checkUsernameAvailable, completeProfileSetup, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
     repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, testDailyResultQuery, clearLastUpdate,
     upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
@@ -1592,6 +1750,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     checkUsernameAvailable, clearLastUpdate, completeProfileSetup, diagnostics, hasActiveSession, isLoaded, lastUpdate, loadError, profile, profileSetupRequired,
     recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
+    fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge,
     repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
     simulateRankedLoss, simulateRankedWin, simulateResult,
     testSupabaseRead, testSupabaseWrite, testDailyResultQuery,

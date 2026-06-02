@@ -25,6 +25,7 @@ const MODE_LABEL: Record<GameMode, string> = {
   daily: "Daily",
   classic: "Classic",
   duel: "Daily Duel",
+  friend_challenge: "Friend Challenge",
   ranked: "Ranked",
 };
 
@@ -106,7 +107,7 @@ export default function GameScreen() {
           const data = await measureAsync("puzzle fetch daily_duel", () => fetchDailyPuzzle(today, "daily_duel"));
           if (!cancelled) setPuzzleData(data);
         } else {
-          // classic or ranked
+          // classic, friend challenge, or ranked without a restore session
           const data = await measureAsync("puzzle fetch classic", () => fetchClassicPuzzle(auth.user?.id ?? null, difficulty, effectiveMode === "classic" ? excludePuzzleId : undefined));
           if (!cancelled) setPuzzleData(data);
         }

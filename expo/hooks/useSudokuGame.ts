@@ -18,7 +18,7 @@ import type { Difficulty } from "@/constants/mockData";
 import { isEditableGivenCell, isGivenCell } from "@/lib/givenCells";
 import { logDevDiagnostic, measureInteraction } from "@/lib/performanceDiagnostics";
 
-export type GameMode = "daily" | "classic" | "duel" | "ranked";
+export type GameMode = "daily" | "classic" | "duel" | "friend_challenge" | "ranked";
 
 export const MAX_MISTAKES = 3;
 
