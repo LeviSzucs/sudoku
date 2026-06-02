@@ -87,6 +87,11 @@ export interface WeeklyLeaderboardEntry {
   latest_completed_at: string;
 }
 
+export interface FriendsWeeklyLeaderboardEntry extends WeeklyLeaderboardEntry {
+  username_handle?: string | null;
+  is_current_user: boolean;
+}
+
 export interface FriendUser {
   user_id: string;
   display_name: string;
@@ -134,6 +139,21 @@ interface WeeklyLeaderboardRpcRow {
   best_score: number;
   total_time: number;
   latest_completed_at: string;
+}
+
+interface FriendsWeeklyLeaderboardRpcRow {
+  rank?: number;
+  user_id: string;
+  display_name: string | null;
+  username_handle: string | null;
+  initials: string | null;
+  avatar_color: string | null;
+  total_score: number;
+  puzzles_completed: number;
+  best_score: number;
+  total_time: number;
+  latest_completed_at: string;
+  is_current_user: boolean | null;
 }
 
 export interface DailyDiagnostics {
@@ -1289,6 +1309,52 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }));
   }, [auth.user?.id, updateDiagnostics]);
 
+  const fetchFriendsWeeklyLeaderboard = useCallback(async (dateStr: string): Promise<FriendsWeeklyLeaderboardEntry[]> => {
+    if (!auth.user || !isSupabaseConfigured) return [];
+
+    const { data: friendsRows, error: friendsError } = await supabase.rpc("get_friends");
+    if (friendsError) updateDiagnostics({ lastError: friendsError.message });
+    const friendsCount = Array.isArray(friendsRows) ? friendsRows.length : 0;
+    const { data, error } = await supabase.rpc("get_friends_weekly_leaderboard", {
+      p_date: dateStr,
+    });
+    if (error) {
+      logDevDiagnostic("friends weekly leaderboard rpc result", {
+        dateStr,
+        authUserId: auth.user.id,
+        friendsCount,
+        rowsReturned: 0,
+        supabaseError: error.message,
+      });
+      updateDiagnostics({ lastError: error.message });
+      return [];
+    }
+
+    const rows = (data ?? []) as FriendsWeeklyLeaderboardRpcRow[];
+    logDevDiagnostic("friends weekly leaderboard rpc result", {
+      dateStr,
+      authUserId: auth.user.id,
+      friendsCount,
+      rowsReturned: rows.length,
+      rows,
+      supabaseError: null,
+    });
+    return rows.map((row, index) => ({
+      rank: row.rank ?? index + 1,
+      user_id: row.user_id,
+      username: row.display_name ?? row.username_handle ?? "Player",
+      username_handle: row.username_handle,
+      initials: row.initials ?? "PL",
+      avatar_color: row.avatar_color ?? "#A8A294",
+      total_score: row.total_score,
+      puzzles_completed: row.puzzles_completed,
+      best_score: row.best_score,
+      total_time: row.total_time,
+      latest_completed_at: row.latest_completed_at,
+      is_current_user: row.is_current_user === true,
+    }));
+  }, [auth.user, updateDiagnostics]);
+
   const checkUsernameAvailable = useCallback(async (usernameInput: string): Promise<UsernameAvailability> => {
     const invalid = validateUsernameHandle(usernameInput);
     if (invalid) return invalid;
@@ -1528,7 +1594,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     profile, isLoaded, loadError, lastUpdate,
     activeSessions: auth.isSignedIn ? activeSessions : activeGuestSessions.map(guestSessionToPuzzleSessionRow),
     diagnostics, hasActiveSession, profileSetupRequired,
-    recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, simulateResult, simulateRankedWin, simulateRankedLoss,
+    recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, simulateResult, simulateRankedWin, simulateRankedLoss,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     resetLocalProfile, checkUsernameAvailable, completeProfileSetup, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
     repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, testDailyResultQuery, clearLastUpdate,
@@ -1536,7 +1602,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
   }), [
     activeGuestSessions, activeSessions, auth.isSignedIn,
     checkUsernameAvailable, clearLastUpdate, completeProfileSetup, diagnostics, hasActiveSession, isLoaded, lastUpdate, loadError, profile, profileSetupRequired,
-    recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard,
+    recordPuzzleResult, submitOfficialPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
     simulateRankedLoss, simulateRankedWin, simulateResult,
