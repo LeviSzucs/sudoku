@@ -436,11 +436,11 @@ function ChallengeRow({ challenge, currentUserId, last, working, onAccept, onDec
       ? `${challenge.friend_display_name} finished`
       : "Challenge received"
     : yourCompleted && !friendCompleted
-    ? waitingForFriend
+    ? `You finished · waiting for ${challenge.friend_display_name}`
     : friendCompleted && !yourCompleted
     ? `${challenge.friend_display_name} finished`
     : challenge.direction === "outgoing" && challenge.status === "pending"
-    ? waitingForFriend
+    ? `${waitingForFriend} to accept`
     : challenge.status === "accepted"
     ? "Ready to play"
     : "In progress";
