@@ -166,7 +166,7 @@ export default function VersusScreen() {
             </View>
           </Card>
 
-          <Card onPress={() => router.push("/friends")}>
+          <Card onPress={() => router.push({ pathname: "/friends", params: { mode: "challenge" } })}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
               <View style={[styles.iconTile, { backgroundColor: C.accentSoft }]}>
                 <UserPlus color={C.accent} size={22} strokeWidth={2} />

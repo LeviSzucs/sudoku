@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Check, Play, Search, Swords, UserPlus, Users, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -40,6 +40,9 @@ function currentUserCompletedChallenge(challenge: FriendChallengeEntry, currentU
 }
 
 export default function FriendsScreen() {
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const screenMode = params.mode === "challenge" ? "challenge" : "manage";
+  const isChallengeMode = screenMode === "challenge";
   const insets = useSafeAreaInsets();
   const auth = useAuth();
   const {
@@ -72,12 +75,16 @@ export default function FriendsScreen() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const [nextFriends, nextRequests, nextChallenges] = await Promise.all([fetchFriends(), fetchPendingFriendRequests(), fetchFriendChallenges()]);
+    const [nextFriends, nextRequests, nextChallenges] = await Promise.all([
+      fetchFriends(),
+      isChallengeMode ? Promise.resolve([]) : fetchPendingFriendRequests(),
+      isChallengeMode ? fetchFriendChallenges() : Promise.resolve([]),
+    ]);
     setFriends(nextFriends);
     setRequests(nextRequests);
     setChallenges(nextChallenges);
     setLoading(false);
-  }, [fetchFriendChallenges, fetchFriends, fetchPendingFriendRequests]);
+  }, [fetchFriendChallenges, fetchFriends, fetchPendingFriendRequests, isChallengeMode]);
 
   useEffect(() => {
     void refresh();
@@ -201,11 +208,12 @@ export default function FriendsScreen() {
             <ArrowLeft size={20} color={C.ink} />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={styles.kicker}>FRIENDS</Text>
-            <Text style={styles.title}>Find players</Text>
+            <Text style={styles.kicker}>{isChallengeMode ? "VERSUS" : "FRIENDS"}</Text>
+            <Text style={styles.title}>{isChallengeMode ? "Friend Challenge" : "Find players"}</Text>
           </View>
         </View>
 
+        {!isChallengeMode ? (
         <Card>
           <Text style={styles.sectionTitle}>Search by username</Text>
           <View style={styles.searchRow}>
@@ -228,8 +236,9 @@ export default function FriendsScreen() {
           </View>
           <Text style={styles.helper}>Search uses unique lowercase usernames.</Text>
         </Card>
+        ) : null}
 
-        {results.length > 0 ? (
+        {!isChallengeMode && results.length > 0 ? (
           <View style={styles.section}>
             <SectionHeader title="Search results" />
             <Card padded={false}>
@@ -245,10 +254,11 @@ export default function FriendsScreen() {
               ))}
             </Card>
           </View>
-        ) : query.length >= 2 && !searching ? (
+        ) : !isChallengeMode && query.length >= 2 && !searching ? (
           <Text style={styles.emptyText}>No players found.</Text>
         ) : null}
 
+        {!isChallengeMode ? (
         <View style={styles.section}>
           <SectionHeader title="Incoming requests" />
           <Card padded={false}>
@@ -264,7 +274,27 @@ export default function FriendsScreen() {
             ))}
           </Card>
         </View>
+        ) : null}
 
+        {isChallengeMode ? (
+        <View style={styles.section}>
+          <SectionHeader title="Friends" action={`${friends.length}`} />
+          <Card padded={false}>
+            {loading ? <LoadingRow /> : friends.length === 0 ? <EmptyRow text="Add friends from Profile to start challenges." /> : friends.map((friend, index) => (
+              <UserRow
+                key={friend.user_id}
+                user={friend}
+                last={index === friends.length - 1}
+                action="Friends"
+                challengeWorking={workingId === `challenge:${friend.user_id}`}
+                onChallenge={() => setChallengeTarget(friend)}
+              />
+            ))}
+          </Card>
+        </View>
+        ) : null}
+
+        {isChallengeMode ? (
         <View style={styles.section}>
           <SectionHeader title="Incoming challenges" />
           <Card padded={false}>
@@ -281,7 +311,9 @@ export default function FriendsScreen() {
             ))}
           </Card>
         </View>
+        ) : null}
 
+        {isChallengeMode ? (
         <View style={styles.section}>
           <SectionHeader title="Active challenges" action={`${activeChallenges.length + outgoingPendingChallenges.length}`} />
           <Card padded={false}>
@@ -298,23 +330,25 @@ export default function FriendsScreen() {
             ))}
           </Card>
         </View>
+        ) : null}
 
+        {!isChallengeMode ? (
         <View style={styles.section}>
           <SectionHeader title="Friends" action={`${friends.length}`} />
           <Card padded={false}>
-            {loading ? <LoadingRow /> : friends.length === 0 ? <EmptyRow text="Challenge a friend to play the same puzzle." /> : friends.map((friend, index) => (
+            {loading ? <LoadingRow /> : friends.length === 0 ? <EmptyRow text="Search by username to add friends." /> : friends.map((friend, index) => (
               <UserRow
                 key={friend.user_id}
                 user={friend}
                 last={index === friends.length - 1}
                 action="Friends"
-                challengeWorking={workingId === `challenge:${friend.user_id}`}
-                onChallenge={() => setChallengeTarget(friend)}
               />
             ))}
           </Card>
         </View>
+        ) : null}
 
+        {isChallengeMode ? (
         <View style={styles.section}>
           <SectionHeader title="Completed challenges" />
           <Card padded={false}>
@@ -328,9 +362,10 @@ export default function FriendsScreen() {
             ))}
           </Card>
         </View>
+        ) : null}
       </ScrollView>
 
-      <Modal visible={Boolean(challengeTarget)} transparent animationType="fade" onRequestClose={() => setChallengeTarget(null)}>
+      <Modal visible={isChallengeMode && Boolean(challengeTarget)} transparent animationType="fade" onRequestClose={() => setChallengeTarget(null)}>
         <View style={styles.backdrop}>
           <Card style={styles.modalCard}>
             <Text style={styles.modalTitle}>Friend Challenge</Text>
@@ -425,7 +460,6 @@ function ChallengeRow({ challenge, currentUserId, last, working, onAccept, onDec
   const yourCompleted = Boolean(currentIsChallenger ? challenge.challenger_result_id : challenge.challenged_result_id);
   const friendCompleted = Boolean(currentIsChallenger ? challenge.challenged_result_id : challenge.challenger_result_id);
   const showWaitingButton = yourCompleted && !friendCompleted;
-  const showViewResultsButton = challenge.status === "completed";
   const displayStatus = challenge.status === "completed"
     ? {
       label: challenge.winner_user_id === null
@@ -433,7 +467,7 @@ function ChallengeRow({ challenge, currentUserId, last, working, onAccept, onDec
         : challenge.winner_user_id === currentUserId
         ? "You won"
         : `${challenge.friend_display_name} won`,
-      sub: "View final scores",
+      sub: "Challenge complete",
     }
     : onAccept
     ? {
@@ -471,7 +505,6 @@ function ChallengeRow({ challenge, currentUserId, last, working, onAccept, onDec
         {onDecline ? <Pressable style={styles.secondarySmallButton} onPress={onDecline} disabled={working}><Text style={styles.secondarySmallText}>Decline</Text></Pressable> : null}
         {onPlay ? <Pressable style={styles.acceptTextButton} onPress={onPlay} disabled={working}><Play size={14} color="#FBF8F2" /><Text style={styles.acceptText}>Play</Text></Pressable> : null}
         {showWaitingButton ? <View style={styles.disabledSmallButton}><Text style={styles.disabledSmallText}>Waiting</Text></View> : null}
-        {showViewResultsButton ? <View style={styles.secondarySmallButton}><Text style={styles.secondarySmallText}>View results</Text></View> : null}
         {onCancel ? <Pressable style={styles.secondarySmallButton} onPress={onCancel} disabled={working}><Text style={styles.secondarySmallText}>Cancel</Text></Pressable> : null}
       </View>
     </View>
