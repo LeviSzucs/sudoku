@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, Check, Play, Search, Swords, UserPlus, Users, X } from "lucide-react-native";
+import { ArrowLeft, Check, History, Play, Search, Swords, UserPlus, Users, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -200,6 +200,13 @@ export default function FriendsScreen() {
     });
   }, [openChallengeGame]);
 
+  const openHistory = useCallback((friend: FriendUser) => {
+    router.push({
+      pathname: "/friend-h2h",
+      params: { friendId: friend.user_id },
+    });
+  }, []);
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
@@ -288,6 +295,7 @@ export default function FriendsScreen() {
                 action="Friends"
                 challengeWorking={workingId === `challenge:${friend.user_id}`}
                 onChallenge={() => setChallengeTarget(friend)}
+                onHistory={() => openHistory(friend)}
               />
             ))}
           </Card>
@@ -342,6 +350,7 @@ export default function FriendsScreen() {
                 user={friend}
                 last={index === friends.length - 1}
                 action="Friends"
+                onHistory={() => openHistory(friend)}
               />
             ))}
           </Card>
@@ -404,7 +413,7 @@ function EmptyRow({ text }: { text: string }) {
   return <View style={styles.emptyRow}><Users size={24} color={C.mutedSoft} /><Text style={styles.emptyText}>{text}</Text></View>;
 }
 
-function UserRow({ user, last, action, working, challengeWorking, onPress, onChallenge }: { user: FriendUser; last: boolean; action?: string | null; working?: boolean; challengeWorking?: boolean; onPress?: () => void; onChallenge?: () => void }) {
+function UserRow({ user, last, action, working, challengeWorking, onPress, onChallenge, onHistory }: { user: FriendUser; last: boolean; action?: string | null; working?: boolean; challengeWorking?: boolean; onPress?: () => void; onChallenge?: () => void; onHistory?: () => void }) {
   return (
     <View style={[styles.userRow, !last && styles.rowBorder]}>
       <Avatar initials={user.initials} color={user.avatar_color} size={44} />
@@ -412,10 +421,20 @@ function UserRow({ user, last, action, working, challengeWorking, onPress, onCha
         <Text style={styles.rowTitle}>{user.display_name}</Text>
         <Text style={styles.rowSub}>@{user.username_handle}</Text>
       </View>
-      {onChallenge ? (
-        <Pressable style={styles.challengeButton} onPress={onChallenge} disabled={challengeWorking}>
-          {challengeWorking ? <ActivityIndicator color="#FBF8F2" /> : <><Swords size={15} color="#FBF8F2" /><Text style={styles.addButtonText}>Challenge</Text></>}
-        </Pressable>
+      {onChallenge || onHistory ? (
+        <View style={styles.friendActions}>
+          {onHistory ? (
+            <Pressable style={styles.historyButton} onPress={onHistory}>
+              <History size={15} color={C.ink} />
+              <Text style={styles.historyButtonText}>H2H</Text>
+            </Pressable>
+          ) : null}
+          {onChallenge ? (
+            <Pressable style={styles.challengeButton} onPress={onChallenge} disabled={challengeWorking}>
+              {challengeWorking ? <ActivityIndicator color="#FBF8F2" /> : <><Swords size={15} color="#FBF8F2" /><Text style={styles.addButtonText}>Challenge</Text></>}
+            </Pressable>
+          ) : null}
+        </View>
       ) : onPress ? (
         <Pressable style={styles.addButton} onPress={onPress} disabled={working}>
           {working ? <ActivityIndicator color="#FBF8F2" /> : <><UserPlus size={15} color="#FBF8F2" /><Text style={styles.addButtonText}>Add</Text></>}
@@ -543,8 +562,11 @@ const styles = StyleSheet.create({
   rowSub: { color: C.muted, fontWeight: "700", fontSize: 12, marginTop: 2 },
   emptyRow: { alignItems: "center", justifyContent: "center", padding: 22, gap: 8 },
   emptyText: { color: C.muted, fontWeight: "700", textAlign: "center", marginTop: 10 },
+  friendActions: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", maxWidth: 190 },
   addButton: { minHeight: 38, borderRadius: 999, backgroundColor: C.accent, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 13 },
   challengeButton: { minHeight: 38, borderRadius: 999, backgroundColor: C.ink, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 13 },
+  historyButton: { minHeight: 38, borderRadius: 999, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12 },
+  historyButtonText: { color: C.ink, fontWeight: "900", fontSize: 12 },
   addButtonText: { color: "#FBF8F2", fontWeight: "900", fontSize: 12 },
   statusPill: { color: C.accent, fontWeight: "900", fontSize: 12, maxWidth: 136, textAlign: "right" },
   requestActions: { flexDirection: "row", gap: 8 },

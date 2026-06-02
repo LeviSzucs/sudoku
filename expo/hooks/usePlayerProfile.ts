@@ -157,6 +157,45 @@ export interface FriendChallengeStart {
   session_id: string;
 }
 
+export interface FriendHeadToHeadMatch {
+  challenge_id: string;
+  difficulty: PuzzleResult["difficulty"];
+  outcome: "won" | "lost" | "draw";
+  winner_user_id: string | null;
+  current_user_score: number;
+  friend_score: number;
+  current_user_elapsed_seconds: number | null;
+  friend_elapsed_seconds: number | null;
+  current_user_mistakes: number | null;
+  friend_mistakes: number | null;
+  current_user_hints_used: number | null;
+  friend_hints_used: number | null;
+  current_user_undo_count: number | null;
+  friend_undo_count: number | null;
+  current_user_completed_at: string | null;
+  friend_completed_at: string | null;
+  completed_at: string;
+}
+
+export interface FriendHeadToHeadSummary {
+  friend_user_id: string;
+  friend_display_name: string;
+  friend_username_handle: string;
+  friend_initials: string;
+  friend_avatar_color: string;
+  total_completed: number;
+  current_user_wins: number;
+  friend_wins: number;
+  draws: number;
+  current_user_average_score: number;
+  friend_average_score: number;
+  current_user_best_score: number;
+  friend_best_score: number;
+  current_user_fastest_win: number | null;
+  friend_fastest_win: number | null;
+  recent_completed_challenges: FriendHeadToHeadMatch[];
+}
+
 interface DailyLeaderboardRpcRow {
   rank?: number;
   result_id: string;
@@ -199,6 +238,19 @@ interface FriendsWeeklyLeaderboardRpcRow {
   total_time: number;
   latest_completed_at: string;
   is_current_user: boolean | null;
+}
+
+function parseHeadToHeadMatches(value: unknown): FriendHeadToHeadMatch[] {
+  if (Array.isArray(value)) return value as FriendHeadToHeadMatch[];
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed as FriendHeadToHeadMatch[] : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
 }
 
 export interface DailyDiagnostics {
@@ -1674,6 +1726,35 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     return { ok: true };
   }, [auth.user, updateDiagnostics]);
 
+  const fetchFriendHeadToHead = useCallback(async (friendId: string): Promise<FriendHeadToHeadSummary | null> => {
+    if (!auth.user || !isSupabaseConfigured) return null;
+    const { data, error } = await supabase.rpc("get_friend_head_to_head", { p_friend_id: friendId });
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return null;
+    }
+    const row = Array.isArray(data) ? data[0] : null;
+    if (!row) return null;
+    return {
+      friend_user_id: row.friend_user_id,
+      friend_display_name: row.friend_display_name ?? "Player",
+      friend_username_handle: row.friend_username_handle ?? "",
+      friend_initials: row.friend_initials ?? "PL",
+      friend_avatar_color: row.friend_avatar_color ?? "#A8A294",
+      total_completed: Number(row.total_completed ?? 0),
+      current_user_wins: Number(row.current_user_wins ?? 0),
+      friend_wins: Number(row.friend_wins ?? 0),
+      draws: Number(row.draws ?? 0),
+      current_user_average_score: Number(row.current_user_average_score ?? 0),
+      friend_average_score: Number(row.friend_average_score ?? 0),
+      current_user_best_score: Number(row.current_user_best_score ?? 0),
+      friend_best_score: Number(row.friend_best_score ?? 0),
+      current_user_fastest_win: row.current_user_fastest_win ?? null,
+      friend_fastest_win: row.friend_fastest_win ?? null,
+      recent_completed_challenges: parseHeadToHeadMatches(row.recent_completed_challenges),
+    };
+  }, [auth.user, updateDiagnostics]);
+
   const updateDisplayName = useCallback((username: string): SaveResult => {
     const trimmed = username.trim();
     if (trimmed.length === 0) return { ok: false, error: "Display name cannot be empty." };
@@ -1791,7 +1872,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     diagnostics, hasActiveSession, profileSetupRequired,
     recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, simulateResult, simulateRankedWin, simulateRankedLoss,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
-    fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge,
+    fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
     resetLocalProfile, checkUsernameAvailable, completeProfileSetup, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
     repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, testDailyResultQuery, clearLastUpdate,
     upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
@@ -1800,7 +1881,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     checkUsernameAvailable, clearLastUpdate, completeProfileSetup, diagnostics, hasActiveSession, isLoaded, lastUpdate, loadError, profile, profileSetupRequired,
     recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
-    fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge,
+    fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
     repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
     simulateRankedLoss, simulateRankedWin, simulateResult,
     testSupabaseRead, testSupabaseWrite, testDailyResultQuery,
