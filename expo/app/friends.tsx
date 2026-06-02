@@ -1,14 +1,19 @@
 import { router } from "expo-router";
-import { ArrowLeft, Check, Search, UserPlus, Users, X } from "lucide-react-native";
-import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ArrowLeft, Check, Play, Search, Swords, UserPlus, Users, X } from "lucide-react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
 import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
-import { usePlayerProfile, type FriendRequestEntry, type FriendUser } from "@/hooks/usePlayerProfile";
+import type { Difficulty } from "@/constants/mockData";
+import { useAuth } from "@/hooks/useAuth";
+import { usePlayerProfile, type FriendChallengeEntry, type FriendRequestEntry, type FriendUser } from "@/hooks/usePlayerProfile";
+import { formatTime } from "@/lib/sudoku";
+
+const DIFFICULTIES: Difficulty[] = ["Easy", "Medium", "Hard", "Expert", "Master"];
 
 function normalizeSearch(value: string): string {
   return value.replace(/\s/g, "").toLowerCase();
@@ -21,24 +26,53 @@ function statusText(status?: FriendUser["relationship_status"]): string | null {
   return null;
 }
 
+function isActiveChallenge(status: FriendChallengeEntry["status"]): boolean {
+  return ["pending", "accepted", "challenger_completed", "challenged_completed"].includes(status);
+}
+
+function needsIncomingResponse(challenge: FriendChallengeEntry): boolean {
+  return challenge.direction === "incoming" && !challenge.challenged_session_id && ["pending", "challenger_completed"].includes(challenge.status);
+}
+
 export default function FriendsScreen() {
   const insets = useSafeAreaInsets();
-  const { fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest } = usePlayerProfile();
+  const auth = useAuth();
+  const {
+    fetchFriends,
+    fetchPendingFriendRequests,
+    searchUsersByUsername,
+    sendFriendRequest,
+    respondFriendRequest,
+    fetchFriendChallenges,
+    createFriendChallenge,
+    acceptFriendChallenge,
+    declineFriendChallenge,
+    cancelFriendChallenge,
+  } = usePlayerProfile();
   const [query, setQuery] = useState("");
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [requests, setRequests] = useState<FriendRequestEntry[]>([]);
+  const [challenges, setChallenges] = useState<FriendChallengeEntry[]>([]);
   const [results, setResults] = useState<FriendUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const [workingId, setWorkingId] = useState<string | null>(null);
+  const [challengeTarget, setChallengeTarget] = useState<FriendUser | null>(null);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>("Medium");
+
+  const incomingChallenges = useMemo(() => challenges.filter(needsIncomingResponse), [challenges]);
+  const activeChallenges = useMemo(() => challenges.filter((challenge) => isActiveChallenge(challenge.status) && !needsIncomingResponse(challenge) && challenge.status !== "pending"), [challenges]);
+  const outgoingPendingChallenges = useMemo(() => challenges.filter((challenge) => challenge.direction === "outgoing" && challenge.status === "pending"), [challenges]);
+  const completedChallenges = useMemo(() => challenges.filter((challenge) => challenge.status === "completed"), [challenges]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const [nextFriends, nextRequests] = await Promise.all([fetchFriends(), fetchPendingFriendRequests()]);
+    const [nextFriends, nextRequests, nextChallenges] = await Promise.all([fetchFriends(), fetchPendingFriendRequests(), fetchFriendChallenges()]);
     setFriends(nextFriends);
     setRequests(nextRequests);
+    setChallenges(nextChallenges);
     setLoading(false);
-  }, [fetchFriends, fetchPendingFriendRequests]);
+  }, [fetchFriendChallenges, fetchFriends, fetchPendingFriendRequests]);
 
   useEffect(() => {
     void refresh();
@@ -79,6 +113,80 @@ export default function FriendsScreen() {
     }
     await refresh();
   }, [refresh, respondFriendRequest]);
+
+  const openChallengeGame = useCallback((challenge: { session_id: string; puzzle_id: string; difficulty: Difficulty }) => {
+    router.push({
+      pathname: "/game",
+      params: {
+        mode: "friend_challenge",
+        difficulty: challenge.difficulty,
+        sessionId: challenge.session_id,
+        session_id: challenge.session_id,
+        puzzleId: challenge.puzzle_id,
+        puzzle_id: challenge.puzzle_id,
+      },
+    });
+  }, []);
+
+  const sendChallenge = useCallback(async () => {
+    if (!challengeTarget) return;
+    setWorkingId(`challenge:${challengeTarget.user_id}`);
+    const result = await createFriendChallenge(challengeTarget.username_handle, selectedDifficulty);
+    setWorkingId(null);
+    setChallengeTarget(null);
+    if (!result.ok || !result.challenge) {
+      Alert.alert("Friend Challenge", result.error ?? "Could not send challenge.");
+      return;
+    }
+    await refresh();
+    openChallengeGame(result.challenge);
+  }, [challengeTarget, createFriendChallenge, openChallengeGame, refresh, selectedDifficulty]);
+
+  const acceptChallenge = useCallback(async (challenge: FriendChallengeEntry) => {
+    setWorkingId(challenge.challenge_id);
+    const result = await acceptFriendChallenge(challenge.challenge_id);
+    setWorkingId(null);
+    if (!result.ok || !result.challenge) {
+      Alert.alert("Friend Challenge", result.error ?? "Could not accept challenge.");
+      return;
+    }
+    await refresh();
+    openChallengeGame(result.challenge);
+  }, [acceptFriendChallenge, openChallengeGame, refresh]);
+
+  const declineChallenge = useCallback(async (challenge: FriendChallengeEntry) => {
+    setWorkingId(challenge.challenge_id);
+    const result = await declineFriendChallenge(challenge.challenge_id);
+    setWorkingId(null);
+    if (!result.ok) {
+      Alert.alert("Friend Challenge", result.error ?? "Could not decline challenge.");
+      return;
+    }
+    await refresh();
+  }, [declineFriendChallenge, refresh]);
+
+  const cancelChallenge = useCallback(async (challenge: FriendChallengeEntry) => {
+    setWorkingId(challenge.challenge_id);
+    const result = await cancelFriendChallenge(challenge.challenge_id);
+    setWorkingId(null);
+    if (!result.ok) {
+      Alert.alert("Friend Challenge", result.error ?? "Could not cancel challenge.");
+      return;
+    }
+    await refresh();
+  }, [cancelFriendChallenge, refresh]);
+
+  const playChallenge = useCallback((challenge: FriendChallengeEntry) => {
+    if (!challenge.current_user_session_id) {
+      Alert.alert("Friend Challenge", "This challenge is waiting for the other player.");
+      return;
+    }
+    openChallengeGame({
+      session_id: challenge.current_user_session_id,
+      puzzle_id: challenge.puzzle_id,
+      difficulty: challenge.difficulty,
+    });
+  }, [openChallengeGame]);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -153,14 +261,97 @@ export default function FriendsScreen() {
         </View>
 
         <View style={styles.section}>
+          <SectionHeader title="Incoming challenges" />
+          <Card padded={false}>
+            {loading ? <LoadingRow /> : incomingChallenges.length === 0 ? <EmptyRow text="No incoming challenges." /> : incomingChallenges.map((challenge, index) => (
+              <ChallengeRow
+                key={challenge.challenge_id}
+                challenge={challenge}
+                currentUserId={auth.user?.id ?? null}
+                last={index === incomingChallenges.length - 1}
+                working={workingId === challenge.challenge_id}
+                onAccept={() => acceptChallenge(challenge)}
+                onDecline={() => declineChallenge(challenge)}
+              />
+            ))}
+          </Card>
+        </View>
+
+        <View style={styles.section}>
+          <SectionHeader title="Active challenges" action={`${activeChallenges.length + outgoingPendingChallenges.length}`} />
+          <Card padded={false}>
+            {loading ? <LoadingRow /> : activeChallenges.length + outgoingPendingChallenges.length === 0 ? <EmptyRow text="No active challenges." /> : [...outgoingPendingChallenges, ...activeChallenges].map((challenge, index, all) => (
+              <ChallengeRow
+                key={challenge.challenge_id}
+                challenge={challenge}
+                currentUserId={auth.user?.id ?? null}
+                last={index === all.length - 1}
+                working={workingId === challenge.challenge_id}
+                onPlay={challenge.current_user_session_id ? () => playChallenge(challenge) : undefined}
+                onCancel={challenge.direction === "outgoing" && ["pending", "accepted"].includes(challenge.status) ? () => cancelChallenge(challenge) : undefined}
+              />
+            ))}
+          </Card>
+        </View>
+
+        <View style={styles.section}>
           <SectionHeader title="Friends" action={`${friends.length}`} />
           <Card padded={false}>
-            {loading ? <LoadingRow /> : friends.length === 0 ? <EmptyRow text="Search for a username to add your first friend." /> : friends.map((friend, index) => (
-              <UserRow key={friend.user_id} user={friend} last={index === friends.length - 1} action="Friends" />
+            {loading ? <LoadingRow /> : friends.length === 0 ? <EmptyRow text="Challenge a friend to play the same puzzle." /> : friends.map((friend, index) => (
+              <UserRow
+                key={friend.user_id}
+                user={friend}
+                last={index === friends.length - 1}
+                action="Friends"
+                challengeWorking={workingId === `challenge:${friend.user_id}`}
+                onChallenge={() => setChallengeTarget(friend)}
+              />
+            ))}
+          </Card>
+        </View>
+
+        <View style={styles.section}>
+          <SectionHeader title="Completed challenges" />
+          <Card padded={false}>
+            {loading ? <LoadingRow /> : completedChallenges.length === 0 ? <EmptyRow text="No completed challenges." /> : completedChallenges.map((challenge, index) => (
+              <ChallengeRow
+                key={challenge.challenge_id}
+                challenge={challenge}
+                currentUserId={auth.user?.id ?? null}
+                last={index === completedChallenges.length - 1}
+              />
             ))}
           </Card>
         </View>
       </ScrollView>
+
+      <Modal visible={Boolean(challengeTarget)} transparent animationType="fade" onRequestClose={() => setChallengeTarget(null)}>
+        <View style={styles.backdrop}>
+          <Card style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Friend Challenge</Text>
+            <Text style={styles.modalSub}>Choose a difficulty for @{challengeTarget?.username_handle}.</Text>
+            <View style={styles.difficultyWrap}>
+              {DIFFICULTIES.map((difficulty) => (
+                <Pressable
+                  key={difficulty}
+                  style={[styles.difficultyButton, selectedDifficulty === difficulty && styles.difficultyButtonActive]}
+                  onPress={() => setSelectedDifficulty(difficulty)}
+                >
+                  <Text style={[styles.difficultyText, selectedDifficulty === difficulty && styles.difficultyTextActive]}>{difficulty}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.modalActions}>
+              <Pressable style={styles.secondaryButton} onPress={() => setChallengeTarget(null)}>
+                <Text style={styles.secondaryButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.primaryButton} onPress={sendChallenge} disabled={Boolean(workingId?.startsWith("challenge:"))}>
+                {workingId?.startsWith("challenge:") ? <ActivityIndicator color="#FBF8F2" /> : <Text style={styles.primaryButtonText}>Send challenge</Text>}
+              </Pressable>
+            </View>
+          </Card>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -173,7 +364,7 @@ function EmptyRow({ text }: { text: string }) {
   return <View style={styles.emptyRow}><Users size={24} color={C.mutedSoft} /><Text style={styles.emptyText}>{text}</Text></View>;
 }
 
-function UserRow({ user, last, action, working, onPress }: { user: FriendUser; last: boolean; action?: string | null; working?: boolean; onPress?: () => void }) {
+function UserRow({ user, last, action, working, challengeWorking, onPress, onChallenge }: { user: FriendUser; last: boolean; action?: string | null; working?: boolean; challengeWorking?: boolean; onPress?: () => void; onChallenge?: () => void }) {
   return (
     <View style={[styles.userRow, !last && styles.rowBorder]}>
       <Avatar initials={user.initials} color={user.avatar_color} size={44} />
@@ -181,7 +372,11 @@ function UserRow({ user, last, action, working, onPress }: { user: FriendUser; l
         <Text style={styles.rowTitle}>{user.display_name}</Text>
         <Text style={styles.rowSub}>@{user.username_handle}</Text>
       </View>
-      {onPress ? (
+      {onChallenge ? (
+        <Pressable style={styles.challengeButton} onPress={onChallenge} disabled={challengeWorking}>
+          {challengeWorking ? <ActivityIndicator color="#FBF8F2" /> : <><Swords size={15} color="#FBF8F2" /><Text style={styles.addButtonText}>Challenge</Text></>}
+        </Pressable>
+      ) : onPress ? (
         <Pressable style={styles.addButton} onPress={onPress} disabled={working}>
           {working ? <ActivityIndicator color="#FBF8F2" /> : <><UserPlus size={15} color="#FBF8F2" /><Text style={styles.addButtonText}>Add</Text></>}
         </Pressable>
@@ -210,6 +405,62 @@ function RequestRow({ request, last, working, onAccept, onDecline }: { request: 
   );
 }
 
+function ChallengeRow({ challenge, currentUserId, last, working, onAccept, onDecline, onCancel, onPlay }: { challenge: FriendChallengeEntry; currentUserId: string | null; last: boolean; working?: boolean; onAccept?: () => void; onDecline?: () => void; onCancel?: () => void; onPlay?: () => void }) {
+  const currentIsChallenger = currentUserId === challenge.challenger_id;
+  const yourScore = currentIsChallenger ? challenge.challenger_score : challenge.challenged_score;
+  const friendScore = currentIsChallenger ? challenge.challenged_score : challenge.challenger_score;
+  const yourTime = currentIsChallenger ? challenge.challenger_elapsed_seconds : challenge.challenged_elapsed_seconds;
+  const friendTime = currentIsChallenger ? challenge.challenged_elapsed_seconds : challenge.challenger_elapsed_seconds;
+  const yourMistakes = currentIsChallenger ? challenge.challenger_mistakes : challenge.challenged_mistakes;
+  const friendMistakes = currentIsChallenger ? challenge.challenged_mistakes : challenge.challenger_mistakes;
+  const yourHints = currentIsChallenger ? challenge.challenger_hints_used : challenge.challenged_hints_used;
+  const friendHints = currentIsChallenger ? challenge.challenged_hints_used : challenge.challenger_hints_used;
+  const yourUndos = currentIsChallenger ? challenge.challenger_undo_count : challenge.challenged_undo_count;
+  const friendUndos = currentIsChallenger ? challenge.challenged_undo_count : challenge.challenger_undo_count;
+  const winnerText = challenge.status === "completed"
+    ? challenge.winner_user_id === null
+      ? "Draw"
+      : challenge.winner_user_id === currentUserId
+      ? "You won"
+      : `${challenge.friend_display_name} won`
+    : challenge.status.replace("_", " ");
+  return (
+    <View style={[styles.challengeRow, !last && styles.rowBorder]}>
+      <View style={styles.challengeHeader}>
+        <Avatar initials={challenge.friend_initials} color={challenge.friend_avatar_color} size={42} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.rowTitle}>{challenge.friend_display_name}</Text>
+          <Text style={styles.rowSub}>@{challenge.friend_username_handle} / {challenge.difficulty}</Text>
+        </View>
+        <Text style={styles.statusPill}>{winnerText}</Text>
+      </View>
+      {challenge.status === "completed" ? (
+        <View style={styles.resultCompare}>
+          <ResultMini label="You" score={yourScore} seconds={yourTime} mistakes={yourMistakes} hints={yourHints} undos={yourUndos} />
+          <ResultMini label={challenge.friend_display_name} score={friendScore} seconds={friendTime} mistakes={friendMistakes} hints={friendHints} undos={friendUndos} />
+        </View>
+      ) : null}
+      <View style={styles.challengeActions}>
+        {onAccept ? <Pressable style={styles.acceptTextButton} onPress={onAccept} disabled={working}><Text style={styles.acceptText}>Accept</Text></Pressable> : null}
+        {onDecline ? <Pressable style={styles.secondarySmallButton} onPress={onDecline} disabled={working}><Text style={styles.secondarySmallText}>Decline</Text></Pressable> : null}
+        {onPlay ? <Pressable style={styles.acceptTextButton} onPress={onPlay} disabled={working}><Play size={14} color="#FBF8F2" /><Text style={styles.acceptText}>Play</Text></Pressable> : null}
+        {onCancel ? <Pressable style={styles.secondarySmallButton} onPress={onCancel} disabled={working}><Text style={styles.secondarySmallText}>Cancel</Text></Pressable> : null}
+      </View>
+    </View>
+  );
+}
+
+function ResultMini({ label, score, seconds, mistakes, hints, undos }: { label: string; score: number | null; seconds: number | null; mistakes: number | null; hints: number | null; undos: number | null }) {
+  return (
+    <View style={styles.resultMini}>
+      <Text style={styles.resultMiniLabel}>{label}</Text>
+      <Text style={styles.resultMiniScore}>{score === null ? "-" : score.toLocaleString()}</Text>
+      <Text style={styles.resultMiniSub}>{seconds === null ? "Not finished" : formatTime(seconds)}</Text>
+      <Text style={styles.resultMiniSub}>{mistakes ?? 0}M / {hints ?? 0}H / {undos ?? 0}U</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
   headerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 18, paddingTop: 12 },
@@ -232,9 +483,36 @@ const styles = StyleSheet.create({
   emptyRow: { alignItems: "center", justifyContent: "center", padding: 22, gap: 8 },
   emptyText: { color: C.muted, fontWeight: "700", textAlign: "center", marginTop: 10 },
   addButton: { minHeight: 38, borderRadius: 999, backgroundColor: C.accent, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 13 },
-  addButtonText: { color: "#FBF8F2", fontWeight: "900" },
-  statusPill: { color: C.accent, fontWeight: "900", fontSize: 12 },
+  challengeButton: { minHeight: 38, borderRadius: 999, backgroundColor: C.ink, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 13 },
+  addButtonText: { color: "#FBF8F2", fontWeight: "900", fontSize: 12 },
+  statusPill: { color: C.accent, fontWeight: "900", fontSize: 12, textTransform: "capitalize" },
   requestActions: { flexDirection: "row", gap: 8 },
   acceptButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: C.success },
   declineButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border },
+  challengeRow: { padding: 14, gap: 12 },
+  challengeHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+  challengeActions: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  acceptTextButton: { minHeight: 36, borderRadius: 999, backgroundColor: C.accent, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 14 },
+  acceptText: { color: "#FBF8F2", fontWeight: "900", fontSize: 12 },
+  secondarySmallButton: { minHeight: 36, borderRadius: 999, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center", paddingHorizontal: 14 },
+  secondarySmallText: { color: C.ink, fontWeight: "900", fontSize: 12 },
+  resultCompare: { flexDirection: "row", gap: 10 },
+  resultMini: { flex: 1, borderRadius: 12, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, padding: 10 },
+  resultMiniLabel: { color: C.muted, fontSize: 11, fontWeight: "800" },
+  resultMiniScore: { color: C.ink, fontSize: 16, fontWeight: "900", marginTop: 2 },
+  resultMiniSub: { color: C.muted, fontSize: 12, fontWeight: "700", marginTop: 2 },
+  backdrop: { flex: 1, backgroundColor: "#00000055", alignItems: "center", justifyContent: "center", padding: 20 },
+  modalCard: { width: "100%", maxWidth: 420 },
+  modalTitle: { color: C.ink, fontSize: 20, fontWeight: "900" },
+  modalSub: { color: C.muted, fontWeight: "700", marginTop: 6 },
+  difficultyWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 16 },
+  difficultyButton: { borderRadius: 999, borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, paddingHorizontal: 13, paddingVertical: 9 },
+  difficultyButtonActive: { backgroundColor: C.accent, borderColor: C.accent },
+  difficultyText: { color: C.ink, fontWeight: "900", fontSize: 12 },
+  difficultyTextActive: { color: "#FBF8F2" },
+  modalActions: { flexDirection: "row", gap: 10, marginTop: 18 },
+  secondaryButton: { flex: 1, minHeight: 44, borderRadius: 14, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
+  secondaryButtonText: { color: C.ink, fontWeight: "900" },
+  primaryButton: { flex: 1.3, minHeight: 44, borderRadius: 14, backgroundColor: C.ink, alignItems: "center", justifyContent: "center" },
+  primaryButtonText: { color: "#FBF8F2", fontWeight: "900" },
 });
