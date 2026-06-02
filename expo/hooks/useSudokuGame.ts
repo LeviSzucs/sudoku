@@ -99,6 +99,27 @@ interface HistoryEntry {
   column: number;
 }
 
+function clearRelatedNotesAfterPlacement(notes: NotesBoard, row: number, column: number, value: number): NotesBoard {
+  const next = notes.map((r) => r.map((cell) => [...cell]));
+  const boxRow = Math.floor(row / 3) * 3;
+  const boxColumn = Math.floor(column / 3) * 3;
+
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      const isFilledCell = r === row && c === column;
+      const isPeer = r === row || c === column || (r >= boxRow && r < boxRow + 3 && c >= boxColumn && c < boxColumn + 3);
+
+      if (isFilledCell) {
+        next[r][c] = [];
+      } else if (isPeer && next[r][c].includes(value)) {
+        next[r][c] = next[r][c].filter((note) => note !== value);
+      }
+    }
+  }
+
+  return next;
+}
+
 function getEligibleForLeaderboard(completed: boolean, hintsUsed: number, failed: boolean): boolean {
   return completed && hintsUsed === 0 && !failed;
 }
@@ -435,9 +456,7 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
         if (board[r][c] === n && !notesMode) {
           if (notes[r][c].length > 0) {
             setNotes((prev) => {
-              const next = prev.map((row) => row.map((cell) => [...cell]));
-              next[r][c] = [];
-              return next;
+              return clearRelatedNotesAfterPlacement(prev, r, c, n);
             });
           }
           return;
@@ -475,11 +494,7 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
         const wasCorrect = n === solution[r][c];
         const nextMistakes = wasCorrect ? mistakes : mistakes + 1;
         setBoard(nextBoard);
-        setNotes((prev) => {
-          const next = prev.map((row) => row.map((cell) => [...cell]));
-          next[r][c] = [];
-          return next;
-        });
+        setNotes((prev) => clearRelatedNotesAfterPlacement(prev, r, c, n));
 
         if (!wasCorrect) {
           setErrors((prev) => new Set(prev).add(`${r},${c}`));
