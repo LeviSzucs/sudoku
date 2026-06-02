@@ -34,6 +34,11 @@ function needsIncomingResponse(challenge: FriendChallengeEntry): boolean {
   return challenge.direction === "incoming" && !challenge.challenged_session_id && ["pending", "challenger_completed"].includes(challenge.status);
 }
 
+function currentUserCompletedChallenge(challenge: FriendChallengeEntry, currentUserId: string | null): boolean {
+  const currentIsChallenger = currentUserId === challenge.challenger_id;
+  return Boolean(currentIsChallenger ? challenge.challenger_result_id : challenge.challenged_result_id);
+}
+
 export default function FriendsScreen() {
   const insets = useSafeAreaInsets();
   const auth = useAuth();
@@ -287,7 +292,7 @@ export default function FriendsScreen() {
                 currentUserId={auth.user?.id ?? null}
                 last={index === all.length - 1}
                 working={workingId === challenge.challenge_id}
-                onPlay={challenge.current_user_session_id ? () => playChallenge(challenge) : undefined}
+                onPlay={challenge.current_user_session_id && challenge.status !== "pending" && !currentUserCompletedChallenge(challenge, auth.user?.id ?? null) ? () => playChallenge(challenge) : undefined}
                 onCancel={challenge.direction === "outgoing" && ["pending", "accepted"].includes(challenge.status) ? () => cancelChallenge(challenge) : undefined}
               />
             ))}
@@ -417,13 +422,30 @@ function ChallengeRow({ challenge, currentUserId, last, working, onAccept, onDec
   const friendHints = currentIsChallenger ? challenge.challenged_hints_used : challenge.challenger_hints_used;
   const yourUndos = currentIsChallenger ? challenge.challenger_undo_count : challenge.challenged_undo_count;
   const friendUndos = currentIsChallenger ? challenge.challenged_undo_count : challenge.challenger_undo_count;
-  const winnerText = challenge.status === "completed"
+  const yourCompleted = Boolean(currentIsChallenger ? challenge.challenger_result_id : challenge.challenged_result_id);
+  const friendCompleted = Boolean(currentIsChallenger ? challenge.challenged_result_id : challenge.challenger_result_id);
+  const waitingForFriend = `Waiting for ${challenge.friend_display_name}`;
+  const statusLabel = challenge.status === "completed"
     ? challenge.winner_user_id === null
       ? "Draw"
       : challenge.winner_user_id === currentUserId
       ? "You won"
       : `${challenge.friend_display_name} won`
-    : challenge.status.replace("_", " ");
+    : onAccept
+    ? friendCompleted
+      ? `${challenge.friend_display_name} finished`
+      : "Challenge received"
+    : yourCompleted && !friendCompleted
+    ? waitingForFriend
+    : friendCompleted && !yourCompleted
+    ? `${challenge.friend_display_name} finished`
+    : challenge.direction === "outgoing" && challenge.status === "pending"
+    ? waitingForFriend
+    : challenge.status === "accepted"
+    ? "Ready to play"
+    : "In progress";
+  const showWaitingButton = yourCompleted && !friendCompleted;
+  const showViewResultsButton = challenge.status === "completed";
   return (
     <View style={[styles.challengeRow, !last && styles.rowBorder]}>
       <View style={styles.challengeHeader}>
@@ -432,7 +454,7 @@ function ChallengeRow({ challenge, currentUserId, last, working, onAccept, onDec
           <Text style={styles.rowTitle}>{challenge.friend_display_name}</Text>
           <Text style={styles.rowSub}>@{challenge.friend_username_handle} / {challenge.difficulty}</Text>
         </View>
-        <Text style={styles.statusPill}>{winnerText}</Text>
+        <Text style={styles.statusPill}>{statusLabel}</Text>
       </View>
       {challenge.status === "completed" ? (
         <View style={styles.resultCompare}>
@@ -444,6 +466,8 @@ function ChallengeRow({ challenge, currentUserId, last, working, onAccept, onDec
         {onAccept ? <Pressable style={styles.acceptTextButton} onPress={onAccept} disabled={working}><Text style={styles.acceptText}>Accept</Text></Pressable> : null}
         {onDecline ? <Pressable style={styles.secondarySmallButton} onPress={onDecline} disabled={working}><Text style={styles.secondarySmallText}>Decline</Text></Pressable> : null}
         {onPlay ? <Pressable style={styles.acceptTextButton} onPress={onPlay} disabled={working}><Play size={14} color="#FBF8F2" /><Text style={styles.acceptText}>Play</Text></Pressable> : null}
+        {showWaitingButton ? <View style={styles.disabledSmallButton}><Text style={styles.disabledSmallText}>Waiting</Text></View> : null}
+        {showViewResultsButton ? <View style={styles.secondarySmallButton}><Text style={styles.secondarySmallText}>View results</Text></View> : null}
         {onCancel ? <Pressable style={styles.secondarySmallButton} onPress={onCancel} disabled={working}><Text style={styles.secondarySmallText}>Cancel</Text></Pressable> : null}
       </View>
     </View>
@@ -496,6 +520,8 @@ const styles = StyleSheet.create({
   acceptText: { color: "#FBF8F2", fontWeight: "900", fontSize: 12 },
   secondarySmallButton: { minHeight: 36, borderRadius: 999, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center", paddingHorizontal: 14 },
   secondarySmallText: { color: C.ink, fontWeight: "900", fontSize: 12 },
+  disabledSmallButton: { minHeight: 36, borderRadius: 999, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center", paddingHorizontal: 14, opacity: 0.65 },
+  disabledSmallText: { color: C.muted, fontWeight: "900", fontSize: 12 },
   resultCompare: { flexDirection: "row", gap: 10 },
   resultMini: { flex: 1, borderRadius: 12, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, padding: 10 },
   resultMiniLabel: { color: C.muted, fontSize: 11, fontWeight: "800" },
