@@ -92,9 +92,11 @@ export default function CompletionModal({
             <Text style={styles.scoreValue}>{score.toLocaleString()}</Text>
             {scoreBreakdown ? (
               <View style={styles.breakdown}>
+                <BreakdownLine label="Base" value={scoreBreakdown.baseScore ?? 0} />
                 <BreakdownLine label="Placements" value={scoreBreakdown.placementPoints} />
-                <BreakdownLine label="Bonuses" value={scoreBreakdown.streakBonus + scoreBreakdown.unitBonus + scoreBreakdown.completionBonus + scoreBreakdown.speedBonus} />
-                <BreakdownLine label="Penalties" value={-(scoreBreakdown.mistakePenalty + scoreBreakdown.hintPenalty + scoreBreakdown.undoPenalty + scoreBreakdown.slowPenalty)} />
+                <BreakdownLine label="Bonuses" value={scoreBreakdown.unitBonus + scoreBreakdown.completionBonus} />
+                <BreakdownLine label={`Speed x${(scoreBreakdown.speedMultiplier ?? 1).toFixed(2)}`} value={scoreBreakdown.speedBonus - scoreBreakdown.slowPenalty} />
+                <BreakdownLine label="Penalties" value={-(scoreBreakdown.mistakePenalty + scoreBreakdown.hintPenalty + scoreBreakdown.undoPenalty)} />
               </View>
             ) : null}
             {showOfficialPending ? <Text style={styles.eligibleText}>Saving official result...</Text> : null}

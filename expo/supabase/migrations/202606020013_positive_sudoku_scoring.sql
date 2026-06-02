@@ -31,64 +31,82 @@ declare
   v_value_text text;
   v_correct boolean;
   v_streak integer := 0;
+  v_subtotal numeric := 0;
   v_placement_points integer := 0;
   v_streak_bonus integer := 0;
   v_unit_bonus integer := 0;
   v_completion_bonus integer := 0;
   v_speed_bonus integer := 0;
   v_slow_penalty integer := 0;
-  v_mistake_penalty integer := greatest(coalesce(p_mistakes, 0), 0) * 150;
-  v_hint_penalty integer := greatest(coalesce(p_hints_used, 0), 0) * 250;
-  v_undo_penalty integer := greatest(coalesce(p_undo_count, 0) - 3, 0) * 25;
+  v_mistake_penalty integer := 0;
+  v_hint_penalty integer := 0;
+  v_undo_penalty integer := 0;
   v_final_score integer := 0;
+  v_starting_score integer := case p_difficulty
+    when 'Easy' then 500
+    when 'Medium' then 800
+    when 'Hard' then 1200
+    when 'Expert' then 1600
+    when 'Master' then 2200
+    else 800
+  end;
   v_placement_value integer := case p_difficulty
-    when 'Easy' then 20
-    when 'Medium' then 30
-    when 'Hard' then 45
-    when 'Expert' then 60
-    when 'Master' then 80
-    else 30
+    when 'Easy' then 25
+    when 'Medium' then 40
+    when 'Hard' then 60
+    when 'Expert' then 85
+    when 'Master' then 115
+    else 40
   end;
   v_completion_value integer := case p_difficulty
-    when 'Easy' then 400
-    when 'Medium' then 700
-    when 'Hard' then 1000
-    when 'Expert' then 1400
-    when 'Master' then 1800
-    else 700
+    when 'Easy' then 600
+    when 'Medium' then 1000
+    when 'Hard' then 1500
+    when 'Expert' then 2200
+    when 'Master' then 3000
+    else 1000
   end;
   v_target_seconds integer := case p_difficulty
     when 'Easy' then 300
-    when 'Medium' then 600
+    when 'Medium' then 540
     when 'Hard' then 900
-    when 'Expert' then 1200
-    when 'Master' then 1800
-    else 600
-  end;
-  v_max_speed_bonus integer := case p_difficulty
-    when 'Easy' then 300
-    when 'Medium' then 500
-    when 'Hard' then 700
-    when 'Expert' then 900
-    when 'Master' then 1200
-    else 500
+    when 'Expert' then 1440
+    when 'Master' then 2100
+    else 540
   end;
   v_completed_rows boolean[] := array_fill(false, array[9]);
   v_completed_cols boolean[] := array_fill(false, array[9]);
   v_completed_boxes boolean[] := array_fill(false, array[9]);
+  v_scored_cells boolean[] := array_fill(false, array[81]);
   v_is_complete boolean;
   v_box integer;
+  v_empty_cells integer;
+  v_candidate_count integer;
+  v_candidate integer;
+  v_candidate_valid boolean;
+  v_candidate_multiplier numeric;
+  v_progress_multiplier numeric;
+  v_streak_multiplier numeric;
+  v_base_without_streak integer;
+  v_gain integer;
+  v_penalty integer;
+  v_replayed_mistakes integer := 0;
+  v_replayed_hints integer := 0;
+  v_speed_multiplier numeric := 1;
+  v_speed_adjusted integer;
   r integer;
   c integer;
 begin
-  if p_failed then
+  if p_failed or coalesce(p_mistakes, 0) >= 3 then
     return jsonb_build_object(
+      'baseScore', 0,
       'placementPoints', 0,
       'streakBonus', 0,
       'unitBonus', 0,
       'completionBonus', 0,
       'speedBonus', 0,
       'slowPenalty', 0,
+      'speedMultiplier', 1,
       'mistakePenalty', 0,
       'hintPenalty', 0,
       'undoPenalty', 0,
@@ -100,14 +118,21 @@ begin
     raise exception 'Scoring requires 81-character givens and solution' using errcode = '22023';
   end if;
 
+  v_subtotal := v_starting_score;
+
   for v_idx in 1..81 loop
-    v_board := array_append(v_board, substr(p_givens, v_idx, 1));
+    v_value_text := substr(p_givens, v_idx, 1);
+    if v_value_text ~ '^[1-9]$' then
+      v_board := array_append(v_board, v_value_text);
+    else
+      v_board := array_append(v_board, '0');
+    end if;
   end loop;
 
   for v_move in
     select value from jsonb_array_elements(coalesce(p_move_history, '[]'::jsonb))
   loop
-    v_type := v_move->>'type';
+    v_type := coalesce(v_move->>'type', '');
     v_row := nullif(v_move->>'row', '')::integer;
     v_col := nullif(v_move->>'column', '')::integer;
 
@@ -120,6 +145,10 @@ begin
     v_value := case when v_value_text ~ '^[1-9]$' then v_value_text::integer else null end;
 
     if v_type = 'hint' then
+      v_penalty := round(v_subtotal * 0.15)::integer;
+      v_subtotal := greatest(0, v_subtotal - v_penalty);
+      v_hint_penalty := v_hint_penalty + v_penalty;
+      v_replayed_hints := v_replayed_hints + 1;
       if v_value is not null and v_value::text = substr(p_solution, v_idx, 1) then
         v_board[v_idx] := v_value::text;
       end if;
@@ -149,25 +178,84 @@ begin
       if v_value is not null then
         v_board[v_idx] := v_value::text;
       end if;
+      v_replayed_mistakes := v_replayed_mistakes + 1;
+      v_penalty := round(v_subtotal * case when v_replayed_mistakes = 1 then 0.08 else 0.12 end)::integer;
+      v_subtotal := greatest(0, v_subtotal - v_penalty);
+      v_mistake_penalty := v_mistake_penalty + v_penalty;
       v_streak := 0;
       continue;
     end if;
 
+    v_empty_cells := 0;
+    for r in 1..81 loop
+      if v_board[r] !~ '^[1-9]$' then
+        v_empty_cells := v_empty_cells + 1;
+      end if;
+    end loop;
+
+    v_candidate_count := 0;
+    for v_candidate in 1..9 loop
+      v_candidate_valid := true;
+      for c in 0..8 loop
+        if c <> v_col and v_board[(v_row * 9) + c + 1] = v_candidate::text then
+          v_candidate_valid := false;
+        end if;
+      end loop;
+      for r in 0..8 loop
+        if r <> v_row and v_board[(r * 9) + v_col + 1] = v_candidate::text then
+          v_candidate_valid := false;
+        end if;
+      end loop;
+      for r in (floor(v_row / 3)::integer * 3)..(floor(v_row / 3)::integer * 3 + 2) loop
+        for c in (floor(v_col / 3)::integer * 3)..(floor(v_col / 3)::integer * 3 + 2) loop
+          if (r <> v_row or c <> v_col) and v_board[(r * 9) + c + 1] = v_candidate::text then
+            v_candidate_valid := false;
+          end if;
+        end loop;
+      end loop;
+      if v_candidate_valid then
+        v_candidate_count := v_candidate_count + 1;
+      end if;
+    end loop;
+    v_candidate_count := greatest(1, v_candidate_count);
+
     if v_board[v_idx] = substr(p_solution, v_idx, 1) then
+      v_board[v_idx] := v_value::text;
       continue;
     end if;
 
     v_board[v_idx] := v_value::text;
-    v_placement_points := v_placement_points + v_placement_value;
+    if v_scored_cells[v_idx] then
+      continue;
+    end if;
+    v_scored_cells[v_idx] := true;
     v_streak := v_streak + 1;
 
-    if v_streak = 3 then
-      v_streak_bonus := v_streak_bonus + 25;
-    elsif v_streak = 5 then
-      v_streak_bonus := v_streak_bonus + 60;
-    elsif v_streak = 10 then
-      v_streak_bonus := v_streak_bonus + 150;
-    end if;
+    v_candidate_multiplier := case
+      when v_candidate_count <= 1 then 0.75
+      when v_candidate_count = 2 then 1.00
+      when v_candidate_count = 3 then 1.15
+      else 1.30
+    end;
+    v_progress_multiplier := case
+      when (v_empty_cells::numeric / 81) >= 0.70 then 1.20
+      when (v_empty_cells::numeric / 81) >= 0.40 then 1.10
+      when (v_empty_cells::numeric / 81) >= 0.15 then 1.00
+      else 0.85
+    end;
+    v_streak_multiplier := case
+      when v_streak >= 20 then 1.35
+      when v_streak >= 10 then 1.22
+      when v_streak >= 5 then 1.12
+      when v_streak >= 3 then 1.05
+      else 1.00
+    end;
+
+    v_base_without_streak := greatest(1, round(v_placement_value * v_candidate_multiplier * v_progress_multiplier)::integer);
+    v_gain := greatest(1, round(v_placement_value * v_candidate_multiplier * v_progress_multiplier * v_streak_multiplier)::integer);
+    v_placement_points := v_placement_points + v_gain;
+    v_streak_bonus := v_streak_bonus + greatest(0, v_gain - v_base_without_streak);
+    v_subtotal := v_subtotal + v_gain;
 
     if not v_completed_rows[v_row + 1] then
       v_is_complete := true;
@@ -179,7 +267,8 @@ begin
       end loop;
       if v_is_complete then
         v_completed_rows[v_row + 1] := true;
-        v_unit_bonus := v_unit_bonus + 75;
+        v_unit_bonus := v_unit_bonus + 150;
+        v_subtotal := v_subtotal + 150;
       end if;
     end if;
 
@@ -193,7 +282,8 @@ begin
       end loop;
       if v_is_complete then
         v_completed_cols[v_col + 1] := true;
-        v_unit_bonus := v_unit_bonus + 75;
+        v_unit_bonus := v_unit_bonus + 150;
+        v_subtotal := v_subtotal + 150;
       end if;
     end if;
 
@@ -211,39 +301,61 @@ begin
       end loop;
       if v_is_complete then
         v_completed_boxes[v_box + 1] := true;
-        v_unit_bonus := v_unit_bonus + 100;
+        v_unit_bonus := v_unit_bonus + 200;
+        v_subtotal := v_subtotal + 200;
       end if;
     end if;
   end loop;
 
-  if p_completed then
-    v_completion_bonus := v_completion_value;
-    v_speed_bonus := greatest(0, floor(v_max_speed_bonus * greatest(0, v_target_seconds - greatest(coalesce(p_elapsed_seconds, 0), 0))::numeric / v_target_seconds))::integer;
-    if coalesce(p_elapsed_seconds, 0) > v_target_seconds then
-      v_slow_penalty := floor((p_elapsed_seconds - v_target_seconds)::numeric / 30)::integer * 10;
-    end if;
+  for r in v_replayed_mistakes..(greatest(coalesce(p_mistakes, 0), 0) - 1) loop
+    v_penalty := round(v_subtotal * case when r = 0 then 0.08 else 0.12 end)::integer;
+    v_subtotal := greatest(0, v_subtotal - v_penalty);
+    v_mistake_penalty := v_mistake_penalty + v_penalty;
+  end loop;
+
+  for r in v_replayed_hints..(greatest(coalesce(p_hints_used, 0), 0) - 1) loop
+    v_penalty := round(v_subtotal * 0.15)::integer;
+    v_subtotal := greatest(0, v_subtotal - v_penalty);
+    v_hint_penalty := v_hint_penalty + v_penalty;
+  end loop;
+
+  if coalesce(p_undo_count, 0) > 3 then
+    for r in 4..coalesce(p_undo_count, 0) loop
+      v_penalty := round(v_subtotal * 0.02)::integer;
+      v_subtotal := greatest(0, v_subtotal - v_penalty);
+      v_undo_penalty := v_undo_penalty + v_penalty;
+    end loop;
   end if;
 
-  v_final_score := greatest(
-    0,
-    v_placement_points +
-      v_streak_bonus +
-      v_unit_bonus +
-      v_completion_bonus +
-      v_speed_bonus -
-      v_slow_penalty -
-      v_mistake_penalty -
-      v_hint_penalty -
-      v_undo_penalty
-  );
+  if p_completed then
+    v_completion_bonus := v_completion_value;
+    v_subtotal := v_subtotal + v_completion_bonus;
+    v_speed_multiplier := case
+      when greatest(coalesce(p_elapsed_seconds, 1), 1) <= v_target_seconds then
+        1 + ((v_target_seconds - greatest(coalesce(p_elapsed_seconds, 1), 1))::numeric / v_target_seconds) * 0.35
+      else
+        1 - least((greatest(coalesce(p_elapsed_seconds, 1), 1) - v_target_seconds)::numeric / v_target_seconds, 1) * 0.25
+    end;
+    v_speed_multiplier := greatest(0.75, least(1.35, v_speed_multiplier));
+  end if;
+
+  v_speed_adjusted := greatest(0, round(v_subtotal * v_speed_multiplier)::integer);
+  if v_speed_adjusted >= round(v_subtotal)::integer then
+    v_speed_bonus := v_speed_adjusted - round(v_subtotal)::integer;
+  else
+    v_slow_penalty := round(v_subtotal)::integer - v_speed_adjusted;
+  end if;
+  v_final_score := v_speed_adjusted;
 
   return jsonb_build_object(
+    'baseScore', v_starting_score,
     'placementPoints', v_placement_points,
     'streakBonus', v_streak_bonus,
     'unitBonus', v_unit_bonus,
     'completionBonus', v_completion_bonus,
     'speedBonus', v_speed_bonus,
     'slowPenalty', v_slow_penalty,
+    'speedMultiplier', round(v_speed_multiplier, 4),
     'mistakePenalty', v_mistake_penalty,
     'hintPenalty', v_hint_penalty,
     'undoPenalty', v_undo_penalty,
@@ -463,10 +575,10 @@ begin
 
   v_target_seconds := case v_puzzle.difficulty
     when 'Easy' then 300
-    when 'Medium' then 600
+    when 'Medium' then 540
     when 'Hard' then 900
-    when 'Expert' then 1200
-    when 'Master' then 1800
+    when 'Expert' then 1440
+    when 'Master' then 2100
     else 999999
   end;
 
@@ -494,7 +606,7 @@ begin
   v_final_score := (v_score_breakdown->>'finalScore')::integer;
 
   v_base_xp := v_base_xp
-    + floor(v_final_score::numeric / 100)::integer
+    + floor(v_final_score::numeric / 120)::integer
     + case when p_mistakes = 0 and p_hints_used = 0 then 25 else 0 end
     + case when p_elapsed_seconds < v_target_seconds then 25 else 0 end
     + case when v_session.mode = 'daily' then 50 else 0 end;
