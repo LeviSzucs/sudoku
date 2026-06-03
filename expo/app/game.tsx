@@ -462,9 +462,10 @@ export default function GameScreen() {
     });
     setProcessedResultId(`${game.result.puzzle_id}:${currentSessionIdRef.current ?? "pending-session"}`);
     if (auth.isSignedIn) {
+      let completedSessionId: string | undefined;
       void saveSession(true)
         .then((saved) => {
-          const completedSessionId = currentSessionIdRef.current ?? undefined;
+          completedSessionId = currentSessionIdRef.current ?? undefined;
           if (!saved || !completedSessionId) {
             throw new Error("Could not save official result. Missing puzzle session.");
           }
