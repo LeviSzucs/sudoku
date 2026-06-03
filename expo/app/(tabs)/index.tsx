@@ -139,17 +139,7 @@ export default function HomeScreen() {
     });
   };
   const openDuel = () => {
-    if (auth.isSignedIn) {
-      void openSignedInDailyMode("duel");
-      return;
-    }
-    const session = inProgressSessions.find((entry) => entry.mode === "duel");
-    router.push({
-      pathname: "/game",
-      params: session
-        ? { mode: "duel", difficulty: session.difficulty, sessionId: session.session_id, session_id: session.session_id, ...(session.puzzle_id ? { puzzleId: session.puzzle_id, puzzle_id: session.puzzle_id } : {}) }
-        : { mode: "duel", difficulty: "Medium" },
-    });
+    router.push("/versus");
   };
   const showComingSoon = (title = "Coming soon") => Alert.alert(title, "Coming soon");
 

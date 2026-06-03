@@ -230,16 +230,7 @@ export default function PlayHubScreen() {
     go("daily", "Medium");
   };
   const startDuel = () => {
-    if (auth.isSignedIn) {
-      void startSignedInDailyPuzzle("duel");
-      return;
-    }
-    const session = inProgressSessions.find((entry) => entry.mode === "duel");
-    if (session) {
-      go("duel", session.difficulty as Difficulty, session.session_id, undefined, session.puzzle_id);
-      return;
-    }
-    go("duel", "Medium");
+    router.push("/versus");
   };
   const showComingSoon = (message = "Coming soon") => Alert.alert("Coming soon", message);
 

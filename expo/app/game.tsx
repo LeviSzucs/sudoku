@@ -25,6 +25,7 @@ import { fetchClassicPuzzle, fetchDailyPuzzle, fetchPuzzleById, formatTime, make
 const MODE_LABEL: Record<GameMode, string> = {
   daily: "Daily",
   classic: "Classic",
+  daily_duel: "Daily Duel",
   duel: "Daily Duel",
   friend_challenge: "Friend Challenge",
   ranked: "Ranked",
@@ -120,7 +121,7 @@ export default function GameScreen() {
         } else if (effectiveMode === "daily") {
           const data = await measureAsync("puzzle fetch daily", () => fetchDailyPuzzle(today, "daily"));
           if (!cancelled) setPuzzleData(data);
-        } else if (effectiveMode === "duel") {
+        } else if (effectiveMode === "daily_duel" || effectiveMode === "duel") {
           const data = await measureAsync("puzzle fetch daily_duel", () => fetchDailyPuzzle(today, "daily_duel"));
           if (!cancelled) setPuzzleData(data);
         } else {
@@ -524,7 +525,7 @@ export default function GameScreen() {
   }, [auth.isSignedIn, auth.user?.id, cancelPendingSave, closeSessionForPuzzle, effectiveMode, fetchFriendChallenges, game.board, game.result, isSubmittingResult, processedResultId, recordPuzzleResult, saveSession, submitOfficialPuzzleResult]);
 
   useEffect(() => {
-    const finalizesFailedAttempt = auth.isSignedIn && (effectiveMode === "daily" || effectiveMode === "friend_challenge");
+    const finalizesFailedAttempt = auth.isSignedIn && (effectiveMode === "daily" || effectiveMode === "daily_duel" || effectiveMode === "friend_challenge");
     const failedSessionId = currentSessionIdRef.current;
     if (!game.gameOver || game.completed || !finalizesFailedAttempt || isSubmittingFailedResult || !failedSessionId || processedFailedSessionId === failedSessionId) return;
 

@@ -19,7 +19,7 @@ import { isEditableGivenCell, isGivenCell } from "@/lib/givenCells";
 import { logDevDiagnostic, measureInteraction } from "@/lib/performanceDiagnostics";
 import { calculateSudokuScore, type ScoreBreakdown } from "@/lib/scoring";
 
-export type GameMode = "daily" | "classic" | "duel" | "friend_challenge" | "ranked";
+export type GameMode = "daily" | "classic" | "daily_duel" | "duel" | "friend_challenge" | "ranked";
 
 export const MAX_MISTAKES = 3;
 
