@@ -26,7 +26,7 @@ const GUEST_SESSIONS_KEY = "sudoku.guest_sessions.v1";
 
 type SaveResult = { ok: boolean; error?: string };
 type SessionStatus = "in_progress" | "completed" | "failed" | "abandoned";
-type DailySessionMode = "daily" | "duel";
+type DailySessionMode = "daily" | "daily_duel" | "duel";
 type UsernameAvailabilityStatus = "available" | "unavailable" | "invalid" | "error";
 
 const RESERVED_USERNAMES = new Set(["player", "admin", "support", "sudoku", "ranked", "daily", "guest"]);
@@ -157,6 +157,31 @@ export interface FriendChallengeStart {
   puzzle_id: string;
   difficulty: PuzzleResult["difficulty"];
   session_id: string;
+}
+
+export interface DailyDuelEntry {
+  duel_id: string;
+  duel_date: string;
+  status: "waiting_for_opponent" | "matched" | "player_a_completed" | "player_b_completed" | "completed" | "cancelled" | "expired";
+  puzzle_id: string;
+  difficulty: PuzzleResult["difficulty"];
+  session_id: string | null;
+  current_user_result_id: string | null;
+  opponent_user_id: string | null;
+  opponent_display_name: string | null;
+  opponent_username_handle: string | null;
+  opponent_initials: string | null;
+  opponent_avatar_color: string | null;
+  your_score: number | null;
+  your_elapsed_seconds: number | null;
+  your_mistakes: number | null;
+  your_hints_used: number | null;
+  opponent_score: number | null;
+  opponent_elapsed_seconds: number | null;
+  opponent_mistakes: number | null;
+  opponent_hints_used: number | null;
+  winner_user_id: string | null;
+  completed_at: string | null;
 }
 
 export interface FriendHeadToHeadMatch {
@@ -1729,6 +1754,72 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     return { ok: true };
   }, [auth.user, updateDiagnostics]);
 
+  const mapDailyDuel = useCallback((row: Partial<DailyDuelEntry> | null | undefined): DailyDuelEntry | null => {
+    if (!row?.duel_id) return null;
+    return {
+      duel_id: row.duel_id,
+      duel_date: row.duel_date ?? getDailyDateKey(),
+      status: row.status ?? "waiting_for_opponent",
+      puzzle_id: row.puzzle_id ?? "",
+      difficulty: row.difficulty ?? "Medium",
+      session_id: row.session_id ?? null,
+      current_user_result_id: row.current_user_result_id ?? null,
+      opponent_user_id: row.opponent_user_id ?? null,
+      opponent_display_name: row.opponent_display_name ?? null,
+      opponent_username_handle: row.opponent_username_handle ?? null,
+      opponent_initials: row.opponent_initials ?? null,
+      opponent_avatar_color: row.opponent_avatar_color ?? null,
+      your_score: row.your_score ?? null,
+      your_elapsed_seconds: row.your_elapsed_seconds ?? null,
+      your_mistakes: row.your_mistakes ?? null,
+      your_hints_used: row.your_hints_used ?? null,
+      opponent_score: row.opponent_score ?? null,
+      opponent_elapsed_seconds: row.opponent_elapsed_seconds ?? null,
+      opponent_mistakes: row.opponent_mistakes ?? null,
+      opponent_hints_used: row.opponent_hints_used ?? null,
+      winner_user_id: row.winner_user_id ?? null,
+      completed_at: row.completed_at ?? null,
+    };
+  }, []);
+
+  const fetchDailyDuel = useCallback(async (dateStr: string = getDailyDateKey()): Promise<DailyDuelEntry | null> => {
+    if (!auth.user || !isSupabaseConfigured) return null;
+    const { data, error } = await supabase.rpc("daily_duel_view", { p_date: dateStr });
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return null;
+    }
+    const row = Array.isArray(data) ? data[0] : null;
+    return mapDailyDuel(row as Partial<DailyDuelEntry> | null);
+  }, [auth.user, mapDailyDuel, updateDiagnostics]);
+
+  const enterDailyDuel = useCallback(async (dateStr: string = getDailyDateKey()): Promise<{ ok: boolean; error?: string; duel?: DailyDuelEntry }> => {
+    if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before entering Daily Duel." };
+    const { data, error } = await supabase.rpc("enter_daily_duel", { p_date: dateStr });
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return { ok: false, error: error.message };
+    }
+    const row = Array.isArray(data) ? data[0] : null;
+    const duel = mapDailyDuel(row as Partial<DailyDuelEntry> | null);
+    if (!duel) return { ok: false, error: "Daily Duel did not return a match." };
+
+    if (duel.session_id && !duel.current_user_result_id) {
+      const { data: sessionData, error: sessionError } = await supabase
+        .from("puzzle_sessions")
+        .select("*")
+        .eq("session_id", duel.session_id)
+        .maybeSingle();
+      if (sessionError) updateDiagnostics({ lastError: sessionError.message });
+      if (sessionData) {
+        const session = sessionData as PuzzleSessionRow;
+        setActiveSessions((prev) => [session, ...prev.filter((entry) => entry.session_id !== session.session_id && entry.status === "in_progress")]);
+      }
+    }
+
+    return { ok: true, duel };
+  }, [auth.user, mapDailyDuel, updateDiagnostics]);
+
   const fetchFriendHeadToHead = useCallback(async (friendId: string): Promise<FriendHeadToHeadSummary | null> => {
     if (!auth.user || !isSupabaseConfigured) return null;
     const { data, error } = await supabase.rpc("get_friend_head_to_head", { p_friend_id: friendId });
@@ -1876,6 +1967,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, simulateResult, simulateRankedWin, simulateRankedLoss,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
+    fetchDailyDuel, enterDailyDuel,
     resetLocalProfile, checkUsernameAvailable, completeProfileSetup, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
     repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, testDailyResultQuery, clearLastUpdate,
     upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
@@ -1885,6 +1977,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
+    fetchDailyDuel, enterDailyDuel,
     repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
     simulateRankedLoss, simulateRankedWin, simulateResult,
     testSupabaseRead, testSupabaseWrite, testDailyResultQuery,
