@@ -18,6 +18,17 @@ import { logDevDiagnostic } from "@/lib/performanceDiagnostics";
 import { formatTime } from "@/lib/sudoku";
 import type { RecentResult } from "@/lib/playerProfile";
 
+function formatScore(value: number | null | undefined): string {
+  return (value ?? 0).toLocaleString();
+}
+
+function formatRank(tier?: string | null, division?: string | null): string {
+  const cleanTier = tier?.trim();
+  const cleanDivision = division?.trim();
+  if (!cleanTier) return "Unranked";
+  return cleanDivision ? `${cleanTier} ${cleanDivision}` : cleanTier;
+}
+
 function getDailyDuelCopy(duel: DailyDuelEntry | null, currentUserId: string | null): {
   title: string;
   badge: string;
@@ -54,9 +65,9 @@ function getDailyDuelCopy(duel: DailyDuelEntry | null, currentUserId: string | n
     return {
       title: outcome,
       badge: "Complete",
-      button: "View result",
+      button: "Complete",
       opponentSub: "Complete",
-      resultText: `${outcome} · ${duel.your_score ?? 0} vs ${duel.opponent_score ?? 0}`,
+      resultText: `${formatScore(duel.your_score)} vs ${formatScore(duel.opponent_score)}`,
     };
   }
 
@@ -202,7 +213,7 @@ export default function VersusScreen() {
       >
         <Text style={styles.kicker}>HEAD TO HEAD</Text>
         <Text style={styles.title}>Versus</Text>
-        <Text style={styles.subtitle}>Race the same puzzle. Best time wins.</Text>
+        <Text style={styles.subtitle}>One attempt. Highest score wins.</Text>
 
         {/* Daily Duel hero */}
         <Pressable onPress={startDailyDuel} style={{ marginTop: 22 }}>
@@ -232,10 +243,8 @@ export default function VersusScreen() {
                     color={profile.avatar_color}
                     size={56}
                   />
-                  <Text style={styles.vsName}>{profile.username}</Text>
-                  <Text style={styles.vsRank}>
-                    {profile.rank_tier}{profile.rank_division ? ` ${profile.rank_division}` : ""}
-                  </Text>
+                  <Text style={styles.vsName}>{profile.display_name ?? profile.username}</Text>
+                  <Text style={styles.vsRank}>{formatRank(profile.rank_tier, profile.rank_division)}</Text>
                 </View>
                 <View style={styles.vsCenter}>
                   <Text style={styles.vsLabel}>VS</Text>
@@ -247,14 +256,16 @@ export default function VersusScreen() {
                     size={56}
                   />
                   <Text style={styles.vsName}>{dailyDuel?.opponent_display_name ?? "Opponent"}</Text>
-                  <Text style={styles.vsRank}>{dailyDuel?.opponent_username_handle ? `@${dailyDuel.opponent_username_handle}` : dailyDuelCopy.opponentSub}</Text>
+                  <Text style={styles.vsRank}>{dailyDuel?.opponent_user_id ? dailyDuel.opponent_rank_tier ?? "Unranked" : dailyDuelCopy.opponentSub}</Text>
                 </View>
               </View>
 
-              <View style={styles.heroCTA}>
-                <Swords size={15} color={C.ink} />
-                <Text style={styles.heroCTAText}>{dailyDuelLoading ? "Loading..." : dailyDuelCopy.button}</Text>
-              </View>
+              {dailyDuel?.status !== "completed" ? (
+                <View style={styles.heroCTA}>
+                  <Swords size={15} color={C.ink} />
+                  <Text style={styles.heroCTAText}>{dailyDuelLoading ? "Loading..." : dailyDuelCopy.button}</Text>
+                </View>
+              ) : null}
               {dailyDuelCopy.resultText ? <Text style={styles.duelStatusText}>{dailyDuelCopy.resultText}</Text> : null}
             </View>
           )}

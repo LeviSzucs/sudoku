@@ -172,6 +172,7 @@ export interface DailyDuelEntry {
   opponent_username_handle: string | null;
   opponent_initials: string | null;
   opponent_avatar_color: string | null;
+  opponent_rank_tier: string | null;
   your_score: number | null;
   your_elapsed_seconds: number | null;
   your_mistakes: number | null;
@@ -1769,6 +1770,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       opponent_username_handle: row.opponent_username_handle ?? null,
       opponent_initials: row.opponent_initials ?? null,
       opponent_avatar_color: row.opponent_avatar_color ?? null,
+      opponent_rank_tier: row.opponent_rank_tier ?? null,
       your_score: row.your_score ?? null,
       your_elapsed_seconds: row.your_elapsed_seconds ?? null,
       your_mistakes: row.your_mistakes ?? null,
@@ -1790,7 +1792,17 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       return null;
     }
     const row = Array.isArray(data) ? data[0] : null;
-    return mapDailyDuel(row as Partial<DailyDuelEntry> | null);
+    const duel = mapDailyDuel(row as Partial<DailyDuelEntry> | null);
+    if (!duel?.opponent_user_id) return duel;
+
+    const { data: statsRow, error: statsError } = await supabase
+      .from("player_stats")
+      .select("rank_tier")
+      .eq("user_id", duel.opponent_user_id)
+      .maybeSingle();
+    if (statsError) return duel;
+
+    return { ...duel, opponent_rank_tier: statsRow?.rank_tier ?? null };
   }, [auth.user, mapDailyDuel, updateDiagnostics]);
 
   const enterDailyDuel = useCallback(async (dateStr: string = getDailyDateKey()): Promise<{ ok: boolean; error?: string; duel?: DailyDuelEntry }> => {
@@ -1801,8 +1813,17 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       return { ok: false, error: error.message };
     }
     const row = Array.isArray(data) ? data[0] : null;
-    const duel = mapDailyDuel(row as Partial<DailyDuelEntry> | null);
+    let duel = mapDailyDuel(row as Partial<DailyDuelEntry> | null);
     if (!duel) return { ok: false, error: "Daily Duel did not return a match." };
+
+    if (duel.opponent_user_id) {
+      const { data: statsRow } = await supabase
+        .from("player_stats")
+        .select("rank_tier")
+        .eq("user_id", duel.opponent_user_id)
+        .maybeSingle();
+      duel = { ...duel, opponent_rank_tier: statsRow?.rank_tier ?? null };
+    }
 
     if (duel.session_id && !duel.current_user_result_id) {
       const { data: sessionData, error: sessionError } = await supabase
