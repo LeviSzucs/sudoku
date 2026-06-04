@@ -91,11 +91,11 @@ begin
   end if;
 
   if v_duel.ranked_duel_id is null then
-    update public.game_results
+    update public.game_results gr
     set eligible_for_ranked = false,
         eligible_for_leaderboard = false,
         rp_change = 0
-    where result_id = v_result.result_id;
+    where gr.result_id = v_result.result_id;
 
     raise exception 'Ranked Duel not found for result.' using errcode = '22023';
   end if;
@@ -132,11 +132,11 @@ begin
     end if;
 
     if v_side_result.result_id is null then
-      update public.game_results
+      update public.game_results gr
       set eligible_for_ranked = false,
           eligible_for_leaderboard = false,
           rp_change = 0
-      where result_id = v_result.result_id;
+      where gr.result_id = v_result.result_id;
       raise exception 'Ranked Duel player A session mismatch.' using errcode = '22023';
     end if;
 
@@ -169,11 +169,11 @@ begin
     end if;
 
     if v_side_result.result_id is null then
-      update public.game_results
+      update public.game_results gr
       set eligible_for_ranked = false,
           eligible_for_leaderboard = false,
           rp_change = 0
-      where result_id = v_result.result_id;
+      where gr.result_id = v_result.result_id;
       raise exception 'Ranked Duel player B session mismatch.' using errcode = '22023';
     end if;
 
@@ -182,12 +182,12 @@ begin
   end if;
 
   if v_result.result_id <> v_side_result.result_id then
-    update public.game_results
+    update public.game_results gr
     set eligible_for_ranked = false,
         eligible_for_leaderboard = false,
         rp_change = 0
-    where result_id = v_result.result_id
-      and result_id <> v_side_result.result_id;
+    where gr.result_id = v_result.result_id
+      and gr.result_id <> v_side_result.result_id;
   end if;
 
   if v_duel.player_a_result_id is not null then
