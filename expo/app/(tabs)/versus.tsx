@@ -407,7 +407,7 @@ export default function VersusScreen() {
             </View>
           </Card>
 
-          <Card onPress={() => router.push({ pathname: "/friends", params: { mode: "challenge" } })}>
+          <Card onPress={() => router.push({ pathname: "/friends", params: { mode: "challenge", source: "versus" } })}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
               <View style={[styles.iconTile, { backgroundColor: C.accentSoft }]}>
                 <UserPlus color={C.accent} size={22} strokeWidth={2} />
@@ -425,7 +425,7 @@ export default function VersusScreen() {
 
         {/* Recent matches */}
         <View style={{ marginTop: 26 }}>
-          <SectionHeader title="Recent matches" action={duelResults.length > 0 ? "History" : undefined} onAction={() => router.push("/results")} />
+          <SectionHeader title="Recent matches" action={duelResults.length > 0 ? "History" : undefined} onAction={() => router.push({ pathname: "/results", params: { source: "versus" } })} />
           {duelResults.length === 0 ? (
             <Card style={{ alignItems: "center", paddingVertical: 24 }}>
               <Swords size={32} color={C.mutedSoft} strokeWidth={1.5} />
