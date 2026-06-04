@@ -63,7 +63,7 @@ export default function ResultsScreen() {
             <Text style={styles.empty}>{emptyText}</Text>
           ) : (
             results.map((result, index) => (
-              <View key={`${result.puzzle_id}-${result.completed_at}`} style={[styles.row, index !== results.length - 1 && styles.divider]}>
+              <View key={result.result_id ?? result.session_id ?? `${result.puzzle_id}-${result.completed_at}-${index}`} style={[styles.row, index !== results.length - 1 && styles.divider]}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.rowTitle}>{modeLabel(result.mode)} / {result.difficulty}</Text>
                   <Text style={styles.rowSub}>{new Date(result.completed_at).toLocaleDateString()}</Text>

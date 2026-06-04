@@ -435,7 +435,7 @@ export default function VersusScreen() {
               </Text>
             </Card>
           ) : (
-            duelResults.slice(0, 5).map((r) => {
+            duelResults.slice(0, 5).map((r, index) => {
               const isCurrentDailyDuel =
                 r.mode === "daily_duel"
                 && dailyDuelOutcome
@@ -448,7 +448,7 @@ export default function VersusScreen() {
                 && (!r.session_id || !rankedDuel?.session_id || r.session_id === rankedDuel.session_id);
               return (
                 <DuelResultRow
-                  key={`${r.puzzle_id}-${r.completed_at}`}
+                  key={r.result_id ?? r.session_id ?? `${r.puzzle_id}-${r.completed_at}-${index}`}
                   result={r}
                   outcomeOverride={isCurrentDailyDuel ? dailyDuelOutcome : isCurrentRankedDuel ? rankedDuelOutcome : undefined}
                 />

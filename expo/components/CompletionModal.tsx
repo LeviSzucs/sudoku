@@ -24,6 +24,8 @@ interface Props {
   unlockedBadges?: { name: string; icon: string }[];
   outcomeTitle?: string | null;
   outcomeSubtitle?: string | null;
+  primaryLabel?: string;
+  showLeaderboardEligibility?: boolean;
   onNext: () => void;
   onShare: () => void;
   onHome: () => void;
@@ -49,6 +51,8 @@ export default function CompletionModal({
   unlockedBadges = [],
   outcomeTitle = null,
   outcomeSubtitle = null,
+  primaryLabel = "Next puzzle",
+  showLeaderboardEligibility = true,
   onNext,
   onShare,
   onHome,
@@ -103,7 +107,7 @@ export default function CompletionModal({
             {showOfficialFailure ? <Text style={styles.errorText}>Official result not saved</Text> : null}
             {showOfficialFailure && officialError ? <Text style={styles.errorDetail}>{officialError}</Text> : null}
             <Text style={styles.eligibleText}>Personal stats saved: {personalStatsSaved ? "Yes" : "No"}</Text>
-            {showOfficialRewards ? <Text style={styles.eligibleText}>{leaderboardLabel}</Text> : null}
+            {showOfficialRewards && showLeaderboardEligibility ? <Text style={styles.eligibleText}>{leaderboardLabel}</Text> : null}
             {showOfficialRewards ? <Text style={styles.xpText}>+{xpEarned} Mastery XP</Text> : null}
           </View>
 
@@ -132,7 +136,7 @@ export default function CompletionModal({
 
           <Pressable style={styles.primary} onPress={onNext}>
             <RotateCw size={16} color="#FBF8F2" />
-            <Text style={styles.primaryText}>Next puzzle</Text>
+            <Text style={styles.primaryText}>{primaryLabel}</Text>
           </Pressable>
 
           <View style={styles.secondaryRow}>
