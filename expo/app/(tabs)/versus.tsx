@@ -18,6 +18,8 @@ import { logDevDiagnostic } from "@/lib/performanceDiagnostics";
 import { formatTime } from "@/lib/sudoku";
 import type { RecentResult } from "@/lib/playerProfile";
 
+type DisplayOutcome = "win" | "loss" | "draw" | "abandon";
+
 function formatScore(value: number | null | undefined): string {
   return (value ?? 0).toLocaleString();
 }
@@ -27,6 +29,12 @@ function formatRank(tier?: string | null, division?: string | null): string {
   const cleanDivision = division?.trim();
   if (!cleanTier) return "Unranked";
   return cleanDivision ? `${cleanTier} ${cleanDivision}` : cleanTier;
+}
+
+function getDailyDuelOutcome(duel: DailyDuelEntry | null, currentUserId: string | null): DisplayOutcome | null {
+  if (!duel || duel.status !== "completed") return null;
+  if (!duel.winner_user_id) return "draw";
+  return duel.winner_user_id === currentUserId ? "win" : "loss";
 }
 
 function getDailyDuelCopy(duel: DailyDuelEntry | null, currentUserId: string | null): {
@@ -126,6 +134,7 @@ export default function VersusScreen() {
   }, [refreshDailyDuel]));
 
   const dailyDuelCopy = useMemo(() => getDailyDuelCopy(dailyDuel, auth.user?.id ?? null), [auth.user?.id, dailyDuel]);
+  const dailyDuelOutcome = useMemo(() => getDailyDuelOutcome(dailyDuel, auth.user?.id ?? null), [auth.user?.id, dailyDuel]);
 
   const openDailyDuelGame = useCallback((duel: DailyDuelEntry) => {
     if (!duel.session_id) {
@@ -322,9 +331,20 @@ export default function VersusScreen() {
               </Text>
             </Card>
           ) : (
-            duelResults.slice(0, 5).map((r) => (
-              <DuelResultRow key={`${r.puzzle_id}-${r.completed_at}`} result={r} />
-            ))
+            duelResults.slice(0, 5).map((r) => {
+              const isCurrentDailyDuel =
+                r.mode === "daily_duel"
+                && dailyDuelOutcome
+                && r.puzzle_id === dailyDuel?.puzzle_id
+                && (!r.session_id || !dailyDuel?.session_id || r.session_id === dailyDuel.session_id);
+              return (
+                <DuelResultRow
+                  key={`${r.puzzle_id}-${r.completed_at}`}
+                  result={r}
+                  outcomeOverride={isCurrentDailyDuel ? dailyDuelOutcome : undefined}
+                />
+              );
+            })
           )}
         </View>
       </ScrollView>
@@ -332,8 +352,10 @@ export default function VersusScreen() {
   );
 }
 
-function DuelResultRow({ result }: { result: RecentResult }) {
-  const isWin = result.result_outcome === "win";
+function DuelResultRow({ result, outcomeOverride }: { result: RecentResult; outcomeOverride?: DisplayOutcome }) {
+  const outcome = outcomeOverride ?? result.result_outcome;
+  const isWin = outcome === "win";
+  const isLoss = outcome === "loss";
   return (
     <Card style={{ marginBottom: 10 }} padded={false}>
       <View style={styles.matchHeader}>
@@ -341,16 +363,16 @@ function DuelResultRow({ result }: { result: RecentResult }) {
           <View
             style={[
               styles.resultTag,
-              { backgroundColor: isWin ? "#DCEBE0" : result.result_outcome === "loss" ? "#F7DEDA" : C.border },
+              { backgroundColor: isWin ? "#DCEBE0" : isLoss ? "#F7DEDA" : C.border },
             ]}
           >
             <Text
               style={[
                 styles.resultText,
-                { color: isWin ? C.success : result.result_outcome === "loss" ? C.danger : C.muted },
+                { color: isWin ? C.success : isLoss ? C.danger : C.muted },
               ]}
             >
-              {result.result_outcome === "win" ? "WIN" : result.result_outcome === "loss" ? "LOSS" : "DRAW"}
+              {outcome === "win" ? "WIN" : outcome === "loss" ? "LOSS" : "DRAW"}
             </Text>
           </View>
           <Text style={styles.matchMode}>{result.mode === "ranked" ? "Ranked" : "Duel"}</Text>
