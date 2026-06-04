@@ -114,14 +114,26 @@ function getDailyDuelCopy(duel: DailyDuelEntry | null, currentUserId: string | n
   };
 }
 
-function getRankedDuelCopy(duel: RankedDuelEntry | null, currentUserId: string | null): {
+function getRankedDuelCopy(duel: RankedDuelEntry | null, currentUserId: string | null, latestCompleted: RankedDuelEntry | null = null): {
   title: string;
   badge: string;
   button: string;
   sub: string;
   resultText: string | null;
 } {
-  if (!duel) return { title: "Ranked Duel", badge: "Competitive", button: "Find match", sub: "Queue against a nearby RP opponent", resultText: null };
+  if (!duel) {
+    if (latestCompleted) {
+      const delta = latestCompleted.rp_change === null ? "" : ` · ${latestCompleted.rp_change >= 0 ? "+" : ""}${latestCompleted.rp_change} RP`;
+      return {
+        title: "Ranked Duel",
+        badge: latestCompleted.current_tier,
+        button: "Find next match",
+        sub: `${latestCompleted.current_rp} RP · ${latestCompleted.season_name}`,
+        resultText: `${formatScore(latestCompleted.your_score)} vs ${formatScore(latestCompleted.opponent_score)}${delta}`,
+      };
+    }
+    return { title: "Ranked Duel", badge: "Competitive", button: "Find match", sub: "Queue against a nearby RP opponent", resultText: null };
+  }
   const youFinished = Boolean(duel.current_user_result_id);
   const opponentFinished = duel.opponent_score !== null;
   const opponentName = duel.opponent_display_name ?? "opponent";
@@ -145,6 +157,7 @@ export default function VersusScreen() {
   const [dailyDuel, setDailyDuel] = useState<DailyDuelEntry | null>(null);
   const [dailyDuelLoading, setDailyDuelLoading] = useState(false);
   const [rankedDuel, setRankedDuel] = useState<RankedDuelEntry | null>(null);
+  const [latestRankedDuel, setLatestRankedDuel] = useState<RankedDuelEntry | null>(null);
   const [rankedDuelLoading, setRankedDuelLoading] = useState(false);
 
   const duelResults = profile.recent_results.filter(
@@ -163,10 +176,17 @@ export default function VersusScreen() {
   const refreshRankedDuel = useCallback(async () => {
     if (!auth.isSignedIn) {
       setRankedDuel(null);
+      setLatestRankedDuel(null);
       return;
     }
-    const duel = await fetchRankedDuel();
-    setRankedDuel(duel);
+    const duel = await fetchRankedDuel(true);
+    if (duel && ["waiting_for_opponent", "matched", "player_a_completed", "player_b_completed"].includes(duel.status)) {
+      setRankedDuel(duel);
+      setLatestRankedDuel(null);
+      return;
+    }
+    setRankedDuel(null);
+    setLatestRankedDuel(duel?.status === "completed" ? duel : null);
   }, [auth.isSignedIn, fetchRankedDuel]);
 
   useFocusEffect(useCallback(() => {
@@ -176,7 +196,7 @@ export default function VersusScreen() {
 
   const dailyDuelCopy = useMemo(() => getDailyDuelCopy(dailyDuel, auth.user?.id ?? null), [auth.user?.id, dailyDuel]);
   const dailyDuelOutcome = useMemo(() => getDailyDuelOutcome(dailyDuel, auth.user?.id ?? null), [auth.user?.id, dailyDuel]);
-  const rankedDuelCopy = useMemo(() => getRankedDuelCopy(rankedDuel, auth.user?.id ?? null), [auth.user?.id, rankedDuel]);
+  const rankedDuelCopy = useMemo(() => getRankedDuelCopy(rankedDuel, auth.user?.id ?? null, latestRankedDuel), [auth.user?.id, latestRankedDuel, rankedDuel]);
   const rankedDuelOutcome = useMemo(() => getRankedDuelOutcome(rankedDuel, auth.user?.id ?? null), [auth.user?.id, rankedDuel]);
 
   const openDailyDuelGame = useCallback((duel: DailyDuelEntry) => {
@@ -280,12 +300,12 @@ export default function VersusScreen() {
       Alert.alert("Ranked Duel", "Please try again.");
       return;
     }
-    if (rankedDuel?.current_user_result_id || rankedDuel?.status === "completed") {
-      Alert.alert("Ranked Duel", rankedDuelCopy.resultText ?? "Your ranked duel is complete.");
-      return;
-    }
     if (rankedDuel?.status === "waiting_for_opponent") {
       Alert.alert("Ranked Duel", "Searching for a nearby RP opponent.");
+      return;
+    }
+    if (rankedDuel?.current_user_result_id) {
+      Alert.alert("Ranked Duel", rankedDuelCopy.resultText ?? "You finished. Waiting for your opponent.");
       return;
     }
     if (rankedDuel?.session_id && rankedDuel.status !== "waiting_for_opponent") {
@@ -301,6 +321,7 @@ export default function VersusScreen() {
         return;
       }
       setRankedDuel(result.duel);
+      setLatestRankedDuel(null);
       if (result.duel.status === "waiting_for_opponent") {
         Alert.alert("Ranked Duel", "You're searching for a nearby RP opponent.");
         return;

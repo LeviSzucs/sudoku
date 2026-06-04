@@ -404,6 +404,18 @@ function profileFromRows(profileRow: ProfileRow, statsRow: PlayerStatsRow, setti
   });
 }
 
+function applyRankedProfileSource(profile: PlayerProfile, row: { rp?: number | null; current_tier?: string | null; matches_played?: number | null; wins?: number | null }): PlayerProfile {
+  const [tier = "Bronze", division = "III"] = (row.current_tier ?? "Bronze III").split(" ");
+  return normalizeProfile({
+    ...profile,
+    rank_points: Number(row.rp ?? profile.rank_points),
+    rank_tier: tier,
+    rank_division: division,
+    ranked_played: Number(row.matches_played ?? profile.ranked_played),
+    ranked_won: Number(row.wins ?? profile.ranked_won),
+  });
+}
+
 function statsPayload(profile: PlayerProfile): Partial<PlayerStatsRow> {
   return {
     total_mastery_xp: profile.total_mastery_xp,
@@ -722,6 +734,28 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     next.duels_played = Math.max(next.duels_played, duelResults.length);
     next.duels_won = Math.max(next.duels_won, duelResults.filter((result) => result.result_outcome === "win").length);
     next.last_completed_date = completedResults[0]?.completed_at?.slice(0, 10) ?? next.last_completed_date;
+    const { data: activeSeason, error: activeSeasonError } = await supabase
+      .from("ranked_seasons")
+      .select("season_id")
+      .eq("status", "active")
+      .order("starts_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (activeSeasonError) {
+      updateDiagnostics({ lastError: activeSeasonError.message });
+    } else if (activeSeason?.season_id) {
+      const { data: rankedProfileRow, error: rankedProfileError } = await supabase
+        .from("ranked_profiles")
+        .select("rp,current_tier,matches_played,wins")
+        .eq("user_id", auth.user.id)
+        .eq("season_id", activeSeason.season_id)
+        .maybeSingle();
+      if (rankedProfileError) {
+        updateDiagnostics({ lastError: rankedProfileError.message });
+      } else if (rankedProfileRow) {
+        Object.assign(next, applyRankedProfileSource(next, rankedProfileRow));
+      }
+    }
     const progressByBadgeId = new Map(((userAchievements ?? []) as UserAchievementRow[]).map((row) => [row.badge_id, row]));
     next.badges_unlocked = ((achievements ?? []) as AchievementRow[]).map((achievement) => achievementFromBackend(achievement, progressByBadgeId.get(achievement.badge_id)));
     const completedKeys = new Set(next.recent_results.map((result) => `${result.puzzle_id}:${result.mode}:${result.difficulty}`));
@@ -2023,7 +2057,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     };
   }, []);
 
-  const fetchRankedDuel = useCallback(async (): Promise<RankedDuelEntry | null> => {
+  const fetchRankedDuel = useCallback(async (includeCompleted = false): Promise<RankedDuelEntry | null> => {
     if (!auth.user || !isSupabaseConfigured) return null;
     const { data, error } = await supabase.rpc("ranked_duel_view", { p_ranked_duel_id: null });
     if (error) {
@@ -2031,7 +2065,10 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       return null;
     }
     const row = Array.isArray(data) ? data[0] : null;
-    return mapRankedDuel(row as Partial<RankedDuelEntry> | null);
+    const duel = mapRankedDuel(row as Partial<RankedDuelEntry> | null);
+    if (!duel) return null;
+    if (includeCompleted) return duel;
+    return ["waiting_for_opponent", "matched", "player_a_completed", "player_b_completed"].includes(duel.status) ? duel : null;
   }, [auth.user, mapRankedDuel, updateDiagnostics]);
 
   const enterRankedDuel = useCallback(async (): Promise<{ ok: boolean; error?: string; duel?: RankedDuelEntry }> => {
@@ -2209,12 +2246,13 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
     fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel,
+    refreshProfile: loadBackendProfile,
     resetLocalProfile, checkUsernameAvailable, completeProfileSetup, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
     repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, testDailyResultQuery, clearLastUpdate,
     upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
   }), [
     activeGuestSessions, activeSessions, auth.isSignedIn,
-    checkUsernameAvailable, clearLastUpdate, completeProfileSetup, diagnostics, hasActiveSession, isLoaded, lastUpdate, loadError, profile, profileSetupRequired,
+    checkUsernameAvailable, clearLastUpdate, completeProfileSetup, diagnostics, hasActiveSession, isLoaded, lastUpdate, loadBackendProfile, loadError, profile, profileSetupRequired,
     recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, fetchRankedLeaderboard,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
