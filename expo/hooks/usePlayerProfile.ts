@@ -661,29 +661,41 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       const { data: rankedRows, error: rankedError } = await supabase
         .from("ranked_duels")
         .select("status,winner_user_id,player_a_id,player_b_id,player_a_session_id,player_b_session_id,player_a_result_id,player_b_result_id")
-        .eq("status", "completed")
         .or(`player_a_id.eq.${auth.user.id},player_b_id.eq.${auth.user.id}`);
 
       if (rankedError) {
         updateDiagnostics({ lastError: rankedError.message });
-      } else if (rankedRows?.length) {
+      } else if (rankedRows) {
+        const attachedResultIds = new Set<string>();
+        const attachedSessionIds = new Set<string>();
         const outcomeByResultId = new Map<string, RankOutcome>();
         const outcomeBySessionId = new Map<string, RankOutcome>();
         for (const row of rankedRows as Array<Record<string, string | null>>) {
-          const outcome: RankOutcome = !row.winner_user_id ? "draw" : row.winner_user_id === auth.user.id ? "win" : "loss";
           const isPlayerA = row.player_a_id === auth.user.id;
           const resultId = isPlayerA ? row.player_a_result_id : row.player_b_result_id;
           const sessionId = isPlayerA ? row.player_a_session_id : row.player_b_session_id;
+          if (resultId) attachedResultIds.add(resultId);
+          if (sessionId) attachedSessionIds.add(sessionId);
+          if (row.status !== "completed") continue;
+          const outcome: RankOutcome = !row.winner_user_id ? "draw" : row.winner_user_id === auth.user.id ? "win" : "loss";
           if (resultId) outcomeByResultId.set(resultId, outcome);
           if (sessionId) outcomeBySessionId.set(sessionId, outcome);
         }
 
-        next.recent_results = next.recent_results.map((result) => {
-          if (result.mode !== "ranked_duel") return result;
-          const outcome = (result.result_id ? outcomeByResultId.get(result.result_id) : undefined)
-            ?? (result.session_id ? outcomeBySessionId.get(result.session_id) : undefined);
-          return outcome ? { ...result, result_outcome: outcome } : result;
-        });
+        next.recent_results = next.recent_results
+          .filter((result) => {
+            if (result.mode !== "ranked_duel") return true;
+            return Boolean(
+              (result.result_id && attachedResultIds.has(result.result_id)) ||
+              (result.session_id && attachedSessionIds.has(result.session_id))
+            );
+          })
+          .map((result) => {
+            if (result.mode !== "ranked_duel") return result;
+            const outcome = (result.result_id ? outcomeByResultId.get(result.result_id) : undefined)
+              ?? (result.session_id ? outcomeBySessionId.get(result.session_id) : undefined);
+            return { ...result, result_outcome: outcome };
+          });
       }
     }
 
@@ -1215,6 +1227,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     const stats = payload.updated_profile_stats;
     const xpEarned = payload.already_finalized ? 0 : payload.xp_earned;
     const officialResult: RecentResult = {
+      result_id: payload.result_id,
       session_id: payload.session_id,
       puzzle_id: payload.puzzle_id,
       mode: payload.mode,
