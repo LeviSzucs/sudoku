@@ -1,5 +1,5 @@
-import { Stack, useLocalSearchParams } from "expo-router";
-import { Bell, Crown, FlaskConical, LogOut, Shield, UserRound, Database } from "lucide-react-native";
+import { Stack, router, useLocalSearchParams } from "expo-router";
+import { Bell, ChevronLeft, Crown, FlaskConical, LogOut, Shield, UserRound, Database } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -50,10 +50,17 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Stack.Screen options={{ title: "Settings", headerShown: true }} />
+      <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 32 }} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Settings</Text>
-        <Text style={styles.sub}>{APP_NAME} Â· v1.0.0</Text>
+        <View style={styles.header}>
+          <Pressable style={styles.backButton} onPress={() => router.replace("/(tabs)/profile")}>
+            <ChevronLeft size={20} color={C.ink} />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Settings</Text>
+            <Text style={styles.sub}>{APP_NAME} · v1.0.0</Text>
+          </View>
+        </View>
         <Card padded={false} style={{ marginTop: 18 }}>
           <Row icon={<Bell size={18} color={C.inkSoft} />} title="Notifications" detail="Daily puzzle, streaks, duels" onPress={() => setPanel("notifications")} />
           <Row icon={<UserRound size={18} color={C.inkSoft} />} title="Display name" detail={profile.display_name ?? profile.username} onPress={() => setPanel("display")} />
@@ -104,6 +111,8 @@ function Diagnostic({ label, value }: { label: string; value: string }) { return
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
+  header: { flexDirection: "row", alignItems: "center", gap: 12 },
+  backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
   title: { fontSize: 30, fontWeight: "800", color: C.ink, letterSpacing: -0.7 },
   sub: { color: C.muted, fontWeight: "700", marginTop: 4 },
   row: { flexDirection: "row", alignItems: "center", gap: 12, padding: 16 },
