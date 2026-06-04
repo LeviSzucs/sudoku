@@ -510,7 +510,7 @@ export default function GameScreen() {
             if (challenge) setChallengeOutcome(challengeOutcomeCopy(challenge, auth.user?.id ?? null));
           }
           if (effectiveMode === "ranked_duel") {
-            const rankedDuel = await fetchRankedDuel();
+            const rankedDuel = await fetchRankedDuel(true);
             if (rankedDuel) setChallengeOutcome(rankedOutcomeCopy(rankedDuel, auth.user?.id ?? null));
           }
           currentSessionIdRef.current = null;
@@ -605,7 +605,7 @@ export default function GameScreen() {
           if (challenge) setChallengeOutcome(challengeOutcomeCopy(challenge, auth.user?.id ?? null));
         }
         if (effectiveMode === "ranked_duel") {
-          const rankedDuel = await fetchRankedDuel();
+          const rankedDuel = await fetchRankedDuel(true);
           if (rankedDuel) setChallengeOutcome(rankedOutcomeCopy(rankedDuel, auth.user?.id ?? null));
         }
         currentSessionIdRef.current = null;
