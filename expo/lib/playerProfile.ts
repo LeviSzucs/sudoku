@@ -7,6 +7,7 @@ export type RankOutcome = "win" | "loss" | "draw" | "abandon";
 export type BadgeCategory = "Starter" | "Streak" | "Speed" | "Difficulty" | "Competitive" | "Completion" | "Precision";
 
 export interface RecentResult extends PuzzleResult {
+  result_id?: string;
   xp_earned: number;
   result_outcome?: RankOutcome;
 }
