@@ -369,6 +369,6 @@ export function calculateMasteryXpFromScore(difficulty: Difficulty, finalScore: 
   if (fast) xp += 25;
   if (mode === "daily") xp += 50;
   if (mode === "duel" && didWin) xp += 40;
-  if (mode === "ranked" && didWin) xp += 60;
+  if ((mode === "ranked" || mode === "ranked_duel") && didWin) xp += 60;
   return xp;
 }

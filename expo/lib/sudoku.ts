@@ -17,7 +17,7 @@ export interface SudokuPuzzle {
   givens: Board;
   initial?: Board;
   solution: Board;
-  mode: "daily" | "classic" | "duel" | "friend_challenge" | "ranked";
+  mode: "daily" | "classic" | "duel" | "friend_challenge" | "ranked" | "ranked_duel";
 }
 
 /** Raw puzzle data needed to initialise the game hook. */

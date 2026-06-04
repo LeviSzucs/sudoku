@@ -29,7 +29,7 @@ export const ACTION_AUDIT: ActionAuditEntry[] = [
   { route: "Settings", action: "Notifications/display/privacy/log out/reset/dev tools", status: "works" },
   { route: "Settings", action: "Premium", status: "coming soon" },
   { route: "Versus", action: "Daily Duel", status: "works" },
-  { route: "Versus", action: "Ranked Duel", status: "coming soon" },
+  { route: "Versus", action: "Ranked Duel", status: "works" },
   { route: "Versus", action: "Friend Challenge", status: "coming soon" },
   { route: "Versus", action: "Recent match history", status: "works" },
   { route: "Leaderboards", action: "Daily/Weekly/Friends/Ranked tabs", status: "works" },

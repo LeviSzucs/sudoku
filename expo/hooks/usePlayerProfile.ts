@@ -185,6 +185,39 @@ export interface DailyDuelEntry {
   completed_at: string | null;
 }
 
+export interface RankedDuelEntry {
+  ranked_duel_id: string;
+  season_id: string;
+  season_name: string;
+  season_ends_at: string | null;
+  status: "waiting_for_opponent" | "matched" | "player_a_completed" | "player_b_completed" | "completed" | "cancelled" | "expired";
+  puzzle_id: string;
+  difficulty: PuzzleResult["difficulty"];
+  session_id: string | null;
+  current_user_result_id: string | null;
+  opponent_user_id: string | null;
+  opponent_display_name: string | null;
+  opponent_username_handle: string | null;
+  opponent_initials: string | null;
+  opponent_avatar_color: string | null;
+  opponent_tier: string | null;
+  your_score: number | null;
+  your_elapsed_seconds: number | null;
+  opponent_score: number | null;
+  opponent_elapsed_seconds: number | null;
+  winner_user_id: string | null;
+  rp_before: number | null;
+  rp_after: number | null;
+  rp_change: number | null;
+  current_rp: number;
+  current_tier: string;
+  matches_played: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  completed_at: string | null;
+}
+
 export interface FriendHeadToHeadMatch {
   challenge_id: string;
   difficulty: PuzzleResult["difficulty"];
@@ -266,6 +299,21 @@ interface FriendsWeeklyLeaderboardRpcRow {
   total_time: number;
   latest_completed_at: string;
   is_current_user: boolean | null;
+}
+
+export interface RankedLeaderboardEntry {
+  rank: number;
+  user_id: string;
+  username: string;
+  initials: string;
+  avatar_color: string;
+  current_tier: string;
+  rp: number;
+  matches_played: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  updated_at: string;
 }
 
 function parseHeadToHeadMatches(value: unknown): FriendHeadToHeadMatch[] {
@@ -602,6 +650,36 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
 
         next.recent_results = next.recent_results.map((result) => {
           if (result.mode !== "daily_duel") return result;
+          const outcome = (result.result_id ? outcomeByResultId.get(result.result_id) : undefined)
+            ?? (result.session_id ? outcomeBySessionId.get(result.session_id) : undefined);
+          return outcome ? { ...result, result_outcome: outcome } : result;
+        });
+      }
+    }
+
+    if (next.recent_results.some((result) => result.mode === "ranked_duel")) {
+      const { data: rankedRows, error: rankedError } = await supabase
+        .from("ranked_duels")
+        .select("status,winner_user_id,player_a_id,player_b_id,player_a_session_id,player_b_session_id,player_a_result_id,player_b_result_id")
+        .eq("status", "completed")
+        .or(`player_a_id.eq.${auth.user.id},player_b_id.eq.${auth.user.id}`);
+
+      if (rankedError) {
+        updateDiagnostics({ lastError: rankedError.message });
+      } else if (rankedRows?.length) {
+        const outcomeByResultId = new Map<string, RankOutcome>();
+        const outcomeBySessionId = new Map<string, RankOutcome>();
+        for (const row of rankedRows as Array<Record<string, string | null>>) {
+          const outcome: RankOutcome = !row.winner_user_id ? "draw" : row.winner_user_id === auth.user.id ? "win" : "loss";
+          const isPlayerA = row.player_a_id === auth.user.id;
+          const resultId = isPlayerA ? row.player_a_result_id : row.player_b_result_id;
+          const sessionId = isPlayerA ? row.player_a_session_id : row.player_b_session_id;
+          if (resultId) outcomeByResultId.set(resultId, outcome);
+          if (sessionId) outcomeBySessionId.set(sessionId, outcome);
+        }
+
+        next.recent_results = next.recent_results.map((result) => {
+          if (result.mode !== "ranked_duel") return result;
           const outcome = (result.result_id ? outcomeByResultId.get(result.result_id) : undefined)
             ?? (result.session_id ? outcomeBySessionId.get(result.session_id) : undefined);
           return outcome ? { ...result, result_outcome: outcome } : result;
@@ -1565,6 +1643,29 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }));
   }, [auth.user, updateDiagnostics]);
 
+  const fetchRankedLeaderboard = useCallback(async (): Promise<RankedLeaderboardEntry[]> => {
+    if (!isSupabaseConfigured) return [];
+    const { data, error } = await supabase.rpc("get_ranked_leaderboard");
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return [];
+    }
+    return ((data ?? []) as Array<Partial<RankedLeaderboardEntry> & { display_name?: string | null }>).map((row, index) => ({
+      rank: Number(row.rank ?? index + 1),
+      user_id: row.user_id ?? "",
+      username: row.display_name ?? row.username ?? "Player",
+      initials: row.initials ?? "PL",
+      avatar_color: row.avatar_color ?? "#A8A294",
+      current_tier: row.current_tier ?? "Bronze III",
+      rp: Number(row.rp ?? 0),
+      matches_played: Number(row.matches_played ?? 0),
+      wins: Number(row.wins ?? 0),
+      losses: Number(row.losses ?? 0),
+      draws: Number(row.draws ?? 0),
+      updated_at: row.updated_at ?? new Date().toISOString(),
+    }));
+  }, [updateDiagnostics]);
+
   const checkUsernameAvailable = useCallback(async (usernameInput: string): Promise<UsernameAvailability> => {
     const invalid = validateUsernameHandle(usernameInput);
     if (invalid) return invalid;
@@ -1873,6 +1974,80 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     return { ok: true, duel };
   }, [auth.user, mapDailyDuel, updateDiagnostics]);
 
+  const mapRankedDuel = useCallback((row: Partial<RankedDuelEntry> | null | undefined): RankedDuelEntry | null => {
+    if (!row?.ranked_duel_id) return null;
+    return {
+      ranked_duel_id: row.ranked_duel_id,
+      season_id: row.season_id ?? "",
+      season_name: row.season_name ?? "Season 1",
+      season_ends_at: row.season_ends_at ?? null,
+      status: row.status ?? "waiting_for_opponent",
+      puzzle_id: row.puzzle_id ?? "",
+      difficulty: row.difficulty ?? "Medium",
+      session_id: row.session_id ?? null,
+      current_user_result_id: row.current_user_result_id ?? null,
+      opponent_user_id: row.opponent_user_id ?? null,
+      opponent_display_name: row.opponent_display_name ?? null,
+      opponent_username_handle: row.opponent_username_handle ?? null,
+      opponent_initials: row.opponent_initials ?? null,
+      opponent_avatar_color: row.opponent_avatar_color ?? null,
+      opponent_tier: row.opponent_tier ?? null,
+      your_score: row.your_score ?? null,
+      your_elapsed_seconds: row.your_elapsed_seconds ?? null,
+      opponent_score: row.opponent_score ?? null,
+      opponent_elapsed_seconds: row.opponent_elapsed_seconds ?? null,
+      winner_user_id: row.winner_user_id ?? null,
+      rp_before: row.rp_before ?? null,
+      rp_after: row.rp_after ?? null,
+      rp_change: row.rp_change ?? null,
+      current_rp: Number(row.current_rp ?? 0),
+      current_tier: row.current_tier ?? "Bronze III",
+      matches_played: Number(row.matches_played ?? 0),
+      wins: Number(row.wins ?? 0),
+      losses: Number(row.losses ?? 0),
+      draws: Number(row.draws ?? 0),
+      completed_at: row.completed_at ?? null,
+    };
+  }, []);
+
+  const fetchRankedDuel = useCallback(async (): Promise<RankedDuelEntry | null> => {
+    if (!auth.user || !isSupabaseConfigured) return null;
+    const { data, error } = await supabase.rpc("ranked_duel_view", { p_ranked_duel_id: null });
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return null;
+    }
+    const row = Array.isArray(data) ? data[0] : null;
+    return mapRankedDuel(row as Partial<RankedDuelEntry> | null);
+  }, [auth.user, mapRankedDuel, updateDiagnostics]);
+
+  const enterRankedDuel = useCallback(async (): Promise<{ ok: boolean; error?: string; duel?: RankedDuelEntry }> => {
+    if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before entering Ranked Duel." };
+    const { data, error } = await supabase.rpc("enter_ranked_duel");
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return { ok: false, error: error.message };
+    }
+    const row = Array.isArray(data) ? data[0] : null;
+    const duel = mapRankedDuel(row as Partial<RankedDuelEntry> | null);
+    if (!duel) return { ok: false, error: "Ranked Duel did not return a match." };
+
+    if (duel.session_id && !duel.current_user_result_id) {
+      const { data: sessionData, error: sessionError } = await supabase
+        .from("puzzle_sessions")
+        .select("*")
+        .eq("session_id", duel.session_id)
+        .maybeSingle();
+      if (sessionError) updateDiagnostics({ lastError: sessionError.message });
+      if (sessionData) {
+        const session = sessionData as PuzzleSessionRow;
+        setActiveSessions((prev) => [session, ...prev.filter((entry) => entry.session_id !== session.session_id && entry.status === "in_progress")]);
+      }
+    }
+
+    return { ok: true, duel };
+  }, [auth.user, mapRankedDuel, updateDiagnostics]);
+
   const fetchFriendHeadToHead = useCallback(async (friendId: string): Promise<FriendHeadToHeadSummary | null> => {
     if (!auth.user || !isSupabaseConfigured) return null;
     const { data, error } = await supabase.rpc("get_friend_head_to_head", { p_friend_id: friendId });
@@ -2017,20 +2192,20 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     profile, isLoaded, loadError, lastUpdate,
     activeSessions: auth.isSignedIn ? activeSessions : activeGuestSessions.map(guestSessionToPuzzleSessionRow),
     diagnostics, hasActiveSession, profileSetupRequired,
-    recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, simulateResult, simulateRankedWin, simulateRankedLoss,
+    recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, fetchRankedLeaderboard, simulateResult, simulateRankedWin, simulateRankedLoss,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
-    fetchDailyDuel, enterDailyDuel,
+    fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel,
     resetLocalProfile, checkUsernameAvailable, completeProfileSetup, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
     repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, testDailyResultQuery, clearLastUpdate,
     upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
   }), [
     activeGuestSessions, activeSessions, auth.isSignedIn,
     checkUsernameAvailable, clearLastUpdate, completeProfileSetup, diagnostics, hasActiveSession, isLoaded, lastUpdate, loadError, profile, profileSetupRequired,
-    recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard,
+    recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, fetchRankedLeaderboard,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
-    fetchDailyDuel, enterDailyDuel,
+    fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel,
     repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
     simulateRankedLoss, simulateRankedWin, simulateResult,
     testSupabaseRead, testSupabaseWrite, testDailyResultQuery,
