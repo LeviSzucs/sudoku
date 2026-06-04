@@ -7,6 +7,28 @@ create unique index if not exists game_results_ranked_duel_session_once_idx
     and session_id is not null
     and eligible_for_ranked = true;
 
+create or replace function public.ranked_result_defaults()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.mode = 'ranked_duel' and new.completed = true then
+    if tg_op = 'INSERT' then
+      new.eligible_for_ranked := true;
+    elsif old.mode is distinct from new.mode
+      or old.completed is distinct from new.completed then
+      new.eligible_for_ranked := true;
+    end if;
+    new.eligible_for_leaderboard := false;
+    if new.won is null and coalesce(new.final_score, 0) > 0 then
+      new.won := true;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
 create or replace function public.link_ranked_duel_result(
   p_user_id uuid,
   p_session_id uuid,
@@ -91,12 +113,6 @@ begin
   end if;
 
   if v_duel.ranked_duel_id is null then
-    update public.game_results gr
-    set eligible_for_ranked = false,
-        eligible_for_leaderboard = false,
-        rp_change = 0
-    where gr.result_id = v_result.result_id;
-
     raise exception 'Ranked Duel not found for result.' using errcode = '22023';
   end if;
 
@@ -132,11 +148,6 @@ begin
     end if;
 
     if v_side_result.result_id is null then
-      update public.game_results gr
-      set eligible_for_ranked = false,
-          eligible_for_leaderboard = false,
-          rp_change = 0
-      where gr.result_id = v_result.result_id;
       raise exception 'Ranked Duel player A session mismatch.' using errcode = '22023';
     end if;
 
@@ -169,25 +180,11 @@ begin
     end if;
 
     if v_side_result.result_id is null then
-      update public.game_results gr
-      set eligible_for_ranked = false,
-          eligible_for_leaderboard = false,
-          rp_change = 0
-      where gr.result_id = v_result.result_id;
       raise exception 'Ranked Duel player B session mismatch.' using errcode = '22023';
     end if;
 
     v_duel.player_b_session_id := coalesce(v_duel.player_b_session_id, v_side_result.session_id, p_session_id);
     v_duel.player_b_result_id := v_side_result.result_id;
-  end if;
-
-  if v_result.result_id <> v_side_result.result_id then
-    update public.game_results gr
-    set eligible_for_ranked = false,
-        eligible_for_leaderboard = false,
-        rp_change = 0
-    where gr.result_id = v_result.result_id
-      and gr.result_id <> v_side_result.result_id;
   end if;
 
   if v_duel.player_a_result_id is not null then
@@ -263,16 +260,6 @@ begin
   where rd.ranked_duel_id = v_duel.ranked_duel_id
   returning * into v_duel;
 
-  update public.game_results gr
-  set rp_change = case
-        when gr.result_id = v_duel.player_a_result_id then coalesce(v_duel.player_a_rp_change, v_a_delta)
-        when gr.result_id = v_duel.player_b_result_id then coalesce(v_duel.player_b_rp_change, v_b_delta)
-        else gr.rp_change
-      end,
-      eligible_for_ranked = true,
-      eligible_for_leaderboard = false
-  where gr.result_id in (v_duel.player_a_result_id, v_duel.player_b_result_id);
-
   if p_user_id = v_duel.player_a_id then
     v_current_change := coalesce(v_duel.player_a_rp_change, v_a_delta, 0);
     v_current_after := coalesce(v_duel.player_a_rp_after, v_a_profile.rp);
@@ -288,17 +275,110 @@ $$;
 
 grant execute on function public.link_ranked_duel_result(uuid, uuid, text) to authenticated;
 
+drop trigger if exists ranked_result_link_trigger on public.game_results;
+create trigger ranked_result_link_trigger
+after insert or update of user_id, session_id, mode, completed on public.game_results
+for each row
+when (new.mode = 'ranked_duel' and new.completed = true)
+execute function public.ranked_result_link_trigger();
+
 do $$
+declare
+  v_duel public.ranked_duels%rowtype;
+  v_a_result public.game_results%rowtype;
+  v_b_result public.game_results%rowtype;
+  v_winner uuid;
+  v_a_outcome text;
+  v_b_outcome text;
+  v_a_delta integer := 0;
+  v_b_delta integer := 0;
+  v_a_profile public.ranked_profiles%rowtype;
+  v_b_profile public.ranked_profiles%rowtype;
+  v_apply_rp boolean := false;
 begin
-  perform 1
-  from public.link_ranked_duel_result(
-    '6c90ea5a-ac2b-4660-accd-b03c2a35ebf0'::uuid,
-    'b234d86c-0ba8-4509-94c1-c5551ab874b5'::uuid,
-    '6c90ea5a-ac2b-4660-accd-b03c2a35ebf0_b234d86c-0ba8-4509-94c1-c5551ab874b5'
+  select *
+    into v_duel
+  from public.ranked_duels rd
+  where rd.ranked_duel_id = 'e3c25f1d-e031-4620-9d97-e8ef298cf2d8'::uuid
+  for update;
+
+  if v_duel.ranked_duel_id is null then
+    raise notice 'Ranked Duel targeted repair skipped: duel not found.';
+    return;
+  end if;
+
+  select *
+    into v_a_result
+  from public.game_results gr
+  where gr.result_id = '6c90ea5a-ac2b-4660-accd-b03c2a35ebf0_b234d86c-0ba8-4509-94c1-c5551ab874b5'
+    and gr.user_id = v_duel.player_a_id
+    and gr.session_id = 'b234d86c-0ba8-4509-94c1-c5551ab874b5'::uuid
+    and gr.mode = 'ranked_duel'
+    and gr.completed = true
+  limit 1;
+
+  if v_duel.player_b_result_id is not null then
+    select *
+      into v_b_result
+    from public.game_results gr
+    where gr.result_id = v_duel.player_b_result_id
+      and gr.user_id = v_duel.player_b_id
+      and gr.mode = 'ranked_duel'
+      and gr.completed = true
+    limit 1;
+  end if;
+
+  if v_a_result.result_id is null or v_b_result.result_id is null then
+    raise notice 'Ranked Duel targeted repair skipped: result rows missing.';
+    return;
+  end if;
+
+  v_winner := public.ranked_result_winner(
+    v_duel.player_a_id,
+    v_duel.player_b_id,
+    coalesce(v_a_result.won, false),
+    coalesce(v_b_result.won, false),
+    coalesce(v_a_result.final_score, 0),
+    coalesce(v_b_result.final_score, 0),
+    coalesce(v_a_result.elapsed_seconds, 999999),
+    coalesce(v_b_result.elapsed_seconds, 999999),
+    v_a_result.completed_at,
+    v_b_result.completed_at
   );
-exception
-  when others then
-    raise notice 'Ranked Duel targeted repair skipped: %', sqlerrm;
+
+  v_apply_rp := v_duel.status <> 'completed'
+    or v_duel.player_a_rp_change is null
+    or v_duel.player_b_rp_change is null
+    or v_duel.player_a_rp_after is null
+    or v_duel.player_b_rp_after is null;
+
+  if v_apply_rp then
+    v_a_outcome := case when v_winner is null then 'draw' when v_winner = v_duel.player_a_id then 'win' else 'loss' end;
+    v_b_outcome := case when v_winner is null then 'draw' when v_winner = v_duel.player_b_id then 'win' else 'loss' end;
+    v_a_delta := public.ranked_rp_delta(coalesce(v_duel.player_a_rp_before, 0), coalesce(v_duel.player_b_rp_before, 0), v_a_outcome);
+    v_b_delta := public.ranked_rp_delta(coalesce(v_duel.player_b_rp_before, 0), coalesce(v_duel.player_a_rp_before, 0), v_b_outcome);
+    v_a_profile := public.apply_ranked_profile_delta(v_duel.player_a_id, v_duel.season_id, v_a_delta, v_a_outcome);
+    v_b_profile := public.apply_ranked_profile_delta(v_duel.player_b_id, v_duel.season_id, v_b_delta, v_b_outcome);
+  else
+    select * into v_a_profile from public.ensure_ranked_profile(v_duel.player_a_id, v_duel.season_id);
+    select * into v_b_profile from public.ensure_ranked_profile(v_duel.player_b_id, v_duel.season_id);
+    v_a_delta := coalesce(v_duel.player_a_rp_change, 0);
+    v_b_delta := coalesce(v_duel.player_b_rp_change, 0);
+  end if;
+
+  update public.ranked_duels rd
+  set player_a_session_id = coalesce(rd.player_a_session_id, v_a_result.session_id),
+      player_a_result_id = v_a_result.result_id,
+      player_b_result_id = v_b_result.result_id,
+      status = 'completed',
+      winner_user_id = v_winner,
+      player_a_rp_change = coalesce(rd.player_a_rp_change, v_a_delta),
+      player_b_rp_change = coalesce(rd.player_b_rp_change, v_b_delta),
+      player_a_rp_after = coalesce(rd.player_a_rp_after, v_a_profile.rp),
+      player_b_rp_after = coalesce(rd.player_b_rp_after, v_b_profile.rp),
+      completed_at = coalesce(rd.completed_at, greatest(v_a_result.completed_at, v_b_result.completed_at), now()),
+      updated_at = now()
+  where rd.ranked_duel_id = v_duel.ranked_duel_id;
 end;
 $$;
 
