@@ -121,7 +121,7 @@ function getRankedDuelCopy(duel: RankedDuelEntry | null, currentUserId: string |
   sub: string;
   resultText: string | null;
 } {
-  if (!duel) return { title: "Ranked Duel", badge: "Competitive", button: "Find ranked match", sub: "Queue against a nearby RP opponent", resultText: null };
+  if (!duel) return { title: "Ranked Duel", badge: "Competitive", button: "Find match", sub: "Queue against a nearby RP opponent", resultText: null };
   const youFinished = Boolean(duel.current_user_result_id);
   const opponentFinished = duel.opponent_score !== null;
   const opponentName = duel.opponent_display_name ?? "opponent";
@@ -385,13 +385,13 @@ export default function VersusScreen() {
         <View style={{ marginTop: 22 }}>
           <SectionHeader title="Find a match" />
           <Card onPress={startRankedDuel} style={{ marginBottom: 12 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+            <View style={styles.rankedCardTop}>
               <View style={[styles.iconTile, { backgroundColor: C.amberSoft }]}>
                 <Zap color={C.amber} size={22} fill={C.amber} strokeWidth={1.5} />
               </View>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Text style={styles.cardTitle}>{rankedDuelCopy.title}</Text>
+              <View style={styles.rankedCardText}>
+                <View style={styles.rankedTitleRow}>
+                  <Text style={styles.cardTitle}>Ranked Duel</Text>
                   <Pill label={rankedDuelCopy.badge} tone="amber" />
                 </View>
                 <Text style={styles.cardSub}>
@@ -399,7 +399,11 @@ export default function VersusScreen() {
                 </Text>
                 {rankedDuelCopy.resultText ? <Text style={styles.cardStatus}>{rankedDuelCopy.resultText}</Text> : null}
               </View>
-              <Text style={styles.cardAction}>{rankedDuelLoading ? "Loading..." : rankedDuelCopy.button}</Text>
+            </View>
+            <View style={styles.rankedActionPill}>
+              <Text style={styles.rankedActionText} numberOfLines={1}>
+                {rankedDuelLoading ? "Loading..." : rankedDuelCopy.button}
+              </Text>
             </View>
           </Card>
 
@@ -629,6 +633,37 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+  },
+  rankedCardTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  rankedCardText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  rankedTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  rankedActionPill: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: C.amberSoft,
+    borderRadius: 999,
+    marginTop: 14,
+    minHeight: 40,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  rankedActionText: {
+    color: C.amber,
+    fontWeight: "900",
+    fontSize: 13,
+    textAlign: "center",
   },
   cardTitle: {
     fontSize: 16,
