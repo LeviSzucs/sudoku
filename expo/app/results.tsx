@@ -1,4 +1,4 @@
-import { Stack, router } from "expo-router";
+import { Stack, router, useLocalSearchParams } from "expo-router";
 import { ChevronLeft } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -33,6 +33,7 @@ function modeLabel(mode: string): string {
 
 export default function ResultsScreen() {
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ source?: string }>();
   const { profile } = usePlayerProfile();
   const [filter, setFilter] = useState<ResultFilter>("All");
   const results = useMemo(() => profile.recent_results.filter((result) => modeMatches(filter, result.mode)), [filter, profile.recent_results]);
@@ -43,7 +44,7 @@ export default function ResultsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 28 }} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)/profile")}>
+          <Pressable style={styles.backButton} onPress={() => router.replace(params.source === "versus" ? "/(tabs)/versus" : "/(tabs)/profile")}>
             <ChevronLeft size={20} color={C.ink} />
           </Pressable>
           <View style={{ flex: 1 }}>

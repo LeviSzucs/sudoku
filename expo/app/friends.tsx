@@ -40,7 +40,7 @@ function currentUserCompletedChallenge(challenge: FriendChallengeEntry, currentU
 }
 
 export default function FriendsScreen() {
-  const params = useLocalSearchParams<{ mode?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; source?: string }>();
   const screenMode = params.mode === "challenge" ? "challenge" : "manage";
   const isChallengeMode = screenMode === "challenge";
   const insets = useSafeAreaInsets();
@@ -211,7 +211,7 @@ export default function FriendsScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <Pressable onPress={() => router.back()} hitSlop={10} style={styles.iconButton}>
+          <Pressable onPress={() => router.replace(isChallengeMode || params.source === "versus" ? "/(tabs)/versus" : "/(tabs)/profile")} hitSlop={10} style={styles.iconButton}>
             <ArrowLeft size={20} color={C.ink} />
           </Pressable>
           <View style={{ flex: 1 }}>
