@@ -23,6 +23,10 @@ interface LeaderboardEntry {
   undos?: number;
   puzzlesCompleted?: number;
   bestScore?: number;
+  tier?: string;
+  wins?: number;
+  losses?: number;
+  draws?: number;
 }
 
 const TABS: { id: Tab; label: string; sub: string }[] = [
@@ -43,14 +47,16 @@ export default function LeaderboardsScreen() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>("daily");
   const auth = useAuth();
-  const { profile, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, fetchFriends } = usePlayerProfile();
+  const { profile, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, fetchRankedLeaderboard, fetchFriends } = usePlayerProfile();
   const [dailyData, setDailyData] = useState<LeaderboardEntry[]>([]);
   const [weeklyData, setWeeklyData] = useState<LeaderboardEntry[]>([]);
   const [friendsData, setFriendsData] = useState<LeaderboardEntry[]>([]);
+  const [rankedData, setRankedData] = useState<LeaderboardEntry[]>([]);
   const [friendsCount, setFriendsCount] = useState(0);
   const [isLoadingDaily, setIsLoadingDaily] = useState(false);
   const [isLoadingWeekly, setIsLoadingWeekly] = useState(false);
   const [isLoadingFriends, setIsLoadingFriends] = useState(false);
+  const [isLoadingRanked, setIsLoadingRanked] = useState(false);
   const today = useMemo(() => getDailyDateKey(), []);
   const currentUserId = auth.user?.id ?? profile.user_id;
 
@@ -131,12 +137,40 @@ export default function LeaderboardsScreen() {
     return () => { active = false; };
   }, [fetchFriends, fetchFriendsWeeklyLeaderboard, tab, today]);
 
+  useEffect(() => {
+    let active = true;
+    if (tab !== "ranked") return () => { active = false; };
+
+    setIsLoadingRanked(true);
+    void fetchRankedLeaderboard()
+      .then((rows) => {
+        if (!active) return;
+        setRankedData(rows.map((row) => ({
+          id: row.user_id,
+          rank: row.rank,
+          user: { id: row.user_id, username: row.username, initials: row.initials, avatarColor: row.avatar_color },
+          score: row.rp,
+          time: "",
+          tier: row.current_tier,
+          puzzlesCompleted: row.matches_played,
+          wins: row.wins,
+          losses: row.losses,
+          draws: row.draws,
+        })));
+      })
+      .finally(() => {
+        if (active) setIsLoadingRanked(false);
+      });
+
+    return () => { active = false; };
+  }, [fetchRankedLeaderboard, tab]);
+
   const data = useMemo<LeaderboardEntry[]>(() => {
     if (tab === "daily") return dailyData;
     if (tab === "weekly") return weeklyData;
     if (tab === "friends") return friendsData;
-    return [];
-  }, [dailyData, friendsData, tab, weeklyData]);
+    return rankedData;
+  }, [dailyData, friendsData, rankedData, tab, weeklyData]);
 
   const valueLabel = tab === "ranked" ? "RP" : tab === "daily" ? "SCORE" : "POINTS";
   const podiumEntries = [2, 1, 3].map((rankPosition) => data.find((entry) => entry.rank === rankPosition));
@@ -166,7 +200,7 @@ export default function LeaderboardsScreen() {
       if (friendsCount === 0) return { title: "Add friends to compare scores", sub: "Search by username to build your friends leaderboard.", icon: <Crown size={36} color={C.mutedSoft} strokeWidth={1.5} /> };
       return { title: "No friend scores this week", sub: "Complete puzzles this week to compare with friends.", icon: <Crown size={36} color={C.mutedSoft} strokeWidth={1.5} /> };
     }
-    return { title: "Ranked leaderboard coming soon", sub: "Ranked results will appear once ranked mode is live.", icon: <Trophy size={36} color={C.mutedSoft} strokeWidth={1.5} /> };
+    return { title: isLoadingRanked ? "Loading ranked leaderboard" : "No ranked players yet", sub: isLoadingRanked ? "Checking season standings" : "Play Ranked Duel to enter the season standings.", icon: <Trophy size={36} color={C.mutedSoft} strokeWidth={1.5} /> };
   })();
 
   return (
@@ -317,6 +351,9 @@ export default function LeaderboardsScreen() {
                     ) : null}
                     {tab === "weekly" || tab === "friends" ? (
                       <Text style={styles.metaText}>{entry.puzzlesCompleted ?? 0} puzzles - best {(entry.bestScore ?? 0).toLocaleString()} - {entry.time}</Text>
+                    ) : null}
+                    {tab === "ranked" ? (
+                      <Text style={styles.metaText}>{entry.tier ?? "Bronze III"} - {entry.wins ?? 0}W {entry.losses ?? 0}L {entry.draws ?? 0}D</Text>
                     ) : null}
                   </View>
                   <Text style={styles.score}>{entry.score.toLocaleString()}</Text>

@@ -11,7 +11,7 @@ import Card from "@/components/Card";
 import Pill from "@/components/Pill";
 import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
-import { usePlayerProfile, type DailyDuelEntry } from "@/hooks/usePlayerProfile";
+import { usePlayerProfile, type DailyDuelEntry, type RankedDuelEntry } from "@/hooks/usePlayerProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { getDailyDateKey } from "@/lib/daily";
 import { logDevDiagnostic } from "@/lib/performanceDiagnostics";
@@ -32,6 +32,12 @@ function formatRank(tier?: string | null, division?: string | null): string {
 }
 
 function getDailyDuelOutcome(duel: DailyDuelEntry | null, currentUserId: string | null): DisplayOutcome | null {
+  if (!duel || duel.status !== "completed") return null;
+  if (!duel.winner_user_id) return "draw";
+  return duel.winner_user_id === currentUserId ? "win" : "loss";
+}
+
+function getRankedDuelOutcome(duel: RankedDuelEntry | null, currentUserId: string | null): DisplayOutcome | null {
   if (!duel || duel.status !== "completed") return null;
   if (!duel.winner_user_id) return "draw";
   return duel.winner_user_id === currentUserId ? "win" : "loss";
@@ -108,16 +114,41 @@ function getDailyDuelCopy(duel: DailyDuelEntry | null, currentUserId: string | n
   };
 }
 
+function getRankedDuelCopy(duel: RankedDuelEntry | null, currentUserId: string | null): {
+  title: string;
+  badge: string;
+  button: string;
+  sub: string;
+  resultText: string | null;
+} {
+  if (!duel) return { title: "Ranked Duel", badge: "Competitive", button: "Find ranked match", sub: "Queue against a nearby RP opponent", resultText: null };
+  const youFinished = Boolean(duel.current_user_result_id);
+  const opponentFinished = duel.opponent_score !== null;
+  const opponentName = duel.opponent_display_name ?? "opponent";
+  if (duel.status === "waiting_for_opponent") return { title: "Searching for opponent", badge: duel.current_tier, button: "Searching", sub: `${duel.current_rp} RP · ${duel.season_name}`, resultText: "Waiting for a nearby RP opponent." };
+  if (duel.status === "completed") {
+    const outcome = getRankedDuelOutcome(duel, currentUserId);
+    const title = outcome === "win" ? "You won" : outcome === "loss" ? "You lost" : "Draw";
+    const delta = duel.rp_change === null ? "" : ` · ${duel.rp_change >= 0 ? "+" : ""}${duel.rp_change} RP`;
+    return { title, badge: "Complete", button: "Complete", sub: `${duel.current_tier} · ${duel.current_rp} RP`, resultText: `${formatScore(duel.your_score)} vs ${formatScore(duel.opponent_score)}${delta}` };
+  }
+  if (youFinished) return { title: "You finished", badge: "Waiting", button: "Waiting", sub: `${duel.current_tier} · ${duel.current_rp} RP`, resultText: `Waiting for ${opponentName}.` };
+  if (opponentFinished) return { title: "Opponent finished", badge: "Your turn", button: "Play ranked duel", sub: `${opponentName} finished`, resultText: "Play your turn to settle RP." };
+  return { title: "Ranked match found", badge: "Matched", button: "Play ranked duel", sub: `${duel.current_tier} · ${duel.current_rp} RP`, resultText: null };
+}
+
 export default function VersusScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { profile, fetchDailyDuel, enterDailyDuel } = usePlayerProfile();
+  const { profile, fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel } = usePlayerProfile();
   const auth = useAuth();
   const [dailyDuel, setDailyDuel] = useState<DailyDuelEntry | null>(null);
   const [dailyDuelLoading, setDailyDuelLoading] = useState(false);
+  const [rankedDuel, setRankedDuel] = useState<RankedDuelEntry | null>(null);
+  const [rankedDuelLoading, setRankedDuelLoading] = useState(false);
 
   const duelResults = profile.recent_results.filter(
-    (r) => r.mode === "duel" || r.mode === "daily_duel" || r.mode === "ranked"
+    (r) => r.mode === "duel" || r.mode === "daily_duel" || r.mode === "ranked" || r.mode === "ranked_duel"
   );
 
   const refreshDailyDuel = useCallback(async () => {
@@ -129,12 +160,24 @@ export default function VersusScreen() {
     setDailyDuel(duel);
   }, [auth.isSignedIn, fetchDailyDuel]);
 
+  const refreshRankedDuel = useCallback(async () => {
+    if (!auth.isSignedIn) {
+      setRankedDuel(null);
+      return;
+    }
+    const duel = await fetchRankedDuel();
+    setRankedDuel(duel);
+  }, [auth.isSignedIn, fetchRankedDuel]);
+
   useFocusEffect(useCallback(() => {
     void refreshDailyDuel();
-  }, [refreshDailyDuel]));
+    void refreshRankedDuel();
+  }, [refreshDailyDuel, refreshRankedDuel]));
 
   const dailyDuelCopy = useMemo(() => getDailyDuelCopy(dailyDuel, auth.user?.id ?? null), [auth.user?.id, dailyDuel]);
   const dailyDuelOutcome = useMemo(() => getDailyDuelOutcome(dailyDuel, auth.user?.id ?? null), [auth.user?.id, dailyDuel]);
+  const rankedDuelCopy = useMemo(() => getRankedDuelCopy(rankedDuel, auth.user?.id ?? null), [auth.user?.id, rankedDuel]);
+  const rankedDuelOutcome = useMemo(() => getRankedDuelOutcome(rankedDuel, auth.user?.id ?? null), [auth.user?.id, rankedDuel]);
 
   const openDailyDuelGame = useCallback((duel: DailyDuelEntry) => {
     if (!duel.session_id) {
@@ -207,6 +250,64 @@ export default function VersusScreen() {
       Alert.alert("Daily Duel", "Could not enter Daily Duel. Please try again.");
     } finally {
       setDailyDuelLoading(false);
+    }
+  };
+
+  const openRankedDuelGame = useCallback((duel: RankedDuelEntry) => {
+    if (!duel.session_id) {
+      Alert.alert("Ranked Duel", "Ranked Duel session is missing. Please try again.");
+      return;
+    }
+    router.push({
+      pathname: "/game",
+      params: {
+        mode: "ranked_duel",
+        difficulty: duel.difficulty,
+        sessionId: duel.session_id,
+        session_id: duel.session_id,
+        puzzleId: duel.puzzle_id,
+        puzzle_id: duel.puzzle_id,
+      },
+    });
+  }, [router]);
+
+  const startRankedDuel = async () => {
+    if (!auth.isSignedIn) {
+      Alert.alert("Ranked Duel", "Create an account or log in to enter Ranked Duel.");
+      return;
+    }
+    if (!auth.user) {
+      Alert.alert("Ranked Duel", "Please try again.");
+      return;
+    }
+    if (rankedDuel?.current_user_result_id || rankedDuel?.status === "completed") {
+      Alert.alert("Ranked Duel", rankedDuelCopy.resultText ?? "Your ranked duel is complete.");
+      return;
+    }
+    if (rankedDuel?.status === "waiting_for_opponent") {
+      Alert.alert("Ranked Duel", "Searching for a nearby RP opponent.");
+      return;
+    }
+    if (rankedDuel?.session_id && rankedDuel.status !== "waiting_for_opponent") {
+      openRankedDuelGame(rankedDuel);
+      return;
+    }
+
+    setRankedDuelLoading(true);
+    try {
+      const result = await enterRankedDuel();
+      if (!result.ok || !result.duel) {
+        Alert.alert("Ranked Duel", result.error ?? "Could not enter Ranked Duel.");
+        return;
+      }
+      setRankedDuel(result.duel);
+      if (result.duel.status === "waiting_for_opponent") {
+        Alert.alert("Ranked Duel", "You're searching for a nearby RP opponent.");
+        return;
+      }
+      if (!result.duel.current_user_result_id) openRankedDuelGame(result.duel);
+    } finally {
+      setRankedDuelLoading(false);
     }
   };
 
@@ -283,23 +384,22 @@ export default function VersusScreen() {
         {/* Quick play options */}
         <View style={{ marginTop: 22 }}>
           <SectionHeader title="Find a match" />
-          <Card onPress={() => Alert.alert("Ranked Duel", "Ranked matchmaking coming soon")} style={{ marginBottom: 12 }}>
+          <Card onPress={startRankedDuel} style={{ marginBottom: 12 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
               <View style={[styles.iconTile, { backgroundColor: C.amberSoft }]}>
                 <Zap color={C.amber} size={22} fill={C.amber} strokeWidth={1.5} />
               </View>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Text style={styles.cardTitle}>Ranked Duel</Text>
-                  <Pill label="+25 RP" tone="amber" />
+                  <Text style={styles.cardTitle}>{rankedDuelCopy.title}</Text>
+                  <Pill label={rankedDuelCopy.badge} tone="amber" />
                 </View>
                 <Text style={styles.cardSub}>
-                  {auth.isGuest
-                    ? "Sign up to play ranked matches"
-                    : "Match against a similar-rated player · ~30s queue"}
+                  {auth.isGuest ? "Sign up to play ranked matches" : rankedDuelCopy.sub}
                 </Text>
+                {rankedDuelCopy.resultText ? <Text style={styles.cardStatus}>{rankedDuelCopy.resultText}</Text> : null}
               </View>
-              <ChevronRight color={C.mutedSoft} size={20} />
+              <Text style={styles.cardAction}>{rankedDuelLoading ? "Loading..." : rankedDuelCopy.button}</Text>
             </View>
           </Card>
 
@@ -337,11 +437,16 @@ export default function VersusScreen() {
                 && dailyDuelOutcome
                 && r.puzzle_id === dailyDuel?.puzzle_id
                 && (!r.session_id || !dailyDuel?.session_id || r.session_id === dailyDuel.session_id);
+              const isCurrentRankedDuel =
+                r.mode === "ranked_duel"
+                && rankedDuelOutcome
+                && r.puzzle_id === rankedDuel?.puzzle_id
+                && (!r.session_id || !rankedDuel?.session_id || r.session_id === rankedDuel.session_id);
               return (
                 <DuelResultRow
                   key={`${r.puzzle_id}-${r.completed_at}`}
                   result={r}
-                  outcomeOverride={isCurrentDailyDuel ? dailyDuelOutcome : undefined}
+                  outcomeOverride={isCurrentDailyDuel ? dailyDuelOutcome : isCurrentRankedDuel ? rankedDuelOutcome : undefined}
                 />
               );
             })
@@ -535,6 +640,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: C.muted,
     marginTop: 2,
+  },
+  cardStatus: {
+    fontSize: 12,
+    color: C.inkSoft,
+    fontWeight: "800",
+    marginTop: 5,
+  },
+  cardAction: {
+    color: C.amber,
+    fontWeight: "900",
+    fontSize: 12,
+    maxWidth: 82,
+    textAlign: "right",
   },
   matchHeader: {
     flexDirection: "row",

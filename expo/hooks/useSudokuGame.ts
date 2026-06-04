@@ -19,7 +19,7 @@ import { isEditableGivenCell, isGivenCell } from "@/lib/givenCells";
 import { logDevDiagnostic, measureInteraction } from "@/lib/performanceDiagnostics";
 import { calculateSudokuScore, type ScoreBreakdown } from "@/lib/scoring";
 
-export type GameMode = "daily" | "classic" | "daily_duel" | "duel" | "friend_challenge" | "ranked";
+export type GameMode = "daily" | "classic" | "daily_duel" | "duel" | "friend_challenge" | "ranked" | "ranked_duel";
 
 export const MAX_MISTAKES = 3;
 
@@ -143,7 +143,7 @@ function getEligibleForRanked(
   elapsedSeconds: number,
   finalScore: number
 ): boolean {
-  return mode === "ranked" && completed && hintsUsed === 0 && puzzleId.length > 0 && elapsedSeconds > 0 && finalScore > 0;
+  return (mode === "ranked" || mode === "ranked_duel") && completed && puzzleId.length > 0 && elapsedSeconds > 0;
 }
 
 export interface UseSudokuGame {
@@ -631,7 +631,7 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
     });
   }, [paused, completed, gameOver, undoCount, addMove, board]);
 
-  const hintAllowed = mode !== "ranked";
+  const hintAllowed = mode !== "ranked" && mode !== "ranked_duel";
 
   const hint = useCallback(() => {
     measureInteraction("hint press to board update", () => {

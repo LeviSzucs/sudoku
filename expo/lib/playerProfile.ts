@@ -251,7 +251,7 @@ function progressBadges(profile: PlayerProfile, nowIso: string): { badges: Achie
       case "ranked_ready": return profile.ranked_played;
       case "gold_mind": return rank.currentMin >= 800 ? badge.progress_target : profile.rank_points;
       case "diamond_mind": return rank.currentMin >= 2500 ? badge.progress_target : profile.rank_points;
-      case "perfect_duel": return latest?.result_outcome === "win" && (latest.mode === "duel" || latest.mode === "daily_duel" || latest.mode === "ranked") && latest.mistakes === 0 && latest.hints_used === 0 ? 1 : 0;
+      case "perfect_duel": return latest?.result_outcome === "win" && (latest.mode === "duel" || latest.mode === "daily_duel" || latest.mode === "ranked" || latest.mode === "ranked_duel") && latest.mistakes === 0 && latest.hints_used === 0 ? 1 : 0;
       case "puzzle_10": case "puzzle_50": case "puzzle_100": case "puzzle_500": return profile.puzzles_completed;
       case "flawless_10": return profile.flawless_puzzles;
       case "pure_logic": return profile.recent_results.some((r) => r.difficulty === "Hard" && r.mistakes === 0 && r.hints_used === 0) ? 1 : 0;
@@ -273,7 +273,7 @@ function progressBadges(profile: PlayerProfile, nowIso: string): { badges: Achie
 export function applyPuzzleResult(profile: PlayerProfile, result: PuzzleResult, outcome?: RankOutcome): ProfileUpdateSummary {
   const normalized = normalizeProfile(profile);
   const previousLevel = normalized.account_level;
-  const didWin = outcome === "win" || !["ranked", "duel", "daily_duel", "friend_challenge"].includes(result.mode);
+  const didWin = outcome === "win" || !["ranked", "ranked_duel", "duel", "daily_duel", "friend_challenge"].includes(result.mode);
   const xpEarnedBase = calculateMasteryXp(result, didWin);
   const completedDay = dateKey(result.completed_at);
   const prevDay = normalized.last_completed_date;
@@ -282,8 +282,9 @@ export function applyPuzzleResult(profile: PlayerProfile, result: PuzzleResult, 
   const xpEarned = xpEarnedBase + streakBonus;
   const diffKey = `${result.difficulty.toLowerCase()}_completed` as keyof PlayerProfile;
   const oldBest = normalized.best_times_by_difficulty[result.difficulty];
-  const isDuel = result.mode === "duel" || result.mode === "daily_duel" || result.mode === "friend_challenge" || result.mode === "ranked";
-  const rpDelta = result.mode === "ranked" ? (outcome === "win" ? 25 : outcome === "loss" ? -15 : outcome === "abandon" ? -25 : 0) : 0;
+  const isDuel = result.mode === "duel" || result.mode === "daily_duel" || result.mode === "friend_challenge" || result.mode === "ranked" || result.mode === "ranked_duel";
+  const isRanked = result.mode === "ranked" || result.mode === "ranked_duel";
+  const rpDelta = isRanked ? (outcome === "win" ? 25 : outcome === "loss" ? -15 : outcome === "abandon" ? -25 : 0) : 0;
   const nextRp = Math.max(0, normalized.rank_points + rpDelta);
   const rank = getRankFromRp(nextRp);
   const level = getLevelFromXp(normalized.total_mastery_xp + xpEarned);
@@ -306,8 +307,8 @@ export function applyPuzzleResult(profile: PlayerProfile, result: PuzzleResult, 
     best_times_by_difficulty: { ...normalized.best_times_by_difficulty, [result.difficulty]: oldBest === undefined ? result.elapsed_seconds : Math.min(oldBest, result.elapsed_seconds) },
     duels_played: normalized.duels_played + (isDuel ? 1 : 0),
     duels_won: normalized.duels_won + (isDuel && outcome === "win" ? 1 : 0),
-    ranked_played: normalized.ranked_played + (result.mode === "ranked" ? 1 : 0),
-    ranked_won: normalized.ranked_won + (result.mode === "ranked" && outcome === "win" ? 1 : 0),
+    ranked_played: normalized.ranked_played + (isRanked ? 1 : 0),
+    ranked_won: normalized.ranked_won + (isRanked && outcome === "win" ? 1 : 0),
     recent_results: [recent, ...normalized.recent_results].slice(0, 50),
     last_completed_date: completedDay,
     [diffKey]: typeof normalized[diffKey] === "number" ? (normalized[diffKey] as number) + 1 : normalized[diffKey],

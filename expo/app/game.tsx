@@ -29,6 +29,7 @@ const MODE_LABEL: Record<GameMode, string> = {
   duel: "Daily Duel",
   friend_challenge: "Friend Challenge",
   ranked: "Ranked",
+  ranked_duel: "Ranked Duel",
 };
 
 /** Auto-save interval in seconds */
@@ -75,7 +76,7 @@ export default function GameScreen() {
 
   const auth = useAuth();
   const { findSessionSnapshot, upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle } = usePlayerProfile();
-  const effectiveMode: GameMode = auth.isGuest && mode === "ranked" ? "classic" : mode;
+  const effectiveMode: GameMode = auth.isGuest && (mode === "ranked" || mode === "ranked_duel") ? "classic" : mode;
 
   // ── Resolve restore snapshot synchronously ────────────────────────
   const restoreSessionIdRef = useRef<string | undefined>(undefined);
@@ -430,7 +431,7 @@ export default function GameScreen() {
       ? "failed"
       : "pending"
     : "guest";
-  const failedAttemptIsFinal = auth.isSignedIn && (effectiveMode === "daily" || effectiveMode === "friend_challenge");
+  const failedAttemptIsFinal = auth.isSignedIn && (effectiveMode === "daily" || effectiveMode === "daily_duel" || effectiveMode === "friend_challenge" || effectiveMode === "ranked_duel");
   const failedAttemptStatusText = failedAttemptIsFinal
     ? isSubmittingFailedResult
       ? "Saving this final attempt..."
@@ -449,7 +450,7 @@ export default function GameScreen() {
     setOfficialLeaderboardEligible(null);
     setOfficialSubmitError(null);
     setChallengeOutcome(null);
-    const outcome = effectiveMode === "duel" || effectiveMode === "ranked" ? "win" : undefined;
+    const outcome = effectiveMode === "duel" || effectiveMode === "ranked" || effectiveMode === "ranked_duel" ? "win" : undefined;
     cancelPendingSave();
     isSubmittingResultRef.current = true;
     isCompletedRef.current = true;
@@ -525,7 +526,7 @@ export default function GameScreen() {
   }, [auth.isSignedIn, auth.user?.id, cancelPendingSave, closeSessionForPuzzle, effectiveMode, fetchFriendChallenges, game.board, game.result, isSubmittingResult, processedResultId, recordPuzzleResult, saveSession, submitOfficialPuzzleResult]);
 
   useEffect(() => {
-    const finalizesFailedAttempt = auth.isSignedIn && (effectiveMode === "daily" || effectiveMode === "daily_duel" || effectiveMode === "friend_challenge");
+    const finalizesFailedAttempt = auth.isSignedIn && (effectiveMode === "daily" || effectiveMode === "daily_duel" || effectiveMode === "friend_challenge" || effectiveMode === "ranked_duel");
     const failedSessionId = currentSessionIdRef.current;
     if (!game.gameOver || game.completed || !finalizesFailedAttempt || isSubmittingFailedResult || !failedSessionId || processedFailedSessionId === failedSessionId) return;
 
@@ -554,7 +555,7 @@ export default function GameScreen() {
       move_count: snapshot.move_history.length,
       final_score: 0,
       eligible_for_leaderboard: false,
-      eligible_for_ranked: false,
+      eligible_for_ranked: effectiveMode === "ranked_duel",
       completed_at: new Date().toISOString(),
     };
 
@@ -686,7 +687,7 @@ export default function GameScreen() {
   }, [cancelPendingSave]);
 
   const handleHint = useCallback(() => {
-    if (!game.hintAllowed && effectiveMode === "ranked") {
+    if (!game.hintAllowed && (effectiveMode === "ranked" || effectiveMode === "ranked_duel")) {
       setRankedHintMessage(true);
       setTimeout(() => setRankedHintMessage(false), 1800);
       return;

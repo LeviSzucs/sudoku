@@ -3,7 +3,7 @@ import { supabase, type PuzzleSessionRow } from "@/lib/supabase";
 import type { Board, NotesBoard } from "@/lib/sudoku";
 import type { Difficulty } from "@/constants/mockData";
 
-type PuzzleSessionMode = "daily" | "classic" | "daily_duel" | "duel" | "friend_challenge" | "ranked";
+type PuzzleSessionMode = "daily" | "classic" | "daily_duel" | "duel" | "friend_challenge" | "ranked" | "ranked_duel";
 
 export interface StartPuzzleSessionInput {
   userId: string;
