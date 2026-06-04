@@ -1,7 +1,8 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { Award, Bell, ChevronRight, Crown, Flame, Settings as SettingsIcon, Shield, Sparkles, Target, Timer, Trophy, Users } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -27,7 +28,7 @@ function modeLabel(mode: string): string {
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, fetchFriends } = usePlayerProfile();
+  const { profile, fetchFriends, refreshProfile } = usePlayerProfile();
   const [selectedBadge, setSelectedBadge] = useState<AchievementBadge | null>(null);
   const [friendsCount, setFriendsCount] = useState<number | null>(null);
   const level = getLevelFromXp(profile.total_mastery_xp);
@@ -54,6 +55,9 @@ export default function ProfileScreen() {
     void fetchFriends().then((friends) => { if (mounted) setFriendsCount(friends.length); });
     return () => { mounted = false; };
   }, [fetchFriends]);
+  useFocusEffect(useCallback(() => {
+    void refreshProfile();
+  }, [refreshProfile]));
 
   return <SafeAreaView style={styles.safe} edges={["top"]}><ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 118, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
     <View style={styles.headerRow}><Text style={styles.kicker}>PROFILE</Text><Pressable onPress={() => router.push("/settings")} hitSlop={10}><SettingsIcon color={C.inkSoft} size={22} /></Pressable></View>
