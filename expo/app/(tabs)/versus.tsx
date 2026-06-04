@@ -18,6 +18,25 @@ import { logDevDiagnostic } from "@/lib/performanceDiagnostics";
 import { formatTime } from "@/lib/sudoku";
 import type { RecentResult } from "@/lib/playerProfile";
 
+type DisplayOutcome = "win" | "loss" | "draw" | "abandon";
+
+function formatScore(value: number | null | undefined): string {
+  return (value ?? 0).toLocaleString();
+}
+
+function formatRank(tier?: string | null, division?: string | null): string {
+  const cleanTier = tier?.trim();
+  const cleanDivision = division?.trim();
+  if (!cleanTier) return "Unranked";
+  return cleanDivision ? `${cleanTier} ${cleanDivision}` : cleanTier;
+}
+
+function getDailyDuelOutcome(duel: DailyDuelEntry | null, currentUserId: string | null): DisplayOutcome | null {
+  if (!duel || duel.status !== "completed") return null;
+  if (!duel.winner_user_id) return "draw";
+  return duel.winner_user_id === currentUserId ? "win" : "loss";
+}
+
 function getDailyDuelCopy(duel: DailyDuelEntry | null, currentUserId: string | null): {
   title: string;
   badge: string;
@@ -54,9 +73,9 @@ function getDailyDuelCopy(duel: DailyDuelEntry | null, currentUserId: string | n
     return {
       title: outcome,
       badge: "Complete",
-      button: "View result",
+      button: "Complete",
       opponentSub: "Complete",
-      resultText: `${outcome} · ${duel.your_score ?? 0} vs ${duel.opponent_score ?? 0}`,
+      resultText: `${formatScore(duel.your_score)} vs ${formatScore(duel.opponent_score)}`,
     };
   }
 
@@ -115,6 +134,7 @@ export default function VersusScreen() {
   }, [refreshDailyDuel]));
 
   const dailyDuelCopy = useMemo(() => getDailyDuelCopy(dailyDuel, auth.user?.id ?? null), [auth.user?.id, dailyDuel]);
+  const dailyDuelOutcome = useMemo(() => getDailyDuelOutcome(dailyDuel, auth.user?.id ?? null), [auth.user?.id, dailyDuel]);
 
   const openDailyDuelGame = useCallback((duel: DailyDuelEntry) => {
     if (!duel.session_id) {
@@ -202,7 +222,7 @@ export default function VersusScreen() {
       >
         <Text style={styles.kicker}>HEAD TO HEAD</Text>
         <Text style={styles.title}>Versus</Text>
-        <Text style={styles.subtitle}>Race the same puzzle. Best time wins.</Text>
+        <Text style={styles.subtitle}>One attempt. Highest score wins.</Text>
 
         {/* Daily Duel hero */}
         <Pressable onPress={startDailyDuel} style={{ marginTop: 22 }}>
@@ -232,10 +252,8 @@ export default function VersusScreen() {
                     color={profile.avatar_color}
                     size={56}
                   />
-                  <Text style={styles.vsName}>{profile.username}</Text>
-                  <Text style={styles.vsRank}>
-                    {profile.rank_tier}{profile.rank_division ? ` ${profile.rank_division}` : ""}
-                  </Text>
+                  <Text style={styles.vsName}>{profile.display_name ?? profile.username}</Text>
+                  <Text style={styles.vsRank}>{formatRank(profile.rank_tier, profile.rank_division)}</Text>
                 </View>
                 <View style={styles.vsCenter}>
                   <Text style={styles.vsLabel}>VS</Text>
@@ -247,14 +265,16 @@ export default function VersusScreen() {
                     size={56}
                   />
                   <Text style={styles.vsName}>{dailyDuel?.opponent_display_name ?? "Opponent"}</Text>
-                  <Text style={styles.vsRank}>{dailyDuel?.opponent_username_handle ? `@${dailyDuel.opponent_username_handle}` : dailyDuelCopy.opponentSub}</Text>
+                  <Text style={styles.vsRank}>{dailyDuel?.opponent_user_id ? dailyDuel.opponent_rank_tier ?? "Unranked" : dailyDuelCopy.opponentSub}</Text>
                 </View>
               </View>
 
-              <View style={styles.heroCTA}>
-                <Swords size={15} color={C.ink} />
-                <Text style={styles.heroCTAText}>{dailyDuelLoading ? "Loading..." : dailyDuelCopy.button}</Text>
-              </View>
+              {dailyDuel?.status !== "completed" ? (
+                <View style={styles.heroCTA}>
+                  <Swords size={15} color={C.ink} />
+                  <Text style={styles.heroCTAText}>{dailyDuelLoading ? "Loading..." : dailyDuelCopy.button}</Text>
+                </View>
+              ) : null}
               {dailyDuelCopy.resultText ? <Text style={styles.duelStatusText}>{dailyDuelCopy.resultText}</Text> : null}
             </View>
           )}
@@ -311,9 +331,20 @@ export default function VersusScreen() {
               </Text>
             </Card>
           ) : (
-            duelResults.slice(0, 5).map((r) => (
-              <DuelResultRow key={`${r.puzzle_id}-${r.completed_at}`} result={r} />
-            ))
+            duelResults.slice(0, 5).map((r) => {
+              const isCurrentDailyDuel =
+                r.mode === "daily_duel"
+                && dailyDuelOutcome
+                && r.puzzle_id === dailyDuel?.puzzle_id
+                && (!r.session_id || !dailyDuel?.session_id || r.session_id === dailyDuel.session_id);
+              return (
+                <DuelResultRow
+                  key={`${r.puzzle_id}-${r.completed_at}`}
+                  result={r}
+                  outcomeOverride={isCurrentDailyDuel ? dailyDuelOutcome : undefined}
+                />
+              );
+            })
           )}
         </View>
       </ScrollView>
@@ -321,8 +352,10 @@ export default function VersusScreen() {
   );
 }
 
-function DuelResultRow({ result }: { result: RecentResult }) {
-  const isWin = result.result_outcome === "win";
+function DuelResultRow({ result, outcomeOverride }: { result: RecentResult; outcomeOverride?: DisplayOutcome }) {
+  const outcome = outcomeOverride ?? result.result_outcome;
+  const isWin = outcome === "win";
+  const isLoss = outcome === "loss";
   return (
     <Card style={{ marginBottom: 10 }} padded={false}>
       <View style={styles.matchHeader}>
@@ -330,16 +363,16 @@ function DuelResultRow({ result }: { result: RecentResult }) {
           <View
             style={[
               styles.resultTag,
-              { backgroundColor: isWin ? "#DCEBE0" : result.result_outcome === "loss" ? "#F7DEDA" : C.border },
+              { backgroundColor: isWin ? "#DCEBE0" : isLoss ? "#F7DEDA" : C.border },
             ]}
           >
             <Text
               style={[
                 styles.resultText,
-                { color: isWin ? C.success : result.result_outcome === "loss" ? C.danger : C.muted },
+                { color: isWin ? C.success : isLoss ? C.danger : C.muted },
               ]}
             >
-              {result.result_outcome === "win" ? "WIN" : result.result_outcome === "loss" ? "LOSS" : "DRAW"}
+              {outcome === "win" ? "WIN" : outcome === "loss" ? "LOSS" : "DRAW"}
             </Text>
           </View>
           <Text style={styles.matchMode}>{result.mode === "ranked" ? "Ranked" : "Duel"}</Text>

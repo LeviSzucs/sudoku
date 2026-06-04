@@ -1,4 +1,5 @@
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
+import { ChevronLeft } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -39,10 +40,17 @@ export default function ResultsScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Stack.Screen options={{ title: "Results History", headerShown: true }} />
+      <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 28 }} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Results History</Text>
-        <Text style={styles.sub}>{results.length} saved results</Text>
+        <View style={styles.header}>
+          <Pressable style={styles.backButton} onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)/profile")}>
+            <ChevronLeft size={20} color={C.ink} />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Results History</Text>
+            <Text style={styles.sub}>{results.length} saved results</Text>
+          </View>
+        </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
           {FILTERS.map((item) => (
             <Pressable key={item} onPress={() => setFilter(item)} style={[styles.chip, filter === item && styles.chipActive]}>
@@ -76,6 +84,8 @@ export default function ResultsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
+  header: { flexDirection: "row", alignItems: "center", gap: 12 },
+  backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
   title: { fontSize: 30, fontWeight: "800", color: C.ink, letterSpacing: -0.7 },
   sub: { color: C.muted, fontWeight: "700", marginTop: 4 },
   tabs: { gap: 8, paddingVertical: 18 },

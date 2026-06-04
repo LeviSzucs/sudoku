@@ -172,6 +172,7 @@ export interface DailyDuelEntry {
   opponent_username_handle: string | null;
   opponent_initials: string | null;
   opponent_avatar_color: string | null;
+  opponent_rank_tier: string | null;
   your_score: number | null;
   your_elapsed_seconds: number | null;
   your_mistakes: number | null;
@@ -382,7 +383,7 @@ function statsPayload(profile: PlayerProfile): Partial<PlayerStatsRow> {
 }
 
 function resultFromRow(row: GameResultRow): RecentResult {
-  return { session_id: row.session_id ?? undefined, puzzle_id: row.puzzle_id ?? "unknown", mode: row.mode as RecentResult["mode"], difficulty: row.difficulty as RecentResult["difficulty"], completed: true, elapsed_seconds: row.elapsed_seconds, mistakes: row.mistakes, hints_used: row.hints_used, undo_count: row.undo_count, move_count: 0, final_score: row.final_score, eligible_for_leaderboard: row.eligible_for_leaderboard, eligible_for_ranked: row.eligible_for_ranked, completed_at: row.completed_at, xp_earned: row.xp_earned, result_outcome: row.won === true ? "win" : row.won === false ? "loss" : undefined };
+  return { result_id: row.result_id, session_id: row.session_id ?? undefined, puzzle_id: row.puzzle_id ?? "unknown", mode: row.mode as RecentResult["mode"], difficulty: row.difficulty as RecentResult["difficulty"], completed: true, elapsed_seconds: row.elapsed_seconds, mistakes: row.mistakes, hints_used: row.hints_used, undo_count: row.undo_count, move_count: 0, final_score: row.final_score, eligible_for_leaderboard: row.eligible_for_leaderboard, eligible_for_ranked: row.eligible_for_ranked, completed_at: row.completed_at, xp_earned: row.xp_earned, result_outcome: row.won === true ? "win" : row.won === false ? "loss" : undefined };
 }
 
 function deterministicResultId(userId: string, result: PuzzleResult, sessionId: string | null): string {
@@ -575,7 +576,39 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       return;
     }
     const next = profileFromRows(p as ProfileRow, s as PlayerStatsRow, settings as UserSettingsRow, empty);
-    next.recent_results = ((results ?? []) as GameResultRow[]).map(resultFromRow);
+    const resultRows = ((results ?? []) as GameResultRow[]);
+    next.recent_results = resultRows.map(resultFromRow);
+
+    if (next.recent_results.some((result) => result.mode === "daily_duel")) {
+      const { data: dailyDuelRows, error: dailyDuelError } = await supabase
+        .from("daily_duels")
+        .select("status,winner_user_id,player_a_id,player_b_id,player_a_session_id,player_b_session_id,player_a_result_id,player_b_result_id")
+        .eq("status", "completed")
+        .or(`player_a_id.eq.${auth.user.id},player_b_id.eq.${auth.user.id}`);
+
+      if (dailyDuelError) {
+        updateDiagnostics({ lastError: dailyDuelError.message });
+      } else if (dailyDuelRows?.length) {
+        const outcomeByResultId = new Map<string, RankOutcome>();
+        const outcomeBySessionId = new Map<string, RankOutcome>();
+        for (const row of dailyDuelRows as Array<Record<string, string | null>>) {
+          const outcome: RankOutcome = !row.winner_user_id ? "draw" : row.winner_user_id === auth.user.id ? "win" : "loss";
+          const isPlayerA = row.player_a_id === auth.user.id;
+          const resultId = isPlayerA ? row.player_a_result_id : row.player_b_result_id;
+          const sessionId = isPlayerA ? row.player_a_session_id : row.player_b_session_id;
+          if (resultId) outcomeByResultId.set(resultId, outcome);
+          if (sessionId) outcomeBySessionId.set(sessionId, outcome);
+        }
+
+        next.recent_results = next.recent_results.map((result) => {
+          if (result.mode !== "daily_duel") return result;
+          const outcome = (result.result_id ? outcomeByResultId.get(result.result_id) : undefined)
+            ?? (result.session_id ? outcomeBySessionId.get(result.session_id) : undefined);
+          return outcome ? { ...result, result_outcome: outcome } : result;
+        });
+      }
+    }
+
     const completedResults = next.recent_results.filter((result) => result.completed);
     next.puzzles_completed = Math.max(next.puzzles_completed, completedResults.length);
     next.easy_completed = completedResults.filter((result) => result.difficulty === "Easy").length;
@@ -1769,6 +1802,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       opponent_username_handle: row.opponent_username_handle ?? null,
       opponent_initials: row.opponent_initials ?? null,
       opponent_avatar_color: row.opponent_avatar_color ?? null,
+      opponent_rank_tier: row.opponent_rank_tier ?? null,
       your_score: row.your_score ?? null,
       your_elapsed_seconds: row.your_elapsed_seconds ?? null,
       your_mistakes: row.your_mistakes ?? null,
@@ -1790,7 +1824,17 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       return null;
     }
     const row = Array.isArray(data) ? data[0] : null;
-    return mapDailyDuel(row as Partial<DailyDuelEntry> | null);
+    const duel = mapDailyDuel(row as Partial<DailyDuelEntry> | null);
+    if (!duel?.opponent_user_id) return duel;
+
+    const { data: statsRow, error: statsError } = await supabase
+      .from("player_stats")
+      .select("rank_tier")
+      .eq("user_id", duel.opponent_user_id)
+      .maybeSingle();
+    if (statsError) return duel;
+
+    return { ...duel, opponent_rank_tier: statsRow?.rank_tier ?? null };
   }, [auth.user, mapDailyDuel, updateDiagnostics]);
 
   const enterDailyDuel = useCallback(async (dateStr: string = getDailyDateKey()): Promise<{ ok: boolean; error?: string; duel?: DailyDuelEntry }> => {
@@ -1801,8 +1845,17 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       return { ok: false, error: error.message };
     }
     const row = Array.isArray(data) ? data[0] : null;
-    const duel = mapDailyDuel(row as Partial<DailyDuelEntry> | null);
+    let duel = mapDailyDuel(row as Partial<DailyDuelEntry> | null);
     if (!duel) return { ok: false, error: "Daily Duel did not return a match." };
+
+    if (duel.opponent_user_id) {
+      const { data: statsRow } = await supabase
+        .from("player_stats")
+        .select("rank_tier")
+        .eq("user_id", duel.opponent_user_id)
+        .maybeSingle();
+      duel = { ...duel, opponent_rank_tier: statsRow?.rank_tier ?? null };
+    }
 
     if (duel.session_id && !duel.current_user_result_id) {
       const { data: sessionData, error: sessionError } = await supabase
