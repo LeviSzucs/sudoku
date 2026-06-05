@@ -125,14 +125,14 @@ export default function PlayHubScreen() {
     }
   };
 
-  const startSignedInDailyPuzzle = async (mode: "daily" | "duel") => {
+  const startSignedInDailyPuzzle = async (mode: "daily" | "daily_duel") => {
     if (!auth.user) {
       Alert.alert("Could not start puzzle", "Please try again.");
       return;
     }
     try {
       const dateStr = getDailyDateKey();
-      const puzzle = await fetchDailyPuzzle(dateStr, mode === "daily" ? "daily" : "daily_duel");
+      const puzzle = await fetchDailyPuzzle(dateStr, mode);
       logDevDiagnostic("daily puzzle assigned", {
         dateStr,
         authUserId: auth.user.id,

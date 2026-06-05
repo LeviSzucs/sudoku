@@ -3,20 +3,115 @@ import { ChevronLeft } from "lucide-react-native";
 import React, { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+
 import Card from "@/components/Card";
 import { C } from "@/constants/colors";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
+import type { RecentResult } from "@/lib/playerProfile";
 
-function dateKey(offset: number): string { const date = new Date(); date.setDate(date.getDate() - offset); return date.toISOString().slice(0, 10); }
-function dayDiff(fromIso: string | null): number { if (!fromIso) return 0; const start = new Date(fromIso).getTime(); return Math.max(0, Math.floor((Date.now() - start) / 86400000)); }
+function dateKey(offset: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() - offset);
+  return date.toISOString().slice(0, 10);
+}
+
+function dayDiff(fromIso: string | null): number {
+  if (!fromIso) return 0;
+  const start = new Date(fromIso).getTime();
+  return Math.max(0, Math.floor((Date.now() - start) / 86400000));
+}
+
+function isSolvedDaily(result: RecentResult): boolean {
+  return result.mode === "daily" && result.completed === true && result.won === true;
+}
 
 export default function StreakStatsScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = usePlayerProfile();
-  const completedDaily = useMemo(() => new Set(profile.recent_results.filter((r) => r.mode === "daily" && r.completed).map((r) => r.completed_at.slice(0, 10))), [profile.recent_results]);
+  const solvedDaily = useMemo(
+    () => new Set(profile.recent_results.filter(isSolvedDaily).map((result) => result.completed_at.slice(0, 10))),
+    [profile.recent_results]
+  );
   const calendar = useMemo(() => Array.from({ length: 28 }, (_, index) => dateKey(27 - index)), []);
   const missedDays = Math.max(0, dayDiff(profile.last_completed_date) - 1);
-  return <SafeAreaView style={styles.safe} edges={["top"]}><Stack.Screen options={{ headerShown: false }} /><ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 110 }} showsVerticalScrollIndicator={false}><View style={styles.header}><Pressable style={styles.backButton} onPress={() => router.replace("/(tabs)/profile")}><ChevronLeft color={C.ink} size={20} /></Pressable><View style={{ flex: 1 }}><Text style={styles.title}>Streak</Text><Text style={styles.sub}>Daily consistency and progress</Text></View></View><View style={styles.grid}><Mini title="Current" value={`${profile.current_streak}`} detail="days" /><Mini title="Longest" value={`${profile.longest_streak}`} detail="days" /><Mini title="Missed" value={`${missedDays}`} detail="recent days" /><Mini title="Last daily" value={profile.last_completed_date ? new Date(profile.last_completed_date).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—"} detail="completed" /></View><Text style={styles.section}>Daily puzzle calendar</Text><Card><View style={styles.calendar}>{calendar.map((day) => { const done = completedDaily.has(day) || day === profile.last_completed_date; return <View key={day} style={[styles.day, done && styles.dayDone]}><Text style={[styles.dayText, done && styles.dayTextDone]}>{new Date(day).getDate()}</Text></View>; })}</View><Text style={styles.note}>Filled days indicate a completed daily puzzle or your latest completion date.</Text></Card><Card style={{ marginTop: 14 }}><Text style={styles.freezeTitle}>Streak Freeze</Text><Text style={styles.freezeText}>Premium placeholder: protect a streak when life gets busy. Coming later.</Text></Card></ScrollView></SafeAreaView>;
+
+  return (
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 110 }} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Pressable style={styles.backButton} onPress={() => router.replace("/(tabs)/profile")}>
+            <ChevronLeft color={C.ink} size={20} />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Streak</Text>
+            <Text style={styles.sub}>Successful Daily solves</Text>
+          </View>
+        </View>
+
+        <View style={styles.grid}>
+          <Mini title="Current" value={`${profile.current_streak}`} detail="days" />
+          <Mini title="Longest" value={`${profile.longest_streak}`} detail="days" />
+          <Mini title="Missed" value={`${missedDays}`} detail="recent days" />
+          <Mini
+            title="Last daily"
+            value={profile.last_completed_date ? new Date(profile.last_completed_date).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "-"}
+            detail="solved"
+          />
+        </View>
+
+        <Text style={styles.section}>Daily puzzle calendar</Text>
+        <Card>
+          <View style={styles.calendar}>
+            {calendar.map((day) => {
+              const done = solvedDaily.has(day) || day === profile.last_completed_date;
+              return (
+                <View key={day} style={[styles.day, done && styles.dayDone]}>
+                  <Text style={[styles.dayText, done && styles.dayTextDone]}>{new Date(day).getDate()}</Text>
+                </View>
+              );
+            })}
+          </View>
+          <Text style={styles.note}>Filled days indicate a successful Daily Sudoku solve.</Text>
+        </Card>
+
+        <Card style={{ marginTop: 14 }}>
+          <Text style={styles.freezeTitle}>Streak Freeze</Text>
+          <Text style={styles.freezeText}>Premium placeholder: protect a streak when life gets busy. Coming later.</Text>
+        </Card>
+      </ScrollView>
+    </SafeAreaView>
+  );
 }
-function Mini({ title, value, detail }: { title: string; value: string; detail: string }) { return <View style={styles.mini}><Text style={styles.miniTitle}>{title}</Text><Text style={styles.miniValue}>{value}</Text><Text style={styles.miniDetail}>{detail}</Text></View>; }
-const styles = StyleSheet.create({ safe: { flex: 1, backgroundColor: C.bg }, header: { flexDirection: "row", alignItems: "center", gap: 12 }, backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" }, backText: { color: C.ink, fontWeight: "900", fontSize: 12 }, title: { fontSize: 30, fontWeight: "900", color: C.ink }, sub: { color: C.muted, fontWeight: "700", marginTop: 4 }, grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 18 }, mini: { flexBasis: "48%", flexGrow: 1, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 14 }, miniTitle: { color: C.muted, fontWeight: "900", fontSize: 12, textTransform: "uppercase" }, miniValue: { color: C.ink, fontWeight: "900", fontSize: 30, marginTop: 4 }, miniDetail: { color: C.muted, fontWeight: "700" }, section: { color: C.ink, fontWeight: "900", fontSize: 18, marginTop: 24, marginBottom: 10 }, calendar: { flexDirection: "row", flexWrap: "wrap", gap: 8 }, day: { width: 34, height: 34, borderRadius: 12, backgroundColor: C.bgElevated, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: C.border }, dayDone: { backgroundColor: C.streakSoft, borderColor: C.streak }, dayText: { color: C.muted, fontWeight: "800", fontSize: 12 }, dayTextDone: { color: C.streak }, note: { color: C.muted, fontWeight: "700", fontSize: 12, marginTop: 12, lineHeight: 17 }, freezeTitle: { color: C.ink, fontWeight: "900", fontSize: 18 }, freezeText: { color: C.muted, fontWeight: "700", marginTop: 6, lineHeight: 19 } });
+
+function Mini({ title, value, detail }: { title: string; value: string; detail: string }) {
+  return (
+    <View style={styles.mini}>
+      <Text style={styles.miniTitle}>{title}</Text>
+      <Text style={styles.miniValue}>{value}</Text>
+      <Text style={styles.miniDetail}>{detail}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: C.bg },
+  header: { flexDirection: "row", alignItems: "center", gap: 12 },
+  backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
+  title: { fontSize: 30, fontWeight: "900", color: C.ink },
+  sub: { color: C.muted, fontWeight: "700", marginTop: 4 },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 18 },
+  mini: { flexBasis: "48%", flexGrow: 1, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 14 },
+  miniTitle: { color: C.muted, fontWeight: "900", fontSize: 12, textTransform: "uppercase" },
+  miniValue: { color: C.ink, fontWeight: "900", fontSize: 30, marginTop: 4 },
+  miniDetail: { color: C.muted, fontWeight: "700" },
+  section: { color: C.ink, fontWeight: "900", fontSize: 18, marginTop: 24, marginBottom: 10 },
+  calendar: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  day: { width: 34, height: 34, borderRadius: 12, backgroundColor: C.bgElevated, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: C.border },
+  dayDone: { backgroundColor: C.streakSoft, borderColor: C.streak },
+  dayText: { color: C.muted, fontWeight: "800", fontSize: 12 },
+  dayTextDone: { color: C.streak },
+  note: { color: C.muted, fontWeight: "700", fontSize: 12, marginTop: 12, lineHeight: 17 },
+  freezeTitle: { color: C.ink, fontWeight: "900", fontSize: 18 },
+  freezeText: { color: C.muted, fontWeight: "700", marginTop: 6, lineHeight: 19 },
+});
