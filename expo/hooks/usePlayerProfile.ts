@@ -443,7 +443,7 @@ function statsPayload(profile: PlayerProfile): Partial<PlayerStatsRow> {
 }
 
 function resultFromRow(row: GameResultRow): RecentResult {
-  return { result_id: row.result_id, session_id: row.session_id ?? undefined, puzzle_id: row.puzzle_id ?? "unknown", mode: row.mode as RecentResult["mode"], difficulty: row.difficulty as RecentResult["difficulty"], completed: true, elapsed_seconds: row.elapsed_seconds, mistakes: row.mistakes, hints_used: row.hints_used, undo_count: row.undo_count, move_count: 0, final_score: row.final_score, eligible_for_leaderboard: row.eligible_for_leaderboard, eligible_for_ranked: row.eligible_for_ranked, completed_at: row.completed_at, xp_earned: row.xp_earned, rp_change: row.rp_change ?? null, result_outcome: row.won === true ? "win" : row.won === false ? "loss" : undefined };
+  return { result_id: row.result_id, session_id: row.session_id ?? undefined, puzzle_id: row.puzzle_id ?? "unknown", mode: row.mode as RecentResult["mode"], difficulty: row.difficulty as RecentResult["difficulty"], completed: true, elapsed_seconds: row.elapsed_seconds, mistakes: row.mistakes, hints_used: row.hints_used, undo_count: row.undo_count, move_count: 0, final_score: row.final_score, eligible_for_leaderboard: row.eligible_for_leaderboard, eligible_for_ranked: row.eligible_for_ranked, completed_at: row.completed_at, xp_earned: row.xp_earned, rp_change: row.rp_change ?? null, won: row.won, result_outcome: row.won === true ? "win" : row.won === false ? "loss" : undefined };
 }
 
 function deterministicResultId(userId: string, result: PuzzleResult, sessionId: string | null): string {
@@ -721,24 +721,19 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }
 
     const completedResults = next.recent_results.filter((result) => result.completed);
-    next.puzzles_completed = Math.max(next.puzzles_completed, completedResults.length);
-    next.easy_completed = completedResults.filter((result) => result.difficulty === "Easy").length;
-    next.medium_completed = completedResults.filter((result) => result.difficulty === "Medium").length;
-    next.hard_completed = completedResults.filter((result) => result.difficulty === "Hard").length;
-    next.expert_completed = completedResults.filter((result) => result.difficulty === "Expert").length;
-    next.master_completed = completedResults.filter((result) => result.difficulty === "Master").length;
-    const computedBestTimes = completedResults.reduce<Partial<Record<RecentResult["difficulty"], number>>>((acc, result) => {
+    const solvedResults = completedResults.filter((result) => result.won === true);
+    next.puzzles_completed = solvedResults.length;
+    next.easy_completed = solvedResults.filter((result) => result.difficulty === "Easy").length;
+    next.medium_completed = solvedResults.filter((result) => result.difficulty === "Medium").length;
+    next.hard_completed = solvedResults.filter((result) => result.difficulty === "Hard").length;
+    next.expert_completed = solvedResults.filter((result) => result.difficulty === "Expert").length;
+    next.master_completed = solvedResults.filter((result) => result.difficulty === "Master").length;
+    const computedBestTimes = solvedResults.reduce<Partial<Record<RecentResult["difficulty"], number>>>((acc, result) => {
       const current = acc[result.difficulty];
       if (typeof current !== "number" || result.elapsed_seconds < current) acc[result.difficulty] = result.elapsed_seconds;
       return acc;
     }, {});
-    next.best_times_by_difficulty = {
-      Easy: typeof next.best_times_by_difficulty.Easy === "number" && typeof computedBestTimes.Easy === "number" ? Math.min(next.best_times_by_difficulty.Easy, computedBestTimes.Easy) : next.best_times_by_difficulty.Easy ?? computedBestTimes.Easy,
-      Medium: typeof next.best_times_by_difficulty.Medium === "number" && typeof computedBestTimes.Medium === "number" ? Math.min(next.best_times_by_difficulty.Medium, computedBestTimes.Medium) : next.best_times_by_difficulty.Medium ?? computedBestTimes.Medium,
-      Hard: typeof next.best_times_by_difficulty.Hard === "number" && typeof computedBestTimes.Hard === "number" ? Math.min(next.best_times_by_difficulty.Hard, computedBestTimes.Hard) : next.best_times_by_difficulty.Hard ?? computedBestTimes.Hard,
-      Expert: typeof next.best_times_by_difficulty.Expert === "number" && typeof computedBestTimes.Expert === "number" ? Math.min(next.best_times_by_difficulty.Expert, computedBestTimes.Expert) : next.best_times_by_difficulty.Expert ?? computedBestTimes.Expert,
-      Master: typeof next.best_times_by_difficulty.Master === "number" && typeof computedBestTimes.Master === "number" ? Math.min(next.best_times_by_difficulty.Master, computedBestTimes.Master) : next.best_times_by_difficulty.Master ?? computedBestTimes.Master,
-    };
+    next.best_times_by_difficulty = computedBestTimes;
     const duelResults = completedResults.filter((result) => ["duel", "daily_duel", "friend_challenge", "ranked", "ranked_duel"].includes(result.mode));
     next.duels_played = Math.max(next.duels_played, duelResults.length);
     next.duels_won = Math.max(next.duels_won, duelResults.filter((result) => result.result_outcome === "win").length);
@@ -1287,6 +1282,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       eligible_for_ranked: payload.ranked_eligible ?? false,
       completed_at: payload.completed_at ?? new Date().toISOString(),
       xp_earned: payload.xp_earned,
+      won: payload.won ?? null,
       result_outcome: payload.won === true ? "win" : payload.won === false ? "loss" : undefined,
     };
     const previousLevel = previousProfile.account_level;

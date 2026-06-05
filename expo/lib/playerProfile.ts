@@ -11,6 +11,7 @@ export interface RecentResult extends PuzzleResult {
   xp_earned: number;
   result_outcome?: RankOutcome;
   rp_change?: number | null;
+  won?: boolean | null;
 }
 
 export interface AchievementBadge {
