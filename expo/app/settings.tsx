@@ -1,9 +1,10 @@
 import { Stack, router, useLocalSearchParams } from "expo-router";
-import { Bell, ChevronLeft, Crown, FlaskConical, LogOut, Shield, UserRound, Database } from "lucide-react-native";
+import { Bell, Brush, ChevronLeft, Crown, Database, FlaskConical, HelpCircle, LifeBuoy, LogOut, MessageSquare, Moon, Palette, Shield, UserRound, Volume2 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
@@ -13,28 +14,41 @@ import { printActionAuditReport } from "@/lib/actionAudit";
 import type { ProfileSettings } from "@/lib/playerProfile";
 import { supabaseConfigDiagnostics } from "@/lib/supabase";
 
+const AVATAR_COLORS = ["#1E1B4B", "#2F5D62", "#7A4EAB", "#B86246", "#C8A45D", "#4169A8"];
+const AVATAR_SYMBOLS = [null, "*", "7", "S", "D", "#"];
+
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ panel?: string }>();
   const auth = useAuth();
   const profileState = usePlayerProfile();
-  const { profile, diagnostics, updateDisplayName, updateNotificationSettings, updatePrivacySettings, simulateResult, simulateRankedWin, simulateRankedLoss, resetLocalProfile, testSupabaseRead, testSupabaseWrite, testDailyResultQuery, repairMissingProfileRows, repairCompletedSessions } = profileState;
+  const {
+    profile, diagnostics, updateAvatar, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
+    simulateResult, simulateRankedWin, simulateRankedLoss, resetLocalProfile, testSupabaseRead, testSupabaseWrite,
+    testDailyResultQuery, repairMissingProfileRows, repairCompletedSessions,
+  } = profileState;
   const [panel, setPanel] = useState<string | null>(null);
   const [name, setName] = useState<string>(profile.username);
-  const [error, setError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [avatarInitials, setAvatarInitials] = useState<string>(profile.initials);
+  const [avatarColor, setAvatarColor] = useState<string>(profile.avatar_color);
+  const [avatarSymbol, setAvatarSymbol] = useState<string | null>(profile.avatar_symbol ?? null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<ProfileSettings["notifications"]>(profile.settings.notifications);
   const [privacy, setPrivacy] = useState<ProfileSettings["privacy"]>(profile.settings.privacy);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [hapticsEnabled, setHapticsEnabled] = useState<boolean>(true);
   const dailyDiagnostics = diagnostics.daily;
 
   useEffect(() => { if (params.panel) setPanel(params.panel); }, [params.panel]);
-  useEffect(() => { setName(profile.username); setNotifications(profile.settings.notifications); setPrivacy(profile.settings.privacy); }, [profile]);
-
-  const clearLocalDemoData = () => {
-    Alert.alert("Clear demo data?", "This removes all locally stored progress for guest users. Signed-in user data from Supabase is not affected.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Clear", style: "destructive", onPress: () => { resetLocalProfile(); Alert.alert("Cleared", "Local demo data has been reset."); } },
-    ]);
-  };
+  useEffect(() => {
+    setName(profile.username);
+    setAvatarInitials(profile.initials);
+    setAvatarColor(profile.avatar_color);
+    setAvatarSymbol(profile.avatar_symbol ?? null);
+    setNotifications(profile.settings.notifications);
+    setPrivacy(profile.settings.privacy);
+  }, [profile]);
 
   const showResult = async (label: string, action: () => Promise<{ ok: boolean; error?: string }>) => {
     const result = await action();
@@ -43,8 +57,21 @@ export default function SettingsScreen() {
 
   const saveName = () => {
     const result = updateDisplayName(name);
-    if (!result.ok) { setError(result.error ?? "Unable to save display name."); return; }
-    setError(null);
+    if (!result.ok) {
+      setNameError(result.error ?? "Unable to save display name.");
+      return;
+    }
+    setNameError(null);
+    setPanel(null);
+  };
+
+  const saveAvatar = () => {
+    const result = updateAvatar({ initials: avatarInitials, avatar_color: avatarColor, avatar_symbol: avatarSymbol });
+    if (!result.ok) {
+      setAvatarError(result.error ?? "Unable to save avatar.");
+      return;
+    }
+    setAvatarError(null);
     setPanel(null);
   };
 
@@ -58,22 +85,46 @@ export default function SettingsScreen() {
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>Settings</Text>
-            <Text style={styles.sub}>{APP_NAME} � v1.0.0</Text>
+            <Text style={styles.sub}>{APP_NAME} · v1.0.0</Text>
           </View>
         </View>
-        <Card padded={false} style={{ marginTop: 18 }}>
+
+        <Section title="Account">
+          <Row icon={<UserRound size={18} color={C.inkSoft} />} title="Profile" detail={profile.display_name ?? profile.username} onPress={() => setPanel("display")} />
+          <Row icon={<Palette size={18} color={C.inkSoft} />} title="Avatar" detail="Initials, colour and symbol" onPress={() => setPanel("avatar")} />
           <Row icon={<Bell size={18} color={C.inkSoft} />} title="Notifications" detail="Daily puzzle, streaks, duels" onPress={() => setPanel("notifications")} />
-          <Row icon={<UserRound size={18} color={C.inkSoft} />} title="Display name" detail={profile.display_name ?? profile.username} onPress={() => setPanel("display")} />
-          <Row icon={<UserRound size={18} color={C.inkSoft} />} title="Username" detail={profile.username_handle ? `@${profile.username_handle}` : "Setup required"} onPress={() => Alert.alert("Username", "Username changes are coming soon.")} />
           <Row icon={<Shield size={18} color={C.inkSoft} />} title="Privacy" detail={privacy.publicProfile ? "Public profile" : "Private profile"} onPress={() => setPanel("privacy")} />
-          <Row icon={<Crown size={18} color={C.gold} />} title={PREMIUM_NAME} detail="Manage plan later" onPress={() => Alert.alert(PREMIUM_NAME, "Premium settings will be connected when subscriptions are added.")} />
-          <Row icon={<LogOut size={18} color={C.inkSoft} />} title="Log out" detail="Sign out of this account" onPress={() => Alert.alert("Log out?", "You will return to the welcome screen.", [{ text: "Cancel", style: "cancel" }, { text: "Log out", style: "destructive", onPress: () => { void auth.signOut(); } }])} last />
-        </Card>
+          <Row icon={<LogOut size={18} color={C.inkSoft} />} title="Sign out" detail="Return to the welcome screen" onPress={() => Alert.alert("Sign out?", "You will return to the welcome screen.", [{ text: "Cancel", style: "cancel" }, { text: "Sign out", style: "destructive", onPress: () => { void auth.signOut(); } }])} last />
+        </Section>
+
+        <Section title="App">
+          <Row icon={<Moon size={18} color={C.inkSoft} />} title="Appearance" detail="Theme options coming soon" onPress={() => Alert.alert("Appearance", "Theme options are coming soon.")} />
+          <Row icon={<Volume2 size={18} color={C.inkSoft} />} title="Sound" detail={soundEnabled ? "On" : "Off"} onPress={() => setSoundEnabled((value) => !value)} />
+          <Row icon={<Brush size={18} color={C.inkSoft} />} title="Haptics" detail={hapticsEnabled ? "On" : "Off"} onPress={() => setHapticsEnabled((value) => !value)} last />
+        </Section>
+
+        <Section title="Premium">
+          <Row icon={<Crown size={18} color={C.gold} />} title={PREMIUM_NAME} detail="Coming soon" onPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })} last />
+        </Section>
+
+        <Section title="Support">
+          <Row icon={<HelpCircle size={18} color={C.inkSoft} />} title="Help & FAQ" detail="Answers and gameplay basics" onPress={() => router.push({ pathname: "/settings-info", params: { page: "help" } })} />
+          <Row icon={<MessageSquare size={18} color={C.inkSoft} />} title="Send feedback" detail="Tell us what to improve" onPress={() => router.push({ pathname: "/settings-feedback", params: { category: "feedback" } })} />
+          <Row icon={<LifeBuoy size={18} color={C.inkSoft} />} title="Report a problem" detail="Bug reports and issues" onPress={() => router.push({ pathname: "/settings-feedback", params: { category: "problem" } })} last />
+        </Section>
+
+        <Section title="Legal">
+          <Row icon={<Shield size={18} color={C.inkSoft} />} title="Terms & Conditions" detail="Development placeholder" onPress={() => router.push({ pathname: "/settings-info", params: { page: "terms" } })} />
+          <Row icon={<Shield size={18} color={C.inkSoft} />} title="Privacy Policy" detail="Development placeholder" onPress={() => router.push({ pathname: "/settings-info", params: { page: "privacy" } })} />
+          <Row icon={<Database size={18} color={C.inkSoft} />} title="App version" detail="v1.0.0 build placeholder" onPress={() => Alert.alert(APP_NAME, "Version 1.0.0 · Build placeholder")} last />
+        </Section>
+
         {auth.isGuest ? (
           <Pressable style={styles.resetRow} onPress={() => Alert.alert("Reset local profile?", "This resets local guest XP, rank, badges and results.", [{ text: "Cancel", style: "cancel" }, { text: "Reset", style: "destructive", onPress: resetLocalProfile }])}>
             <Text style={styles.resetText}>Reset local profile data</Text>
           </Pressable>
         ) : null}
+
         {profile.settings.devMode ? (
           <View style={styles.devSection}>
             <View style={styles.devHeader}><FlaskConical size={16} color={C.muted} /><Text style={styles.devTitle}>Developer Tools</Text></View>
@@ -82,7 +133,6 @@ export default function SettingsScreen() {
               <DevButton label="Ranked Win" onPress={() => { simulateRankedWin(); }} />
               <DevButton label="Ranked Loss" onPress={() => { simulateRankedLoss(); }} />
               <DevButton label="Reset Local" onPress={resetLocalProfile} />
-              <DevButton label="Clear Demo Data" onPress={clearLocalDemoData} />
               <DevButton label="Backend Diagnostics" onPress={() => setPanel("backend")} />
               <DevButton label="Action Report" onPress={() => Alert.alert("Action Report", printActionAuditReport())} />
             </View>
@@ -90,24 +140,58 @@ export default function SettingsScreen() {
         ) : null}
       </ScrollView>
 
-      <Modal visible={panel === "display"} transparent animationType="fade" onRequestClose={() => setPanel(null)}><View style={styles.backdrop}><Card style={styles.modalCard}><Text style={styles.modalTitle}>Display name</Text><TextInput value={name} onChangeText={(v) => { setName(v); setError(null); }} maxLength={20} placeholder="Player" style={styles.input} /><Text style={styles.helper}>{name.trim().length}/20 characters · initials update automatically</Text>{error ? <Text style={styles.error}>{error}</Text> : null}<Actions onCancel={() => setPanel(null)} onSave={saveName} /></Card></View></Modal>
-      <Modal visible={panel === "notifications"} transparent animationType="fade" onRequestClose={() => setPanel(null)}><View style={styles.backdrop}><Card style={styles.modalCard}><Text style={styles.modalTitle}>Notifications</Text><Toggle label="Daily puzzle reminder" value={notifications.dailyPuzzleReminder} onValueChange={(v) => setNotifications({ ...notifications, dailyPuzzleReminder: v })} /><Toggle label="Streak reminder" value={notifications.streakReminder} onValueChange={(v) => setNotifications({ ...notifications, streakReminder: v })} /><Toggle label="Duel results" value={notifications.duelResults} onValueChange={(v) => setNotifications({ ...notifications, duelResults: v })} /><Toggle label="Ranked match updates" value={notifications.rankedMatchUpdates} onValueChange={(v) => setNotifications({ ...notifications, rankedMatchUpdates: v })} /><Actions onCancel={() => setPanel(null)} onSave={() => { updateNotificationSettings(notifications); setPanel(null); }} /></Card></View></Modal>
-      <Modal visible={panel === "privacy"} transparent animationType="fade" onRequestClose={() => setPanel(null)}><View style={styles.backdrop}><Card style={styles.modalCard}><Text style={styles.modalTitle}>Privacy</Text><Toggle label="Public profile" value={privacy.publicProfile} onValueChange={(v) => setPrivacy({ ...privacy, publicProfile: v })} /><Toggle label="Show stats publicly" value={privacy.showStatsPublicly} onValueChange={(v) => setPrivacy({ ...privacy, showStatsPublicly: v })} /><Toggle label="Show recent results publicly" value={privacy.showRecentResultsPublicly} onValueChange={(v) => setPrivacy({ ...privacy, showRecentResultsPublicly: v })} /><Toggle label="Allow friend challenges" value={privacy.allowFriendChallenges} onValueChange={(v) => setPrivacy({ ...privacy, allowFriendChallenges: v })} /><Actions onCancel={() => setPanel(null)} onSave={() => { updatePrivacySettings(privacy); setPanel(null); }} /></Card></View></Modal>
-      <Modal visible={panel === "backend"} transparent animationType="slide" onRequestClose={() => setPanel(null)}><View style={styles.backdrop}><Card style={styles.modalCard}><ScrollView showsVerticalScrollIndicator={false}><View style={styles.modalHeader}><Database size={20} color={C.ink} /><Text style={styles.modalTitle}>Backend Diagnostics</Text></View><Diagnostic label="Supabase URL configured" value={supabaseConfigDiagnostics.urlConfigured ? "Yes" : "No"} /><Diagnostic label="Supabase URL host" value={supabaseConfigDiagnostics.urlHost || "None"} /><Diagnostic label="Supabase URL path" value={supabaseConfigDiagnostics.urlPath || "None"} /><Diagnostic label="Supabase URL valid" value={supabaseConfigDiagnostics.urlValid ? "Yes" : "No"} /><Diagnostic label="Supabase URL preview" value={supabaseConfigDiagnostics.urlPreview || "None"} /><Diagnostic label="Supabase anon key configured" value={supabaseConfigDiagnostics.anonKeyConfigured ? "Yes" : "No"} /><Diagnostic label="Supabase config error" value={supabaseConfigDiagnostics.error ?? "None"} /><Diagnostic label="Session" value={diagnostics.sessionStatus} /><Diagnostic label="User ID" value={diagnostics.userId ?? "None"} /><Diagnostic label="Profile loaded" value={diagnostics.profileLoaded ? "Yes" : "No"} /><Diagnostic label="Stats loaded" value={diagnostics.statsLoaded ? "Yes" : "No"} /><Diagnostic label="Settings loaded" value={diagnostics.settingsLoaded ? "Yes" : "No"} /><Diagnostic label="Recent results" value={String(diagnostics.recentResultsCount)} /><Diagnostic label="Active in-progress sessions" value={String(diagnostics.activeSessionCount)} /><Diagnostic label="Latest session status" value={diagnostics.latestSessionStatus ?? "None"} /><Diagnostic label="Latest result puzzle" value={diagnostics.latestResultPuzzleId ?? "None"} /><Diagnostic label="Last error" value={diagnostics.lastError ?? "None"} /><Diagnostic label="Last session save attempted" value={diagnostics.lastSessionSaveAttemptedAt ?? "Never"} /><Diagnostic label="Last session save succeeded" value={diagnostics.lastSessionSaveSucceeded === null ? "N/A" : diagnostics.lastSessionSaveSucceeded ? "Yes" : "No"} /><Diagnostic label="Last session save error" value={diagnostics.lastSessionSaveError ?? "None"} /><Text style={styles.devTitle}>Daily Diagnostics</Text><Diagnostic label="Current auth user id" value={dailyDiagnostics?.currentUserId ?? "None"} /><Diagnostic label="Today dateStr" value={dailyDiagnostics?.todayDateStr ?? "None"} /><Diagnostic label="Assigned daily row" value={formatDiagnosticValue(dailyDiagnostics?.assignedDailyPuzzle)} /><Diagnostic label="Assigned puzzle_id" value={dailyDiagnostics?.assignedDailyPuzzleId ?? "None"} /><Diagnostic label="Replay query rows" value={String(dailyDiagnostics?.replayQueryResultCount ?? "N/A")} /><Diagnostic label="Replay query data" value={formatDiagnosticValue(dailyDiagnostics?.replayQueryRows)} /><Diagnostic label="Replay RPC result" value={dailyDiagnostics?.replayRpcResult === null || dailyDiagnostics?.replayRpcResult === undefined ? "N/A" : dailyDiagnostics.replayRpcResult ? "true" : "false"} /><Diagnostic label="Leaderboard query rows" value={String(dailyDiagnostics?.leaderboardQueryResultCount ?? "N/A")} /><Diagnostic label="Leaderboard raw rows" value={formatDiagnosticValue(dailyDiagnostics?.leaderboardRawRows)} /><Diagnostic label="Leaderboard RPC rows" value={String(dailyDiagnostics?.leaderboardRpcResultCount ?? "N/A")} /><Diagnostic label="Displayed rows" value={String(dailyDiagnostics?.leaderboardFinalDisplayedRowCount ?? "N/A")} /><Diagnostic label="Daily errors" value={formatDiagnosticValue(dailyDiagnostics?.errors)} /><View style={styles.devButtons}><DevButton label="Test read" onPress={() => { void showResult("Supabase read", testSupabaseRead); }} /><DevButton label="Test write" onPress={() => { void showResult("Supabase write", testSupabaseWrite); }} /><DevButton label="Test Daily Result Query" onPress={() => { void showResult("Daily result query", testDailyResultQuery); }} /><DevButton label="Repair rows" onPress={() => { void showResult("Repair profile rows", repairMissingProfileRows); }} /><DevButton label="Repair completed sessions" onPress={() => { void showResult("Repair completed sessions", repairCompletedSessions); }} /><DevButton label="Action Report" onPress={() => Alert.alert("Action Report", printActionAuditReport())} /></View><Actions onCancel={() => setPanel(null)} onSave={() => setPanel(null)} /></ScrollView></Card></View></Modal>
+      <Modal visible={panel === "display"} transparent animationType="fade" onRequestClose={() => setPanel(null)}>
+        <View style={styles.backdrop}><Card style={styles.modalCard}><Text style={styles.modalTitle}>Profile</Text><TextInput value={name} onChangeText={(value) => { setName(value); setNameError(null); }} maxLength={20} placeholder="Player" style={styles.input} /><Text style={styles.helper}>{name.trim().length}/20 characters · initials update automatically</Text>{nameError ? <Text style={styles.error}>{nameError}</Text> : null}<Actions onCancel={() => setPanel(null)} onSave={saveName} /></Card></View>
+      </Modal>
+
+      <Modal visible={panel === "avatar"} transparent animationType="fade" onRequestClose={() => setPanel(null)}>
+        <View style={styles.backdrop}><Card style={styles.modalCard}><Text style={styles.modalTitle}>Avatar</Text><View style={styles.avatarPreview}><Avatar initials={avatarInitials || profile.initials} color={avatarColor} symbol={avatarSymbol} size={76} /></View><TextInput value={avatarInitials} onChangeText={(value) => { setAvatarInitials(value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3)); setAvatarError(null); }} maxLength={3} placeholder="AB" style={styles.input} /><Text style={styles.helper}>Initials can use 1-3 letters or numbers.</Text><Text style={styles.optionLabel}>Colour</Text><View style={styles.swatches}>{AVATAR_COLORS.map((color) => <Pressable key={color} onPress={() => setAvatarColor(color)} style={[styles.swatch, { backgroundColor: color }, avatarColor === color && styles.swatchActive]} />)}</View><Text style={styles.optionLabel}>Symbol</Text><View style={styles.symbols}>{AVATAR_SYMBOLS.map((symbol) => <Pressable key={symbol ?? "none"} onPress={() => setAvatarSymbol(symbol)} style={[styles.symbolButton, avatarSymbol === symbol && styles.symbolActive]}><Text style={[styles.symbolText, avatarSymbol === symbol && styles.symbolTextActive]}>{symbol ?? "None"}</Text></Pressable>)}</View>{avatarError ? <Text style={styles.error}>{avatarError}</Text> : null}<Actions onCancel={() => setPanel(null)} onSave={saveAvatar} /></Card></View>
+      </Modal>
+
+      <Modal visible={panel === "notifications"} transparent animationType="fade" onRequestClose={() => setPanel(null)}>
+        <View style={styles.backdrop}><Card style={styles.modalCard}><Text style={styles.modalTitle}>Notifications</Text><Toggle label="Daily puzzle reminder" value={notifications.dailyPuzzleReminder} onValueChange={(value) => setNotifications({ ...notifications, dailyPuzzleReminder: value })} /><Toggle label="Streak reminder" value={notifications.streakReminder} onValueChange={(value) => setNotifications({ ...notifications, streakReminder: value })} /><Toggle label="Duel results" value={notifications.duelResults} onValueChange={(value) => setNotifications({ ...notifications, duelResults: value })} /><Toggle label="Ranked match updates" value={notifications.rankedMatchUpdates} onValueChange={(value) => setNotifications({ ...notifications, rankedMatchUpdates: value })} /><Actions onCancel={() => setPanel(null)} onSave={() => { updateNotificationSettings(notifications); setPanel(null); }} /></Card></View>
+      </Modal>
+
+      <Modal visible={panel === "privacy"} transparent animationType="fade" onRequestClose={() => setPanel(null)}>
+        <View style={styles.backdrop}><Card style={styles.modalCard}><Text style={styles.modalTitle}>Privacy</Text><Toggle label="Public profile" value={privacy.publicProfile} onValueChange={(value) => setPrivacy({ ...privacy, publicProfile: value })} /><Toggle label="Show stats publicly" value={privacy.showStatsPublicly} onValueChange={(value) => setPrivacy({ ...privacy, showStatsPublicly: value })} /><Toggle label="Show recent results publicly" value={privacy.showRecentResultsPublicly} onValueChange={(value) => setPrivacy({ ...privacy, showRecentResultsPublicly: value })} /><Toggle label="Allow friend challenges" value={privacy.allowFriendChallenges} onValueChange={(value) => setPrivacy({ ...privacy, allowFriendChallenges: value })} /><Actions onCancel={() => setPanel(null)} onSave={() => { updatePrivacySettings(privacy); setPanel(null); }} /></Card></View>
+      </Modal>
+
+      <Modal visible={panel === "backend"} transparent animationType="slide" onRequestClose={() => setPanel(null)}>
+        <View style={styles.backdrop}><Card style={styles.modalCard}><ScrollView showsVerticalScrollIndicator={false}><View style={styles.modalHeader}><Database size={20} color={C.ink} /><Text style={styles.modalTitle}>Backend Diagnostics</Text></View><Diagnostic label="Supabase URL configured" value={supabaseConfigDiagnostics.urlConfigured ? "Yes" : "No"} /><Diagnostic label="Supabase URL host" value={supabaseConfigDiagnostics.urlHost || "None"} /><Diagnostic label="Supabase URL valid" value={supabaseConfigDiagnostics.urlValid ? "Yes" : "No"} /><Diagnostic label="Session" value={diagnostics.sessionStatus} /><Diagnostic label="User ID" value={diagnostics.userId ?? "None"} /><Diagnostic label="Profile loaded" value={diagnostics.profileLoaded ? "Yes" : "No"} /><Diagnostic label="Recent results" value={String(diagnostics.recentResultsCount)} /><Diagnostic label="Active sessions" value={String(diagnostics.activeSessionCount)} /><Diagnostic label="Last error" value={diagnostics.lastError ?? "None"} /><Text style={styles.devTitle}>Daily Diagnostics</Text><Diagnostic label="Current auth user id" value={dailyDiagnostics?.currentUserId ?? "None"} /><Diagnostic label="Today dateStr" value={dailyDiagnostics?.todayDateStr ?? "None"} /><Diagnostic label="Assigned puzzle_id" value={dailyDiagnostics?.assignedDailyPuzzleId ?? "None"} /><Diagnostic label="Replay query rows" value={String(dailyDiagnostics?.replayQueryResultCount ?? "N/A")} /><Diagnostic label="Leaderboard RPC rows" value={String(dailyDiagnostics?.leaderboardRpcResultCount ?? "N/A")} /><Diagnostic label="Daily errors" value={formatDiagnosticValue(dailyDiagnostics?.errors)} /><View style={styles.devButtons}><DevButton label="Test read" onPress={() => { void showResult("Supabase read", testSupabaseRead); }} /><DevButton label="Test write" onPress={() => { void showResult("Supabase write", testSupabaseWrite); }} /><DevButton label="Test Daily Result Query" onPress={() => { void showResult("Daily result query", testDailyResultQuery); }} /><DevButton label="Repair rows" onPress={() => { void showResult("Repair profile rows", repairMissingProfileRows); }} /><DevButton label="Repair sessions" onPress={() => { void showResult("Repair completed sessions", repairCompletedSessions); }} /></View><Actions onCancel={() => setPanel(null)} onSave={() => setPanel(null)} /></ScrollView></Card></View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-function Row({ icon, title, detail, onPress, last }: { icon: React.ReactNode; title: string; detail: string; onPress: () => void; last?: boolean }) { return <Pressable onPress={onPress} style={[styles.row, !last && styles.divider]}><View style={styles.rowIcon}>{icon}</View><View style={{ flex: 1 }}><Text style={styles.rowTitle}>{title}</Text><Text style={styles.rowDetail}>{detail}</Text></View><Text style={styles.chevron}>›</Text></Pressable>; }
-function Toggle({ label, value, onValueChange }: { label: string; value: boolean; onValueChange: (value: boolean) => void }) { return <View style={styles.toggleRow}><Text style={styles.toggleLabel}>{label}</Text><Switch value={value} onValueChange={onValueChange} trackColor={{ false: C.border, true: C.accentSoft }} thumbColor={value ? C.accent : C.mutedSoft} /></View>; }
-function Actions({ onCancel, onSave }: { onCancel: () => void; onSave: () => void }) { return <View style={styles.actions}><Pressable style={styles.cancel} onPress={onCancel}><Text style={styles.cancelText}>Cancel</Text></Pressable><Pressable style={styles.save} onPress={onSave}><Text style={styles.saveText}>Done</Text></Pressable></View>; }
-function DevButton({ label, onPress }: { label: string; onPress: () => void }) { return <Pressable style={styles.devButton} onPress={onPress}><Text style={styles.devButtonText}>{label}</Text></Pressable>; }
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return <View style={styles.section}><Text style={styles.sectionTitle}>{title}</Text><Card padded={false}>{children}</Card></View>;
+}
+
+function Row({ icon, title, detail, onPress, last }: { icon: React.ReactNode; title: string; detail: string; onPress: () => void; last?: boolean }) {
+  return <Pressable onPress={onPress} style={[styles.row, !last && styles.divider]}><View style={styles.rowIcon}>{icon}</View><View style={{ flex: 1 }}><Text style={styles.rowTitle}>{title}</Text><Text style={styles.rowDetail}>{detail}</Text></View><Text style={styles.chevron}>›</Text></Pressable>;
+}
+
+function Toggle({ label, value, onValueChange }: { label: string; value: boolean; onValueChange: (value: boolean) => void }) {
+  return <View style={styles.toggleRow}><Text style={styles.toggleLabel}>{label}</Text><Switch value={value} onValueChange={onValueChange} trackColor={{ false: C.border, true: C.accentSoft }} thumbColor={value ? C.accent : C.mutedSoft} /></View>;
+}
+
+function Actions({ onCancel, onSave }: { onCancel: () => void; onSave: () => void }) {
+  return <View style={styles.actions}><Pressable style={styles.cancel} onPress={onCancel}><Text style={styles.cancelText}>Cancel</Text></Pressable><Pressable style={styles.save} onPress={onSave}><Text style={styles.saveText}>Done</Text></Pressable></View>;
+}
+
+function DevButton({ label, onPress }: { label: string; onPress: () => void }) {
+  return <Pressable style={styles.devButton} onPress={onPress}><Text style={styles.devButtonText}>{label}</Text></Pressable>;
+}
+
 function formatDiagnosticValue(value: unknown): string {
   if (value === null || value === undefined) return "None";
   if (typeof value === "string") return value;
   return JSON.stringify(value, null, 2);
 }
-function Diagnostic({ label, value }: { label: string; value: string }) { return <View style={styles.diagnostic}><Text style={styles.diagnosticLabel}>{label}</Text><Text style={styles.diagnosticValue} numberOfLines={8}>{value}</Text></View>; }
+
+function Diagnostic({ label, value }: { label: string; value: string }) {
+  return <View style={styles.diagnostic}><Text style={styles.diagnosticLabel}>{label}</Text><Text style={styles.diagnosticValue} numberOfLines={8}>{value}</Text></View>;
+}
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
@@ -115,6 +199,8 @@ const styles = StyleSheet.create({
   backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
   title: { fontSize: 30, fontWeight: "800", color: C.ink, letterSpacing: -0.7 },
   sub: { color: C.muted, fontWeight: "700", marginTop: 4 },
+  section: { marginTop: 20 },
+  sectionTitle: { color: C.muted, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 },
   row: { flexDirection: "row", alignItems: "center", gap: 12, padding: 16 },
   divider: { borderBottomWidth: 1, borderBottomColor: C.border },
   rowIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: C.bgElevated },
@@ -136,6 +222,16 @@ const styles = StyleSheet.create({
   input: { backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, color: C.ink, fontSize: 16, fontWeight: "700" },
   helper: { color: C.muted, fontSize: 12, marginTop: 8 },
   error: { color: C.danger, fontWeight: "700", marginTop: 8 },
+  avatarPreview: { alignItems: "center", marginBottom: 14 },
+  optionLabel: { color: C.ink, fontWeight: "900", marginTop: 16, marginBottom: 8 },
+  swatches: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  swatch: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, borderColor: "transparent" },
+  swatchActive: { borderColor: C.ink },
+  symbols: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  symbolButton: { minWidth: 54, borderRadius: 999, borderWidth: 1, borderColor: C.border, paddingHorizontal: 12, paddingVertical: 8, alignItems: "center" },
+  symbolActive: { backgroundColor: C.ink, borderColor: C.ink },
+  symbolText: { color: C.ink, fontWeight: "800" },
+  symbolTextActive: { color: "#FBF8F2" },
   toggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border },
   toggleLabel: { color: C.ink, fontWeight: "700", flex: 1 },
   actions: { flexDirection: "row", gap: 10, marginTop: 18 },

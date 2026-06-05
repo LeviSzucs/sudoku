@@ -60,6 +60,7 @@ export interface ProfileRow {
   display_name?: string | null;
   initials: string;
   avatar_color: string;
+  avatar_symbol?: string | null;
   profile_setup_completed?: boolean;
   created_at?: string;
   updated_at?: string;

@@ -50,6 +50,7 @@ export interface PlayerProfile {
   profile_setup_completed: boolean;
   initials: string;
   avatar_color: string;
+  avatar_symbol?: string | null;
   account_level: number;
   mastery_xp: number;
   mastery_xp_to_next_level: number;

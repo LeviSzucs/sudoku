@@ -5,9 +5,11 @@ interface AvatarProps {
   initials: string;
   color: string;
   size?: number;
+  symbol?: string | null;
 }
 
-export default function Avatar({ initials, color, size = 40 }: AvatarProps) {
+export default function Avatar({ initials, color, size = 40, symbol = null }: AvatarProps) {
+  const label = symbol?.trim() || initials.toUpperCase();
   return (
     <View
       style={[
@@ -15,7 +17,7 @@ export default function Avatar({ initials, color, size = 40 }: AvatarProps) {
         { width: size, height: size, borderRadius: size / 2, backgroundColor: color },
       ]}
     >
-      <Text style={[styles.text, { fontSize: size * 0.38 }]}>{initials.toUpperCase()}</Text>
+      <Text style={[styles.text, { fontSize: size * (symbol ? 0.42 : 0.38) }]}>{label}</Text>
     </View>
   );
 }

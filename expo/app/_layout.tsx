@@ -40,6 +40,8 @@ function RootLayoutNav() {
         <Stack.Screen name="friend-h2h" options={{ headerShown: false, presentation: "card" }} />
         <Stack.Screen name="results" options={{ headerShown: false, presentation: "card" }} />
         <Stack.Screen name="settings" options={{ headerShown: false, presentation: "card" }} />
+        <Stack.Screen name="settings-feedback" options={{ headerShown: false, presentation: "card" }} />
+        <Stack.Screen name="settings-info" options={{ headerShown: false, presentation: "card" }} />
       </Stack.Protected>
     </Stack>
   );
