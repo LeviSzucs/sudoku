@@ -65,6 +65,13 @@ function rankedOutcomeCopy(entry: { status: string; winner_user_id: string | nul
   return { title: "You finished", subtitle: `Waiting for ${entry.opponent_display_name ?? "opponent"}` };
 }
 
+function completionPrimaryLabel(mode: GameMode): string {
+  if (mode === "classic") return "Next puzzle";
+  if (mode === "daily") return "Back to Play";
+  if (mode === "daily_duel" || mode === "duel" || mode === "friend_challenge" || mode === "ranked_duel" || mode === "ranked") return "Back to Versus";
+  return "Back to Play";
+}
+
 export default function GameScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -80,7 +87,8 @@ export default function GameScreen() {
     excludePuzzleId?: string;
   }>();
   const paramsSignature = JSON.stringify(params);
-  const mode = (params.mode as GameMode) ?? "daily";
+  const routeMode = (params.mode as GameMode) ?? "daily";
+  const mode = routeMode === "duel" ? "daily_duel" : routeMode;
   const difficulty = ((params.difficulty as Difficulty) ?? "Medium") as Difficulty;
   const sessionIdParam = (params.session_id ?? params.sessionId) as string | undefined;
   const routePuzzleId = (params.puzzle_id ?? params.puzzleId) as string | undefined;
@@ -692,7 +700,7 @@ export default function GameScreen() {
       });
       return;
     }
-    if (effectiveMode === "ranked_duel") {
+    if (effectiveMode === "ranked_duel" || effectiveMode === "ranked" || effectiveMode === "daily_duel" || effectiveMode === "duel" || effectiveMode === "friend_challenge") {
       router.replace("/(tabs)/versus");
       return;
     }
@@ -899,7 +907,7 @@ export default function GameScreen() {
         xpEarned={completionSummary?.xpEarned ?? 0}
         levelUpMessage={completionSummary?.didLevelUp ? `Level up! ${completionSummary.previousLevel} → ${completionSummary.newLevel}` : null}
         unlockedBadges={completionSummary?.unlockedBadges.map((badge) => ({ name: badge.name, icon: badge.icon })) ?? []}
-        primaryLabel={effectiveMode === "ranked_duel" ? "Back to Versus" : "Next puzzle"}
+        primaryLabel={completionPrimaryLabel(effectiveMode)}
         showLeaderboardEligibility={effectiveMode !== "ranked_duel"}
         onNext={handleCompletionNext}
         onShare={handleShareResult}

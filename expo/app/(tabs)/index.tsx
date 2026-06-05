@@ -46,14 +46,14 @@ export default function HomeScreen() {
   const activeSession = hasActiveSession ? inProgressSessions[0] : null;
   const isGuest = auth.isGuest;
 
-  const openSignedInDailyMode = async (mode: "daily" | "duel") => {
+  const openSignedInDailyMode = async (mode: "daily" | "daily_duel") => {
     if (!auth.user) {
       Alert.alert("Could not start puzzle", "Please try again.");
       return;
     }
     try {
       const dateStr = getDailyDateKey();
-      const puzzle = await fetchDailyPuzzle(dateStr, mode === "daily" ? "daily" : "daily_duel");
+      const puzzle = await fetchDailyPuzzle(dateStr, mode);
       logDevDiagnostic("daily puzzle assigned", {
         dateStr,
         authUserId: auth.user.id,

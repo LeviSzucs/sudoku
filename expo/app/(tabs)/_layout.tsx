@@ -66,6 +66,7 @@ export default function TabLayout() {
       <Tabs.Screen name="stats-win-rate" options={{ href: null }} />
       <Tabs.Screen name="stats-best-times" options={{ href: null }} />
       <Tabs.Screen name="stats-streak" options={{ href: null }} />
+      <Tabs.Screen name="stats-competitive-rank" options={{ href: null }} />
     </Tabs>
   );
 }

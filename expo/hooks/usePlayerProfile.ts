@@ -26,7 +26,7 @@ const GUEST_SESSIONS_KEY = "sudoku.guest_sessions.v1";
 
 type SaveResult = { ok: boolean; error?: string };
 type SessionStatus = "in_progress" | "completed" | "failed" | "abandoned";
-type DailySessionMode = "daily" | "daily_duel" | "duel";
+type DailySessionMode = "daily" | "daily_duel";
 type UsernameAvailabilityStatus = "available" | "unavailable" | "invalid" | "error";
 
 const RESERVED_USERNAMES = new Set(["player", "admin", "support", "sudoku", "ranked", "daily", "guest"]);
@@ -737,7 +737,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     const duelResults = completedResults.filter((result) => ["duel", "daily_duel", "friend_challenge", "ranked", "ranked_duel"].includes(result.mode));
     next.duels_played = Math.max(next.duels_played, duelResults.length);
     next.duels_won = Math.max(next.duels_won, duelResults.filter((result) => result.result_outcome === "win").length);
-    next.last_completed_date = completedResults[0]?.completed_at?.slice(0, 10) ?? next.last_completed_date;
+    next.last_completed_date = solvedResults.find((result) => result.mode === "daily")?.completed_at?.slice(0, 10) ?? next.last_completed_date;
     const { data: activeSeason, error: activeSeasonError } = await supabase
       .from("ranked_seasons")
       .select("season_id")

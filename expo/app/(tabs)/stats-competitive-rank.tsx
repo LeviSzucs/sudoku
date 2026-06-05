@@ -54,6 +54,7 @@ export default function CompetitiveRankScreen() {
   const auth = useAuth();
   const { profile } = usePlayerProfile();
   const [detail, setDetail] = useState<RankedDetail | null>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState<boolean>(true);
 
   const rank = getRankFromRp(profile.rank_points);
   const nextRank = rank.nextMin !== null ? RANKS.find((entry) => entry.min === rank.nextMin) : null;
@@ -62,17 +63,19 @@ export default function CompetitiveRankScreen() {
     () => profile.recent_results.filter((result) => result.mode === "ranked" || result.mode === "ranked_duel").slice(0, 5),
     [profile.recent_results]
   );
-  const matchesPlayed = detail?.matchesPlayed ?? profile.ranked_played;
-  const wins = detail?.wins ?? profile.ranked_won;
-  const losses = detail?.losses ?? Math.max(0, matchesPlayed - wins);
-  const draws = detail?.draws ?? 0;
+  const matchesPlayed = isLoadingDetail ? 0 : detail?.matchesPlayed ?? profile.ranked_played;
+  const wins = isLoadingDetail ? 0 : detail?.wins ?? profile.ranked_won;
+  const losses = isLoadingDetail ? 0 : detail?.losses ?? Math.max(0, matchesPlayed - wins);
+  const draws = isLoadingDetail ? 0 : detail?.draws ?? 0;
   const winRate = matchesPlayed > 0 ? Math.round((wins / matchesPlayed) * 100) : 0;
 
   useFocusEffect(useCallback(() => {
     let active = true;
     async function loadRankedDetail() {
+      setIsLoadingDetail(true);
       if (!auth.user || !isSupabaseConfigured) {
         setDetail(null);
+        setIsLoadingDetail(false);
         return;
       }
       const { data: season } = await supabase
@@ -82,7 +85,12 @@ export default function CompetitiveRankScreen() {
         .order("starts_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (!active || !season?.season_id) return;
+      if (!active) return;
+      if (!season?.season_id) {
+        setDetail(null);
+        setIsLoadingDetail(false);
+        return;
+      }
       const { data: rankedProfile } = await supabase
         .from("ranked_profiles")
         .select("peak_rp,matches_played,wins,losses,draws")
@@ -99,8 +107,13 @@ export default function CompetitiveRankScreen() {
         losses: Number(rankedProfile?.losses ?? Math.max(0, profile.ranked_played - profile.ranked_won)),
         draws: Number(rankedProfile?.draws ?? 0),
       });
+      setIsLoadingDetail(false);
     }
-    void loadRankedDetail();
+    void loadRankedDetail().catch(() => {
+      if (!active) return;
+      setDetail(null);
+      setIsLoadingDetail(false);
+    });
     return () => { active = false; };
   }, [auth.user, profile.rank_points, profile.ranked_played, profile.ranked_won]));
 
@@ -135,12 +148,18 @@ export default function CompetitiveRankScreen() {
           <Text style={styles.subText}>{nextRank ? `${nextRank.min - profile.rank_points} RP to ${nextRank.tier}${nextRank.division ? ` ${nextRank.division}` : ""}` : "Top rank reached"}</Text>
         </Card>
 
-        <View style={styles.statsGrid}>
-          <Stat label="Record" value={`${wins}W-${losses}L-${draws}D`} />
-          <Stat label="Win rate" value={matchesPlayed > 0 ? `${winRate}%` : "No matches"} />
-          <Stat label="Peak RP" value={`${(detail?.peakRp ?? profile.rank_points).toLocaleString()}`} />
-          <Stat label="Matches" value={`${matchesPlayed}`} />
-        </View>
+        {isLoadingDetail ? (
+          <Card style={{ marginTop: 12 }}>
+            <Text style={styles.loadingText}>Loading season stats...</Text>
+          </Card>
+        ) : (
+          <View style={styles.statsGrid}>
+            <Stat label="Record" value={`${wins}W-${losses}L-${draws}D`} />
+            <Stat label="Win rate" value={matchesPlayed > 0 ? `${winRate}%` : "No matches"} />
+            <Stat label="Peak RP" value={`${(detail?.peakRp ?? profile.rank_points).toLocaleString()}`} />
+            <Stat label="Matches" value={`${matchesPlayed}`} />
+          </View>
+        )}
 
         <View style={{ marginTop: 22 }}>
           <Text style={styles.sectionTitle}>Recent ranked results</Text>
@@ -187,6 +206,7 @@ const styles = StyleSheet.create({
   barTrack: { height: 8, backgroundColor: C.bgElevated, borderRadius: 999, overflow: "hidden", marginTop: 14 },
   rankBar: { height: 8, backgroundColor: C.gold, borderRadius: 999 },
   subText: { color: C.muted, fontSize: 12, fontWeight: "700", marginTop: 8 },
+  loadingText: { color: C.muted, fontSize: 13, fontWeight: "800" },
   statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12 },
   statCard: { flexBasis: "48%", flexGrow: 1, padding: 14 },
   statValue: { color: C.ink, fontSize: 22, fontWeight: "900" },
