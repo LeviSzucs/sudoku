@@ -2158,7 +2158,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     return { ok: true };
   }, [auth.isSignedIn, auth.user, persist, profile, updateDiagnostics]);
 
-  const updateAvatar = useCallback((avatar: { initials: string; avatar_color: string; avatar_symbol?: string | null }): SaveResult => {
+  const updateAvatar = useCallback(async (avatar: { initials: string; avatar_color: string; avatar_symbol?: string | null }): Promise<SaveResult> => {
     const initials = avatar.initials.trim().toUpperCase();
     if (initials.length < 1 || initials.length > 3) return { ok: false, error: "Initials must be 1-3 characters." };
     const next = normalizeProfile({
@@ -2167,16 +2167,33 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       avatar_color: avatar.avatar_color,
       avatar_symbol: avatar.avatar_symbol?.trim() || null,
     });
-    setProfile(next);
-    if (auth.isSignedIn && auth.user && isSupabaseConfigured) void supabase.from("profiles").update({
-      initials: next.initials,
-      avatar_color: next.avatar_color,
-      avatar_symbol: next.avatar_symbol ?? null,
-      updated_at: new Date().toISOString(),
-    }).eq("id", auth.user.id).then(({ error: saveError }) => {
-      if (saveError) updateDiagnostics({ lastError: saveError.message });
-    }).catch((saveError: unknown) => updateDiagnostics({ lastError: saveError instanceof Error ? saveError.message : "Unable to save avatar." }));
-    else if (auth.isGuest || auth.mode === "signed_out") persistLocal(next);
+    if (auth.isSignedIn && auth.user && isSupabaseConfigured) {
+      const { data, error: saveError } = await supabase
+        .from("profiles")
+        .update({
+          initials: next.initials,
+          avatar_color: next.avatar_color,
+          avatar_symbol: next.avatar_symbol ?? null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", auth.user.id)
+        .select("id,initials,avatar_color,avatar_symbol")
+        .maybeSingle();
+      if (saveError) {
+        updateDiagnostics({ lastError: saveError.message });
+        return { ok: false, error: saveError.message };
+      }
+      if (!data) {
+        const message = "Profile row was not found. Please reopen the app and try again.";
+        updateDiagnostics({ lastError: message });
+        return { ok: false, error: message };
+      }
+      setProfile(next);
+    } else if (auth.isGuest || auth.mode === "signed_out") {
+      persistLocal(next);
+    } else {
+      setProfile(next);
+    }
     return { ok: true };
   }, [auth.isGuest, auth.isSignedIn, auth.mode, auth.user, persistLocal, profile, updateDiagnostics]);
 

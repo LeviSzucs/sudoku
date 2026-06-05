@@ -34,6 +34,7 @@ export default function SettingsScreen() {
   const [avatarColor, setAvatarColor] = useState<string>(profile.avatar_color);
   const [avatarSymbol, setAvatarSymbol] = useState<string | null>(profile.avatar_symbol ?? null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [avatarSaving, setAvatarSaving] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<ProfileSettings["notifications"]>(profile.settings.notifications);
   const [privacy, setPrivacy] = useState<ProfileSettings["privacy"]>(profile.settings.privacy);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
@@ -65,8 +66,10 @@ export default function SettingsScreen() {
     setPanel(null);
   };
 
-  const saveAvatar = () => {
-    const result = updateAvatar({ initials: avatarInitials, avatar_color: avatarColor, avatar_symbol: avatarSymbol });
+  const saveAvatar = async () => {
+    setAvatarSaving(true);
+    const result = await updateAvatar({ initials: avatarInitials, avatar_color: avatarColor, avatar_symbol: avatarSymbol });
+    setAvatarSaving(false);
     if (!result.ok) {
       setAvatarError(result.error ?? "Unable to save avatar.");
       return;
@@ -145,7 +148,7 @@ export default function SettingsScreen() {
       </Modal>
 
       <Modal visible={panel === "avatar"} transparent animationType="fade" onRequestClose={() => setPanel(null)}>
-        <View style={styles.backdrop}><Card style={styles.modalCard}><Text style={styles.modalTitle}>Avatar</Text><View style={styles.avatarPreview}><Avatar initials={avatarInitials || profile.initials} color={avatarColor} symbol={avatarSymbol} size={76} /></View><TextInput value={avatarInitials} onChangeText={(value) => { setAvatarInitials(value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3)); setAvatarError(null); }} maxLength={3} placeholder="AB" style={styles.input} /><Text style={styles.helper}>Initials can use 1-3 letters or numbers.</Text><Text style={styles.optionLabel}>Colour</Text><View style={styles.swatches}>{AVATAR_COLORS.map((color) => <Pressable key={color} onPress={() => setAvatarColor(color)} style={[styles.swatch, { backgroundColor: color }, avatarColor === color && styles.swatchActive]} />)}</View><Text style={styles.optionLabel}>Symbol</Text><View style={styles.symbols}>{AVATAR_SYMBOLS.map((symbol) => <Pressable key={symbol ?? "none"} onPress={() => setAvatarSymbol(symbol)} style={[styles.symbolButton, avatarSymbol === symbol && styles.symbolActive]}><Text style={[styles.symbolText, avatarSymbol === symbol && styles.symbolTextActive]}>{symbol ?? "None"}</Text></Pressable>)}</View>{avatarError ? <Text style={styles.error}>{avatarError}</Text> : null}<Actions onCancel={() => setPanel(null)} onSave={saveAvatar} /></Card></View>
+        <View style={styles.backdrop}><Card style={styles.modalCard}><Text style={styles.modalTitle}>Avatar</Text><View style={styles.avatarPreview}><Avatar initials={avatarInitials || profile.initials} color={avatarColor} symbol={avatarSymbol} size={76} /></View><TextInput value={avatarInitials} onChangeText={(value) => { setAvatarInitials(value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3)); setAvatarError(null); }} maxLength={3} placeholder="AB" style={styles.input} /><Text style={styles.helper}>Initials can use 1-3 letters or numbers.</Text><Text style={styles.optionLabel}>Colour</Text><View style={styles.swatches}>{AVATAR_COLORS.map((color) => <Pressable key={color} onPress={() => setAvatarColor(color)} style={[styles.swatch, { backgroundColor: color }, avatarColor === color && styles.swatchActive]} />)}</View><Text style={styles.optionLabel}>Symbol</Text><View style={styles.symbols}>{AVATAR_SYMBOLS.map((symbol) => <Pressable key={symbol ?? "none"} onPress={() => setAvatarSymbol(symbol)} style={[styles.symbolButton, avatarSymbol === symbol && styles.symbolActive]}><Text style={[styles.symbolText, avatarSymbol === symbol && styles.symbolTextActive]}>{symbol ?? "None"}</Text></Pressable>)}</View>{avatarError ? <Text style={styles.error}>{avatarError}</Text> : null}<Actions onCancel={() => setPanel(null)} onSave={() => { void saveAvatar(); }} saveLabel={avatarSaving ? "Saving..." : "Done"} disabled={avatarSaving} /></Card></View>
       </Modal>
 
       <Modal visible={panel === "notifications"} transparent animationType="fade" onRequestClose={() => setPanel(null)}>
@@ -175,8 +178,8 @@ function Toggle({ label, value, onValueChange }: { label: string; value: boolean
   return <View style={styles.toggleRow}><Text style={styles.toggleLabel}>{label}</Text><Switch value={value} onValueChange={onValueChange} trackColor={{ false: C.border, true: C.accentSoft }} thumbColor={value ? C.accent : C.mutedSoft} /></View>;
 }
 
-function Actions({ onCancel, onSave }: { onCancel: () => void; onSave: () => void }) {
-  return <View style={styles.actions}><Pressable style={styles.cancel} onPress={onCancel}><Text style={styles.cancelText}>Cancel</Text></Pressable><Pressable style={styles.save} onPress={onSave}><Text style={styles.saveText}>Done</Text></Pressable></View>;
+function Actions({ onCancel, onSave, saveLabel = "Done", disabled = false }: { onCancel: () => void; onSave: () => void; saveLabel?: string; disabled?: boolean }) {
+  return <View style={styles.actions}><Pressable style={styles.cancel} onPress={onCancel}><Text style={styles.cancelText}>Cancel</Text></Pressable><Pressable disabled={disabled} style={[styles.save, disabled && { opacity: 0.55 }]} onPress={onSave}><Text style={styles.saveText}>{saveLabel}</Text></Pressable></View>;
 }
 
 function DevButton({ label, onPress }: { label: string; onPress: () => void }) {

@@ -10,11 +10,19 @@ import { C } from "@/constants/colors";
 import { useAuth } from "@/hooks/useAuth";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
-type FeedbackCategory = "feedback" | "problem";
+type FeedbackCategory = "general_feedback" | "bug_report" | "account_issue" | "gameplay_issue" | "other";
+
+const CATEGORY_OPTIONS: { value: FeedbackCategory; label: string }[] = [
+  { value: "general_feedback", label: "General feedback" },
+  { value: "bug_report", label: "Bug report" },
+  { value: "account_issue", label: "Account issue" },
+  { value: "gameplay_issue", label: "Gameplay issue" },
+  { value: "other", label: "Other" },
+];
 
 function getCategory(value: string | string[] | undefined): FeedbackCategory {
   const category = Array.isArray(value) ? value[0] : value;
-  return category === "problem" ? "problem" : "feedback";
+  return category === "problem" ? "bug_report" : "general_feedback";
 }
 
 export default function SettingsFeedbackScreen() {
@@ -23,11 +31,13 @@ export default function SettingsFeedbackScreen() {
   const params = useLocalSearchParams<{ category?: string }>();
   const category = getCategory(params.category);
   const [message, setMessage] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<FeedbackCategory>(() => getCategory(params.category));
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [sent, setSent] = useState<boolean>(false);
   const title = category === "problem" ? "Report a problem" : "Send feedback";
   const helper = category === "problem" ? "Describe what went wrong and what you were doing." : "Tell us what would make SudoDuel better.";
   const Icon = category === "problem" ? LifeBuoy : MessageSquare;
-  const canSubmit = message.trim().length >= 10 && !isSubmitting;
+  const canSubmit = message.trim().length >= 3 && !isSubmitting;
 
   const appVersion = useMemo(() => "1.0.0", []);
 
@@ -41,13 +51,13 @@ export default function SettingsFeedbackScreen() {
       }
       const { error } = await supabase.from("feedback").insert({
         user_id: auth.user.id,
-        category,
+        category: selectedCategory,
         message: message.trim(),
         app_version: appVersion,
       });
       if (error) throw error;
       setMessage("");
-      Alert.alert("Thanks", "Your message was saved.", [{ text: "Done", onPress: () => router.replace("/settings") }]);
+      setSent(true);
     } catch (error: unknown) {
       Alert.alert(title, error instanceof Error ? error.message : "Could not send this yet. Please try again later.");
     } finally {
@@ -71,22 +81,40 @@ export default function SettingsFeedbackScreen() {
           </View>
         </View>
 
-        <Card style={{ marginTop: 18 }}>
-          <Text style={styles.label}>Message</Text>
-          <TextInput
-            value={message}
-            onChangeText={setMessage}
-            multiline
-            textAlignVertical="top"
-            placeholder={`Share details for the ${APP_NAME} team`}
-            placeholderTextColor={C.mutedSoft}
-            style={styles.input}
-          />
-          <Text style={styles.helper}>{message.trim().length}/10 minimum characters</Text>
-          <Pressable disabled={!canSubmit} onPress={() => { void submit(); }} style={[styles.primary, !canSubmit && { opacity: 0.5 }]}>
-            <Text style={styles.primaryText}>{isSubmitting ? "Sending..." : "Send"}</Text>
-          </Pressable>
-        </Card>
+        {sent ? (
+          <Card style={{ marginTop: 18 }}>
+            <Text style={styles.successTitle}>Thanks - your feedback has been sent.</Text>
+            <Text style={styles.successBody}>We saved your message for the {APP_NAME} team.</Text>
+            <Pressable onPress={() => router.replace("/settings")} style={styles.primary}>
+              <Text style={styles.primaryText}>Done</Text>
+            </Pressable>
+          </Card>
+        ) : (
+          <Card style={{ marginTop: 18 }}>
+            <Text style={styles.label}>Category</Text>
+            <View style={styles.chips}>
+              {CATEGORY_OPTIONS.map((option) => (
+                <Pressable key={option.value} onPress={() => setSelectedCategory(option.value)} style={[styles.chip, selectedCategory === option.value && styles.chipActive]}>
+                  <Text style={[styles.chipText, selectedCategory === option.value && styles.chipTextActive]}>{option.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Text style={[styles.label, { marginTop: 16 }]}>Message</Text>
+            <TextInput
+              value={message}
+              onChangeText={setMessage}
+              multiline
+              textAlignVertical="top"
+              placeholder={`Share details for the ${APP_NAME} team`}
+              placeholderTextColor={C.mutedSoft}
+              style={styles.input}
+            />
+            <Text style={styles.helper}>{message.trim().length}/3 minimum characters</Text>
+            <Pressable disabled={!canSubmit} onPress={() => { void submit(); }} style={[styles.primary, !canSubmit && { opacity: 0.5 }]}>
+              <Text style={styles.primaryText}>{isSubmitting ? "Sending..." : "Send"}</Text>
+            </Pressable>
+          </Card>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -101,8 +129,15 @@ const styles = StyleSheet.create({
   title: { color: C.ink, fontSize: 28, fontWeight: "900", letterSpacing: -0.6, marginTop: 2 },
   sub: { color: C.muted, fontSize: 13, fontWeight: "700", marginTop: 4, lineHeight: 18 },
   label: { color: C.ink, fontWeight: "900", marginBottom: 8 },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: { borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
+  chipActive: { backgroundColor: C.ink, borderColor: C.ink },
+  chipText: { color: C.inkSoft, fontWeight: "800", fontSize: 12 },
+  chipTextActive: { color: "#FBF8F2" },
   input: { minHeight: 160, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 14, color: C.ink, fontSize: 15, fontWeight: "700" },
   helper: { color: C.muted, fontSize: 12, fontWeight: "700", marginTop: 8 },
+  successTitle: { color: C.ink, fontSize: 20, fontWeight: "900" },
+  successBody: { color: C.muted, fontSize: 14, fontWeight: "700", lineHeight: 20, marginTop: 8 },
   primary: { backgroundColor: C.ink, borderRadius: 16, paddingVertical: 14, alignItems: "center", marginTop: 16 },
   primaryText: { color: "#FBF8F2", fontWeight: "900" },
 });
