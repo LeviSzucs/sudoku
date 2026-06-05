@@ -152,13 +152,14 @@ function getRankedDuelCopy(duel: RankedDuelEntry | null, currentUserId: string |
 export default function VersusScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { profile, fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel } = usePlayerProfile();
+  const { profile, fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel, cancelRankedDuel } = usePlayerProfile();
   const auth = useAuth();
   const [dailyDuel, setDailyDuel] = useState<DailyDuelEntry | null>(null);
   const [dailyDuelLoading, setDailyDuelLoading] = useState(false);
   const [rankedDuel, setRankedDuel] = useState<RankedDuelEntry | null>(null);
   const [latestRankedDuel, setLatestRankedDuel] = useState<RankedDuelEntry | null>(null);
   const [rankedDuelLoading, setRankedDuelLoading] = useState(false);
+  const [rankedCancelLoading, setRankedCancelLoading] = useState(false);
 
   const duelResults = profile.recent_results.filter(
     (r) => r.mode === "duel" || r.mode === "daily_duel" || r.mode === "ranked" || r.mode === "ranked_duel"
@@ -332,6 +333,20 @@ export default function VersusScreen() {
     }
   };
 
+  const cancelRankedSearch = async () => {
+    if (!rankedDuel || rankedDuel.status !== "waiting_for_opponent") return;
+    setRankedCancelLoading(true);
+    try {
+      const result = await cancelRankedDuel(rankedDuel.ranked_duel_id);
+      if (!result.ok) {
+        Alert.alert("Ranked Duel", result.error?.includes("Opponent found") ? "Opponent found. This match is now locked." : result.error ?? "Could not cancel search.");
+      }
+      await refreshRankedDuel();
+    } finally {
+      setRankedCancelLoading(false);
+    }
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <ScrollView
@@ -405,7 +420,7 @@ export default function VersusScreen() {
         {/* Quick play options */}
         <View style={{ marginTop: 22 }}>
           <SectionHeader title="Find a match" />
-          <Card onPress={startRankedDuel} style={{ marginBottom: 12 }}>
+          <Card style={{ marginBottom: 12 }}>
             <View style={styles.rankedCardTop}>
               <View style={[styles.iconTile, { backgroundColor: C.amberSoft }]}>
                 <Zap color={C.amber} size={22} fill={C.amber} strokeWidth={1.5} />
@@ -421,11 +436,16 @@ export default function VersusScreen() {
                 {rankedDuelCopy.resultText ? <Text style={styles.cardStatus}>{rankedDuelCopy.resultText}</Text> : null}
               </View>
             </View>
-            <View style={styles.rankedActionPill}>
+            <Pressable style={styles.rankedActionPill} onPress={startRankedDuel}>
               <Text style={styles.rankedActionText} numberOfLines={1}>
                 {rankedDuelLoading ? "Loading..." : rankedDuelCopy.button}
               </Text>
-            </View>
+            </Pressable>
+            {rankedDuel?.status === "waiting_for_opponent" ? (
+              <Pressable style={styles.rankedCancelPill} onPress={() => void cancelRankedSearch()}>
+                <Text style={styles.rankedCancelText}>{rankedCancelLoading ? "Cancelling..." : "Cancel search"}</Text>
+              </Pressable>
+            ) : null}
           </Card>
 
           <Card onPress={() => router.push({ pathname: "/friends", params: { mode: "challenge", source: "versus" } })}>
@@ -682,6 +702,24 @@ const styles = StyleSheet.create({
   },
   rankedActionText: {
     color: C.amber,
+    fontWeight: "900",
+    fontSize: 13,
+    textAlign: "center",
+  },
+  rankedCancelPill: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: C.bgElevated,
+    borderColor: C.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginTop: 8,
+    minHeight: 38,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  rankedCancelText: {
+    color: C.inkSoft,
     fontWeight: "900",
     fontSize: 13,
     textAlign: "center",

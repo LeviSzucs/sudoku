@@ -2098,6 +2098,21 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     return { ok: true, duel };
   }, [auth.user, mapRankedDuel, updateDiagnostics]);
 
+  const cancelRankedDuel = useCallback(async (rankedDuelId: string): Promise<{ ok: boolean; error?: string; duel?: RankedDuelEntry | null }> => {
+    if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before cancelling Ranked Duel search." };
+    const { data, error } = await supabase.rpc("cancel_ranked_duel", { p_ranked_duel_id: rankedDuelId });
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return { ok: false, error: error.message };
+    }
+    const row = Array.isArray(data) ? data[0] : null;
+    const duel = mapRankedDuel(row as Partial<RankedDuelEntry> | null);
+    if (duel?.session_id) {
+      setActiveSessions((prev) => prev.filter((entry) => entry.session_id !== duel.session_id));
+    }
+    return { ok: true, duel };
+  }, [auth.user, mapRankedDuel, updateDiagnostics]);
+
   const fetchFriendHeadToHead = useCallback(async (friendId: string): Promise<FriendHeadToHeadSummary | null> => {
     if (!auth.user || !isSupabaseConfigured) return null;
     const { data, error } = await supabase.rpc("get_friend_head_to_head", { p_friend_id: friendId });
@@ -2245,7 +2260,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, fetchRankedLeaderboard, simulateResult, simulateRankedWin, simulateRankedLoss,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
-    fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel,
+    fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel, cancelRankedDuel,
     refreshProfile: loadBackendProfile,
     resetLocalProfile, checkUsernameAvailable, completeProfileSetup, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
     repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, testDailyResultQuery, clearLastUpdate,
@@ -2256,7 +2271,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, fetchRankedLeaderboard,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
-    fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel,
+    fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel, cancelRankedDuel,
     repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
     simulateRankedLoss, simulateRankedWin, simulateResult,
     testSupabaseRead, testSupabaseWrite, testDailyResultQuery,
