@@ -763,12 +763,43 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }
     const progressByBadgeId = new Map(((userAchievements ?? []) as UserAchievementRow[]).map((row) => [row.badge_id, row]));
     next.badges_unlocked = ((achievements ?? []) as AchievementRow[]).map((achievement) => achievementFromBackend(achievement, progressByBadgeId.get(achievement.badge_id)));
+    const finalSessionIds = new Set(resultRows.map((result) => result.session_id).filter((sessionId): sessionId is string => Boolean(sessionId)));
+    const loadedSessionIds = ((sessions ?? []) as PuzzleSessionRow[]).map((session) => session.session_id).filter(Boolean);
+    if (loadedSessionIds.length > 0) {
+      const { data: sessionResults, error: sessionResultsError } = await supabase
+        .from("game_results")
+        .select("session_id")
+        .eq("user_id", auth.user.id)
+        .eq("completed", true)
+        .in("session_id", loadedSessionIds);
+      if (sessionResultsError) {
+        updateDiagnostics({ lastError: sessionResultsError.message });
+      } else {
+        for (const row of (sessionResults ?? []) as Pick<GameResultRow, "session_id">[]) {
+          if (row.session_id) finalSessionIds.add(row.session_id);
+        }
+      }
+    }
     const completedKeys = new Set(next.recent_results.map((result) => `${result.puzzle_id}:${result.mode}:${result.difficulty}`));
     const activeRows = ((sessions ?? []) as PuzzleSessionRow[]).filter((session) => {
       if (session.status !== "in_progress") return false;
+      if (finalSessionIds.has(session.session_id)) return false;
       const key = `${session.puzzle_id ?? ""}:${session.mode}:${session.difficulty}`;
       return !completedKeys.has(key);
     });
+    const staleSessionIds = ((sessions ?? []) as PuzzleSessionRow[])
+      .filter((session) => session.status === "in_progress" && finalSessionIds.has(session.session_id))
+      .map((session) => session.session_id);
+    if (staleSessionIds.length > 0) {
+      void supabase
+        .from("puzzle_sessions")
+        .update({ status: "completed", updated_at: new Date().toISOString() })
+        .eq("user_id", auth.user.id)
+        .in("session_id", staleSessionIds)
+        .then(({ error: staleUpdateError }) => {
+          if (staleUpdateError) updateDiagnostics({ lastError: staleUpdateError.message });
+        });
+    }
     setProfile(normalizeProfile(next));
     setActiveSessions(activeRows);
     updateDiagnostics({ profileLoaded: true, statsLoaded: true, settingsLoaded: true, recentResultsCount: next.recent_results.length, activeSessionCount: activeRows.length, latestSessionStatus: activeRows[0]?.status ?? null, latestResultPuzzleId: next.recent_results[0]?.puzzle_id ?? null, lastError: null });

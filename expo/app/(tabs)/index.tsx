@@ -31,6 +31,10 @@ function formatElapsed(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+function isContinueSessionMode(mode: string): boolean {
+  return mode === "classic" || mode === "daily";
+}
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -41,7 +45,7 @@ export default function HomeScreen() {
   const dateStr = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
   const dayOfWeek = today.toLocaleDateString("en-US", { weekday: "long" }).toUpperCase();
 
-  const inProgressSessions = activeSessions.filter((session) => session.status === "in_progress");
+  const inProgressSessions = activeSessions.filter((session) => session.status === "in_progress" && isContinueSessionMode(session.mode));
   const hasActiveSession = inProgressSessions.length > 0;
   const activeSession = hasActiveSession ? inProgressSessions[0] : null;
   const isGuest = auth.isGuest;
@@ -205,8 +209,8 @@ export default function HomeScreen() {
                 style={StyleSheet.absoluteFillObject}
               />
               <View style={styles.heroInner}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                  <View>
+                <View style={styles.heroHeader}>
+                  <View style={styles.heroHeaderText}>
                     <Text style={styles.heroKicker}>DAILY SUDOKU</Text>
                     <Text style={styles.heroTitle}>{dateStr}</Text>
                   </View>
@@ -423,6 +427,18 @@ const styles = StyleSheet.create({
   heroInner: {
     padding: 20,
     flex: 1,
+    gap: 14,
+    justifyContent: "space-between",
+  },
+  heroHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  heroHeaderText: {
+    flex: 1,
+    minWidth: 0,
   },
   heroKicker: {
     color: "#FBF8F2AA",
@@ -436,6 +452,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "700",
     letterSpacing: -0.4,
+    flexShrink: 1,
   },
   heroBadge: {
     backgroundColor: "#FBF8F215",
@@ -476,10 +493,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginTop: 18,
+    gap: 12,
   },
   heroFooterText: {
     color: "#FBF8F2AA",
     fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
   },
   heroCTA: {
     flexDirection: "row",
@@ -489,6 +509,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 9,
     borderRadius: 999,
+    flexShrink: 0,
   },
   heroCTAText: {
     color: C.ink,
