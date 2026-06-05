@@ -36,21 +36,6 @@ function formatSignedRp(value: number | null | undefined): string {
   return `${value >= 0 ? "+" : ""}${value} RP`;
 }
 
-function formatRankedRecord(entry: RankedDuelEntry | null | undefined): string {
-  return `${entry?.wins ?? 0}W-${entry?.losses ?? 0}L-${entry?.draws ?? 0}D`;
-}
-
-function getSeasonCountdown(endsAt: string | null | undefined): string | null {
-  if (!endsAt) return null;
-  const end = new Date(endsAt).getTime();
-  if (!Number.isFinite(end)) return null;
-  const diffMs = end - Date.now();
-  if (diffMs <= 0) return "Season ends today";
-  const days = Math.ceil(diffMs / 86400000);
-  if (days <= 1) return "Season ends today";
-  return `Season ends in ${days} days`;
-}
-
 function getOutcomeText(outcome: DisplayOutcome | null): string {
   if (outcome === "win") return "Win";
   if (outcome === "loss") return "Loss";
@@ -181,49 +166,44 @@ function getRankedDuelCopyV2(duel: RankedDuelEntry | null, currentUserId: string
   badge: string;
   button: string;
   sub: string;
-  seasonText: string | null;
   resultText: string | null;
 } {
   if (!duel) {
     if (latestCompleted) {
       const outcome = getRankedDuelOutcome(latestCompleted, currentUserId);
-      const seasonEndText = getSeasonCountdown(latestCompleted.season_ends_at);
       const delta = latestCompleted.rp_change === null ? "" : ` - ${formatSignedRp(latestCompleted.rp_change)}`;
       return {
         title: "Ranked Duel",
         badge: latestCompleted.current_tier,
         button: "Find next match",
-        sub: `${latestCompleted.current_tier} - ${latestCompleted.current_rp} RP`,
-        seasonText: `${latestCompleted.season_name} - ${formatRankedRecord(latestCompleted)}${seasonEndText ? ` - ${seasonEndText}` : ""}`,
-        resultText: `Latest: ${getOutcomeText(outcome)}${delta} - ${formatScore(latestCompleted.your_score)} vs ${formatScore(latestCompleted.opponent_score)}`,
+        sub: `${latestCompleted.current_rp} RP - ${latestCompleted.season_name}`,
+        resultText: `Latest: ${getOutcomeText(outcome)}${delta}`,
       };
     }
-    return { title: "Ranked Duel", badge: "Competitive", button: "Find match", sub: "Queue against a nearby RP opponent", seasonText: null, resultText: null };
+    return { title: "Ranked Duel", badge: "Competitive", button: "Find match", sub: "Queue against a nearby RP opponent", resultText: null };
   }
 
   const youFinished = Boolean(duel.current_user_result_id);
   const opponentFinished = duel.opponent_score !== null;
   const opponentName = duel.opponent_display_name ?? "opponent";
-  const seasonEndText = getSeasonCountdown(duel.season_ends_at);
-  const seasonText = `${duel.season_name} - ${formatRankedRecord(duel)}${seasonEndText ? ` - ${seasonEndText}` : ""}`;
-  const rankLine = `${duel.current_tier} - ${duel.current_rp} RP`;
+  const rankLine = `${duel.current_rp} RP - ${duel.season_name}`;
 
   if (duel.status === "waiting_for_opponent") {
-    return { title: "Searching for opponent", badge: duel.current_tier, button: "Searching", sub: rankLine, seasonText, resultText: "Waiting for a nearby RP opponent." };
+    return { title: "Ranked Duel", badge: duel.current_tier, button: "Searching", sub: rankLine, resultText: "Waiting for a nearby RP opponent." };
   }
   if (duel.status === "completed") {
     const outcome = getRankedDuelOutcome(duel, currentUserId);
     const title = outcome === "win" ? "You won" : outcome === "loss" ? "You lost" : "Draw";
     const delta = duel.rp_change === null ? "" : ` - ${formatSignedRp(duel.rp_change)}`;
-    return { title, badge: "Complete", button: "Complete", sub: rankLine, seasonText, resultText: `${formatScore(duel.your_score)} vs ${formatScore(duel.opponent_score)}${delta}` };
+    return { title, badge: "Complete", button: "Complete", sub: rankLine, resultText: `${formatScore(duel.your_score)} vs ${formatScore(duel.opponent_score)}${delta}` };
   }
   if (youFinished) {
-    return { title: "You finished", badge: "Waiting", button: "Waiting", sub: rankLine, seasonText, resultText: `Waiting for ${opponentName}.` };
+    return { title: "Ranked Duel", badge: "Waiting", button: "Waiting", sub: rankLine, resultText: `You finished - waiting for ${opponentName}.` };
   }
   if (opponentFinished) {
-    return { title: "Opponent found", badge: "Your turn", button: "Play ranked duel", sub: `${opponentName} finished`, seasonText, resultText: "Play your turn to settle RP." };
+    return { title: "Ranked Duel", badge: "Your turn", button: "Play ranked duel", sub: rankLine, resultText: `${opponentName} finished. Play your turn.` };
   }
-  return { title: "Opponent found", badge: "Matched", button: "Play ranked duel", sub: rankLine, seasonText, resultText: null };
+  return { title: "Ranked Duel", badge: "Matched", button: "Play ranked duel", sub: rankLine, resultText: "Opponent found." };
 }
 
 export default function VersusScreen() {
@@ -510,7 +490,6 @@ export default function VersusScreen() {
                 <Text style={styles.cardSub}>
                   {auth.isGuest ? "Sign up to play ranked matches" : rankedDuelCopy.sub}
                 </Text>
-                {rankedDuelCopy.seasonText ? <Text style={styles.cardMeta}>{rankedDuelCopy.seasonText}</Text> : null}
                 {rankedDuelCopy.resultText ? <Text style={styles.cardStatus}>{rankedDuelCopy.resultText}</Text> : null}
               </View>
             </View>
