@@ -380,6 +380,7 @@ function profileFromRows(profileRow: ProfileRow, statsRow: PlayerStatsRow, setti
     profile_setup_completed: setupCompleted,
     initials: setupCompleted ? profileRow.initials : "",
     avatar_color: profileRow.avatar_color,
+    avatar_symbol: profileRow.avatar_symbol ?? null,
     total_mastery_xp: statsRow.total_mastery_xp,
     account_level: statsRow.account_level,
     rank_points: statsRow.rank_points,
@@ -2157,6 +2158,28 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     return { ok: true };
   }, [auth.isSignedIn, auth.user, persist, profile, updateDiagnostics]);
 
+  const updateAvatar = useCallback((avatar: { initials: string; avatar_color: string; avatar_symbol?: string | null }): SaveResult => {
+    const initials = avatar.initials.trim().toUpperCase();
+    if (initials.length < 1 || initials.length > 3) return { ok: false, error: "Initials must be 1-3 characters." };
+    const next = normalizeProfile({
+      ...profile,
+      initials,
+      avatar_color: avatar.avatar_color,
+      avatar_symbol: avatar.avatar_symbol?.trim() || null,
+    });
+    setProfile(next);
+    if (auth.isSignedIn && auth.user && isSupabaseConfigured) void supabase.from("profiles").update({
+      initials: next.initials,
+      avatar_color: next.avatar_color,
+      avatar_symbol: next.avatar_symbol ?? null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", auth.user.id).then(({ error: saveError }) => {
+      if (saveError) updateDiagnostics({ lastError: saveError.message });
+    }).catch((saveError: unknown) => updateDiagnostics({ lastError: saveError instanceof Error ? saveError.message : "Unable to save avatar." }));
+    else if (auth.isGuest || auth.mode === "signed_out") persistLocal(next);
+    return { ok: true };
+  }, [auth.isGuest, auth.isSignedIn, auth.mode, auth.user, persistLocal, profile, updateDiagnostics]);
+
   const updateNotificationSettings = useCallback((notifications: ProfileSettings["notifications"]) => {
     persist({ ...profile, settings: { ...profile.settings, notifications } });
     if (auth.isSignedIn && auth.user && isSupabaseConfigured) void supabase.from("user_settings").upsert({ user_id: auth.user.id, daily_reminder: notifications.dailyPuzzleReminder, streak_reminder: notifications.streakReminder, duel_results: notifications.duelResults, ranked_updates: notifications.rankedMatchUpdates, updated_at: new Date().toISOString() }).catch(() => {});
@@ -2267,7 +2290,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
     fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel, cancelRankedDuel,
     refreshProfile: loadBackendProfile,
-    resetLocalProfile, checkUsernameAvailable, completeProfileSetup, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
+    resetLocalProfile, checkUsernameAvailable, completeProfileSetup, updateDisplayName, updateAvatar, updateNotificationSettings, updatePrivacySettings,
     repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, testDailyResultQuery, clearLastUpdate,
     upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
   }), [
@@ -2280,7 +2303,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
     simulateRankedLoss, simulateRankedWin, simulateResult,
     testSupabaseRead, testSupabaseWrite, testDailyResultQuery,
-    updateDisplayName, updateNotificationSettings, updatePrivacySettings,
+    updateAvatar, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
     upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
   ]);
 });
