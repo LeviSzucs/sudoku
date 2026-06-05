@@ -10,6 +10,7 @@ export interface RecentResult extends PuzzleResult {
   result_id?: string;
   xp_earned: number;
   result_outcome?: RankOutcome;
+  rp_change?: number | null;
 }
 
 export interface AchievementBadge {

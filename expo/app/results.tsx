@@ -7,6 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import Card from "@/components/Card";
 import { C } from "@/constants/colors";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
+import type { RecentResult } from "@/lib/playerProfile";
 import { formatTime } from "@/lib/sudoku";
 
 type ResultFilter = "All" | "Classic" | "Daily" | "Duel" | "Ranked";
@@ -29,6 +30,23 @@ function modeLabel(mode: string): string {
   if (mode === "ranked" || mode === "ranked_duel") return "Ranked";
   if (mode === "duel") return "Duel";
   return "Puzzle";
+}
+
+function isRankedResult(result: RecentResult): boolean {
+  return result.mode === "ranked" || result.mode === "ranked_duel";
+}
+
+function formatSignedRp(value: number | null | undefined): string {
+  if (typeof value !== "number") return "0 RP";
+  return `${value >= 0 ? "+" : ""}${value} RP`;
+}
+
+function outcomeLabel(result: RecentResult): string | null {
+  if (!isRankedResult(result)) return null;
+  if (result.result_outcome === "win") return "WIN";
+  if (result.result_outcome === "loss") return "LOSS";
+  if (result.result_outcome === "draw") return "DRAW";
+  return null;
 }
 
 export default function ResultsScreen() {
@@ -63,19 +81,23 @@ export default function ResultsScreen() {
           {results.length === 0 ? (
             <Text style={styles.empty}>{emptyText}</Text>
           ) : (
-            results.map((result, index) => (
-              <View key={result.result_id ?? result.session_id ?? `${result.puzzle_id}-${result.completed_at}-${index}`} style={[styles.row, index !== results.length - 1 && styles.divider]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.rowTitle}>{modeLabel(result.mode)} / {result.difficulty}</Text>
-                  <Text style={styles.rowSub}>{new Date(result.completed_at).toLocaleDateString()}</Text>
-                  <Text style={styles.rowMeta}>{formatTime(result.elapsed_seconds)} / {result.mistakes} mistakes / {result.hints_used} hints / {result.undo_count} undos</Text>
+            results.map((result, index) => {
+              const ranked = isRankedResult(result);
+              const outcome = outcomeLabel(result);
+              return (
+                <View key={result.result_id ?? result.session_id ?? `${result.puzzle_id}-${result.completed_at}-${index}`} style={[styles.row, index !== results.length - 1 && styles.divider]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rowTitle}>{outcome ? `${outcome} / ` : ""}{modeLabel(result.mode)} / {result.difficulty}</Text>
+                    <Text style={styles.rowSub}>{new Date(result.completed_at).toLocaleDateString()}</Text>
+                    <Text style={styles.rowMeta}>{formatTime(result.elapsed_seconds)} / {result.mistakes} mistakes / {result.hints_used} hints / {result.undo_count} undos</Text>
+                  </View>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={styles.score}>{result.final_score.toLocaleString()}</Text>
+                    <Text style={styles.xp}>{ranked ? formatSignedRp(result.rp_change) : `+${result.xp_earned} XP`}</Text>
+                  </View>
                 </View>
-                <View style={{ alignItems: "flex-end" }}>
-                  <Text style={styles.score}>{result.final_score.toLocaleString()}</Text>
-                  <Text style={styles.xp}>+{result.xp_earned} XP</Text>
-                </View>
-              </View>
-            ))
+              );
+            })
           )}
         </Card>
       </ScrollView>

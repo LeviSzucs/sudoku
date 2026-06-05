@@ -443,7 +443,7 @@ function statsPayload(profile: PlayerProfile): Partial<PlayerStatsRow> {
 }
 
 function resultFromRow(row: GameResultRow): RecentResult {
-  return { result_id: row.result_id, session_id: row.session_id ?? undefined, puzzle_id: row.puzzle_id ?? "unknown", mode: row.mode as RecentResult["mode"], difficulty: row.difficulty as RecentResult["difficulty"], completed: true, elapsed_seconds: row.elapsed_seconds, mistakes: row.mistakes, hints_used: row.hints_used, undo_count: row.undo_count, move_count: 0, final_score: row.final_score, eligible_for_leaderboard: row.eligible_for_leaderboard, eligible_for_ranked: row.eligible_for_ranked, completed_at: row.completed_at, xp_earned: row.xp_earned, result_outcome: row.won === true ? "win" : row.won === false ? "loss" : undefined };
+  return { result_id: row.result_id, session_id: row.session_id ?? undefined, puzzle_id: row.puzzle_id ?? "unknown", mode: row.mode as RecentResult["mode"], difficulty: row.difficulty as RecentResult["difficulty"], completed: true, elapsed_seconds: row.elapsed_seconds, mistakes: row.mistakes, hints_used: row.hints_used, undo_count: row.undo_count, move_count: 0, final_score: row.final_score, eligible_for_leaderboard: row.eligible_for_leaderboard, eligible_for_ranked: row.eligible_for_ranked, completed_at: row.completed_at, xp_earned: row.xp_earned, rp_change: row.rp_change ?? null, result_outcome: row.won === true ? "win" : row.won === false ? "loss" : undefined };
 }
 
 function deterministicResultId(userId: string, result: PuzzleResult, sessionId: string | null): string {
@@ -672,7 +672,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     if (next.recent_results.some((result) => result.mode === "ranked_duel")) {
       const { data: rankedRows, error: rankedError } = await supabase
         .from("ranked_duels")
-        .select("status,winner_user_id,player_a_id,player_b_id,player_a_session_id,player_b_session_id,player_a_result_id,player_b_result_id")
+        .select("status,winner_user_id,player_a_id,player_b_id,player_a_session_id,player_b_session_id,player_a_result_id,player_b_result_id,player_a_rp_change,player_b_rp_change")
         .or(`player_a_id.eq.${auth.user.id},player_b_id.eq.${auth.user.id}`);
 
       if (rankedError) {
@@ -682,12 +682,17 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
         const attachedSessionIds = new Set<string>();
         const outcomeByResultId = new Map<string, RankOutcome>();
         const outcomeBySessionId = new Map<string, RankOutcome>();
-        for (const row of rankedRows as Array<Record<string, string | null>>) {
+        const rpChangeByResultId = new Map<string, number | null>();
+        const rpChangeBySessionId = new Map<string, number | null>();
+        for (const row of rankedRows as Array<Record<string, string | number | null>>) {
           const isPlayerA = row.player_a_id === auth.user.id;
-          const resultId = isPlayerA ? row.player_a_result_id : row.player_b_result_id;
-          const sessionId = isPlayerA ? row.player_a_session_id : row.player_b_session_id;
+          const resultId = (isPlayerA ? row.player_a_result_id : row.player_b_result_id) as string | null;
+          const sessionId = (isPlayerA ? row.player_a_session_id : row.player_b_session_id) as string | null;
+          const rpChange = (isPlayerA ? row.player_a_rp_change : row.player_b_rp_change) as number | null;
           if (resultId) attachedResultIds.add(resultId);
           if (sessionId) attachedSessionIds.add(sessionId);
+          if (resultId) rpChangeByResultId.set(resultId, rpChange);
+          if (sessionId) rpChangeBySessionId.set(sessionId, rpChange);
           if (row.status !== "completed") continue;
           const outcome: RankOutcome = !row.winner_user_id ? "draw" : row.winner_user_id === auth.user.id ? "win" : "loss";
           if (resultId) outcomeByResultId.set(resultId, outcome);
@@ -706,7 +711,11 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
             if (result.mode !== "ranked_duel") return result;
             const outcome = (result.result_id ? outcomeByResultId.get(result.result_id) : undefined)
               ?? (result.session_id ? outcomeBySessionId.get(result.session_id) : undefined);
-            return { ...result, result_outcome: outcome };
+            const rpChange = (result.result_id ? rpChangeByResultId.get(result.result_id) : undefined)
+              ?? (result.session_id ? rpChangeBySessionId.get(result.session_id) : undefined)
+              ?? result.rp_change
+              ?? null;
+            return { ...result, result_outcome: outcome, rp_change: rpChange };
           });
       }
     }

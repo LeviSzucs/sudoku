@@ -31,6 +31,33 @@ function formatRank(tier?: string | null, division?: string | null): string {
   return cleanDivision ? `${cleanTier} ${cleanDivision}` : cleanTier;
 }
 
+function formatSignedRp(value: number | null | undefined): string {
+  if (typeof value !== "number") return "0 RP";
+  return `${value >= 0 ? "+" : ""}${value} RP`;
+}
+
+function formatRankedRecord(entry: RankedDuelEntry | null | undefined): string {
+  return `${entry?.wins ?? 0}W-${entry?.losses ?? 0}L-${entry?.draws ?? 0}D`;
+}
+
+function getSeasonCountdown(endsAt: string | null | undefined): string | null {
+  if (!endsAt) return null;
+  const end = new Date(endsAt).getTime();
+  if (!Number.isFinite(end)) return null;
+  const diffMs = end - Date.now();
+  if (diffMs <= 0) return "Season ends today";
+  const days = Math.ceil(diffMs / 86400000);
+  if (days <= 1) return "Season ends today";
+  return `Season ends in ${days} days`;
+}
+
+function getOutcomeText(outcome: DisplayOutcome | null): string {
+  if (outcome === "win") return "Win";
+  if (outcome === "loss") return "Loss";
+  if (outcome === "draw") return "Draw";
+  return "Result";
+}
+
 function getDailyDuelOutcome(duel: DailyDuelEntry | null, currentUserId: string | null): DisplayOutcome | null {
   if (!duel || duel.status !== "completed") return null;
   if (!duel.winner_user_id) return "draw";
@@ -149,6 +176,56 @@ function getRankedDuelCopy(duel: RankedDuelEntry | null, currentUserId: string |
   return { title: "Ranked match found", badge: "Matched", button: "Play ranked duel", sub: `${duel.current_tier} · ${duel.current_rp} RP`, resultText: null };
 }
 
+function getRankedDuelCopyV2(duel: RankedDuelEntry | null, currentUserId: string | null, latestCompleted: RankedDuelEntry | null = null): {
+  title: string;
+  badge: string;
+  button: string;
+  sub: string;
+  seasonText: string | null;
+  resultText: string | null;
+} {
+  if (!duel) {
+    if (latestCompleted) {
+      const outcome = getRankedDuelOutcome(latestCompleted, currentUserId);
+      const seasonEndText = getSeasonCountdown(latestCompleted.season_ends_at);
+      const delta = latestCompleted.rp_change === null ? "" : ` - ${formatSignedRp(latestCompleted.rp_change)}`;
+      return {
+        title: "Ranked Duel",
+        badge: latestCompleted.current_tier,
+        button: "Find next match",
+        sub: `${latestCompleted.current_tier} - ${latestCompleted.current_rp} RP`,
+        seasonText: `${latestCompleted.season_name} - ${formatRankedRecord(latestCompleted)}${seasonEndText ? ` - ${seasonEndText}` : ""}`,
+        resultText: `Latest: ${getOutcomeText(outcome)}${delta} - ${formatScore(latestCompleted.your_score)} vs ${formatScore(latestCompleted.opponent_score)}`,
+      };
+    }
+    return { title: "Ranked Duel", badge: "Competitive", button: "Find match", sub: "Queue against a nearby RP opponent", seasonText: null, resultText: null };
+  }
+
+  const youFinished = Boolean(duel.current_user_result_id);
+  const opponentFinished = duel.opponent_score !== null;
+  const opponentName = duel.opponent_display_name ?? "opponent";
+  const seasonEndText = getSeasonCountdown(duel.season_ends_at);
+  const seasonText = `${duel.season_name} - ${formatRankedRecord(duel)}${seasonEndText ? ` - ${seasonEndText}` : ""}`;
+  const rankLine = `${duel.current_tier} - ${duel.current_rp} RP`;
+
+  if (duel.status === "waiting_for_opponent") {
+    return { title: "Searching for opponent", badge: duel.current_tier, button: "Searching", sub: rankLine, seasonText, resultText: "Waiting for a nearby RP opponent." };
+  }
+  if (duel.status === "completed") {
+    const outcome = getRankedDuelOutcome(duel, currentUserId);
+    const title = outcome === "win" ? "You won" : outcome === "loss" ? "You lost" : "Draw";
+    const delta = duel.rp_change === null ? "" : ` - ${formatSignedRp(duel.rp_change)}`;
+    return { title, badge: "Complete", button: "Complete", sub: rankLine, seasonText, resultText: `${formatScore(duel.your_score)} vs ${formatScore(duel.opponent_score)}${delta}` };
+  }
+  if (youFinished) {
+    return { title: "You finished", badge: "Waiting", button: "Waiting", sub: rankLine, seasonText, resultText: `Waiting for ${opponentName}.` };
+  }
+  if (opponentFinished) {
+    return { title: "Opponent found", badge: "Your turn", button: "Play ranked duel", sub: `${opponentName} finished`, seasonText, resultText: "Play your turn to settle RP." };
+  }
+  return { title: "Opponent found", badge: "Matched", button: "Play ranked duel", sub: rankLine, seasonText, resultText: null };
+}
+
 export default function VersusScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -197,7 +274,7 @@ export default function VersusScreen() {
 
   const dailyDuelCopy = useMemo(() => getDailyDuelCopy(dailyDuel, auth.user?.id ?? null), [auth.user?.id, dailyDuel]);
   const dailyDuelOutcome = useMemo(() => getDailyDuelOutcome(dailyDuel, auth.user?.id ?? null), [auth.user?.id, dailyDuel]);
-  const rankedDuelCopy = useMemo(() => getRankedDuelCopy(rankedDuel, auth.user?.id ?? null, latestRankedDuel), [auth.user?.id, latestRankedDuel, rankedDuel]);
+  const rankedDuelCopy = useMemo(() => getRankedDuelCopyV2(rankedDuel, auth.user?.id ?? null, latestRankedDuel), [auth.user?.id, latestRankedDuel, rankedDuel]);
   const rankedDuelOutcome = useMemo(() => getRankedDuelOutcome(rankedDuel, auth.user?.id ?? null), [auth.user?.id, rankedDuel]);
 
   const openDailyDuelGame = useCallback((duel: DailyDuelEntry) => {
@@ -433,6 +510,7 @@ export default function VersusScreen() {
                 <Text style={styles.cardSub}>
                   {auth.isGuest ? "Sign up to play ranked matches" : rankedDuelCopy.sub}
                 </Text>
+                {rankedDuelCopy.seasonText ? <Text style={styles.cardMeta}>{rankedDuelCopy.seasonText}</Text> : null}
                 {rankedDuelCopy.resultText ? <Text style={styles.cardStatus}>{rankedDuelCopy.resultText}</Text> : null}
               </View>
             </View>
@@ -506,6 +584,7 @@ function DuelResultRow({ result, outcomeOverride }: { result: RecentResult; outc
   const outcome = outcomeOverride ?? result.result_outcome;
   const isWin = outcome === "win";
   const isLoss = outcome === "loss";
+  const isRanked = result.mode === "ranked" || result.mode === "ranked_duel";
   return (
     <Card style={{ marginBottom: 10 }} padded={false}>
       <View style={styles.matchHeader}>
@@ -525,7 +604,7 @@ function DuelResultRow({ result, outcomeOverride }: { result: RecentResult; outc
               {outcome === "win" ? "WIN" : outcome === "loss" ? "LOSS" : "DRAW"}
             </Text>
           </View>
-          <Text style={styles.matchMode}>{result.mode === "ranked" ? "Ranked" : "Duel"}</Text>
+          <Text style={styles.matchMode}>{isRanked ? "Ranked Duel" : "Duel"}</Text>
         </View>
         <Text style={styles.matchTime}>
           {new Date(result.completed_at).toLocaleDateString()}
@@ -548,8 +627,8 @@ function DuelResultRow({ result, outcomeOverride }: { result: RecentResult; outc
             <Text style={styles.msYou}>{result.final_score.toLocaleString()}</Text>
           </View>
           <View style={{ flex: 1, alignItems: "center" }}>
-            <Text style={styles.msLabel}>XP</Text>
-            <Text style={styles.msYou}>+{result.xp_earned}</Text>
+            <Text style={styles.msLabel}>{isRanked ? "RP" : "XP"}</Text>
+            <Text style={styles.msYou}>{isRanked ? formatSignedRp(result.rp_change) : `+${result.xp_earned}`}</Text>
           </View>
           <View style={{ flex: 1, alignItems: "center" }}>
             <Text style={styles.msLabel}>Time</Text>
@@ -740,6 +819,12 @@ const styles = StyleSheet.create({
     color: C.inkSoft,
     fontWeight: "800",
     marginTop: 5,
+  },
+  cardMeta: {
+    fontSize: 12,
+    color: C.muted,
+    fontWeight: "700",
+    marginTop: 4,
   },
   cardAction: {
     color: C.amber,
