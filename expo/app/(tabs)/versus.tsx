@@ -444,6 +444,7 @@ export default function VersusScreen() {
                   <Avatar
                     initials={profile.initials}
                     color={profile.avatar_color}
+                    symbol={profile.avatar_symbol}
                     size={56}
                   />
                   <Text style={styles.vsName}>{profile.display_name ?? profile.username}</Text>
