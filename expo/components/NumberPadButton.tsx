@@ -25,7 +25,7 @@ function NumberPadButton({ value, remaining, highlighted, disabled, onPress }: P
     <Pressable
       disabled={isDisabled}
       onPress={() => onPress(value)}
-      hitSlop={4}
+      hitSlop={8}
       style={({ pressed }) => [
         styles.btn,
         highlighted && styles.btnHighlight,
@@ -48,11 +48,11 @@ function NumberPadButton({ value, remaining, highlighted, disabled, onPress }: P
 
 const styles = StyleSheet.create({
   btn: {
-    flex: 1,
+    width: "30.5%",
+    minHeight: 48,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    marginHorizontal: 3,
+    paddingVertical: 9,
     borderRadius: 12,
     backgroundColor: C.bgElevated,
     borderWidth: 1,
@@ -63,8 +63,8 @@ const styles = StyleSheet.create({
     borderColor: C.accent,
   },
   num: {
-    fontSize: 26,
-    lineHeight: 30,
+    fontSize: 25,
+    lineHeight: 29,
     color: C.ink,
     fontWeight: "700",
     textAlign: "center",

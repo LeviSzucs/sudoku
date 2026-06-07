@@ -546,6 +546,7 @@ module.exports = {
   GENERATED_DIR,
   DIFFICULTIES,
   DEFAULT_TARGET_CLUES,
+  DEFAULT_RATING_BASE,
   countSolutions,
   validatePuzzle,
   normalizeGivens,
