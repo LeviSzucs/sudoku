@@ -16,9 +16,9 @@ const {
 const { evaluateTechniqueAcceptance, ratePuzzle } = require("./technique-difficulty-rater");
 
 const REPORT_DIR = path.join(ROOT, "generated", "reports");
-const DEFAULT_BATCH = "technique_calibration_20260607";
-const DEFAULT_COUNT = 10;
-const DEFAULT_MAX_ATTEMPTS = 450;
+const DEFAULT_BATCH = "technique_calibrated_20260607";
+const DEFAULT_COUNT = 50;
+const DEFAULT_MAX_ATTEMPTS = 2500;
 const CALIBRATION_TARGET_CLUES = {
   Easy: 40,
   Medium: 34,
@@ -48,7 +48,7 @@ function makePuzzleRecord({ batch, difficulty, index, candidate, rating }) {
     givens: candidate.givens,
     solution: candidate.solution,
     rating_score: rating.technique_score,
-    source: `technique_calibration_${batch}`,
+    source: batch,
     is_active: false,
   };
 }
@@ -123,7 +123,7 @@ function generateAcceptedCandidates({ batch, countPerDifficulty, maxAttempts, se
         givens: candidate.givens,
         solution: candidate.solution,
         rating_score: DEFAULT_RATING_BASE[difficulty] + attempts,
-        source: `technique_calibration_${batch}`,
+        source: batch,
         is_active: false,
       });
       const acceptance = evaluateTechniqueAcceptance(rating, difficulty);
@@ -166,6 +166,21 @@ function generateAcceptedCandidates({ batch, countPerDifficulty, maxAttempts, se
 }
 
 function writeMarkdownReport({ outPath, batch, accepted, reportRows, rejectedSamples, attemptsByDifficulty, acceptedByDifficulty }) {
+  const rejectionCounts = {};
+  for (const row of rejectedSamples) {
+    const key = `${row.intended_difficulty}: ${row.rejection_reason}`;
+    rejectionCounts[key] = (rejectionCounts[key] ?? 0) + 1;
+  }
+
+  function distribution(rows, selector) {
+    const counts = {};
+    for (const row of rows) {
+      const value = selector(row);
+      counts[value] = (counts[value] ?? 0) + 1;
+    }
+    return counts;
+  }
+
   const lines = [];
   lines.push("# Technique Calibration Candidate Batch");
   lines.push("");
@@ -188,6 +203,31 @@ function writeMarkdownReport({ outPath, batch, accepted, reportRows, rejectedSam
   lines.push("");
   lines.push(`Accepted by intended difficulty: ${JSON.stringify(summarizeByDifficulty(reportRows, (row) => row.intended_difficulty))}`);
   lines.push(`Accepted by suggested difficulty: ${JSON.stringify(summarizeByDifficulty(reportRows, (row) => row.suggested_difficulty))}`);
+  lines.push("");
+  lines.push("## Technique And Search Distributions");
+  lines.push("");
+  lines.push("| difficulty | hardest technique distribution | search depth distribution |");
+  lines.push("|---|---|---|");
+  for (const difficulty of DIFFICULTIES) {
+    const rows = reportRows.filter((row) => row.intended_difficulty === difficulty);
+    lines.push(`| ${difficulty} | ${JSON.stringify(distribution(rows, (row) => row.hardest_technique))} | ${JSON.stringify(distribution(rows, (row) => row.search_depth))} |`);
+  }
+  lines.push("");
+  lines.push("## Current Active Bank Comparison");
+  lines.push("");
+  lines.push("- Current active bank labels are still primarily clue-count based and use fixed `rating_score` metadata.");
+  lines.push("- This candidate bank is filtered by technique acceptance rules after uniqueness validation.");
+  lines.push("- Every accepted candidate has intended difficulty equal to suggested technique difficulty.");
+  lines.push("- The new bank improves consistency by rejecting candidates that are unique but solve too easily or too hard for the intended tier.");
+  lines.push("- Remaining weakness: Expert/Master still depend partly on the current technique set and search pressure; adding more advanced human patterns such as XY-wing, swordfish, coloring, or chains would make those tiers less search-dependent.");
+  lines.push("");
+  lines.push("## Rejection Reason Summary");
+  lines.push("");
+  lines.push("| reason | count |");
+  lines.push("|---|---:|");
+  for (const [reason, count] of Object.entries(rejectionCounts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))) {
+    lines.push(`| ${reason} | ${count} |`);
+  }
   lines.push("");
   lines.push("## Accepted Candidates");
   lines.push("");

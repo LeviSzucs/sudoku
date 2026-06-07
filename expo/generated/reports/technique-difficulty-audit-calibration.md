@@ -1,6 +1,6 @@
 # Technique Difficulty Calibration
 
-Generated: 2026-06-07T15:17:45.943Z
+Generated: 2026-06-07T18:31:03.081Z
 
 ## Scope
 
