@@ -376,10 +376,9 @@ export async function fetchDailyPuzzle(
     // Fallback: direct query on daily_puzzles table
     const { data: dpRows, error: dpError } = await supabase
       .from("daily_puzzles")
-      .select("puzzle_id, difficulty, puzzles!inner(givens, solution, is_active)")
+      .select("puzzle_id, difficulty, puzzles!inner(givens, solution)")
       .eq("date", dateStr)
       .eq("mode", mode)
-      .eq("puzzles.is_active", true)
       .limit(1);
 
     if (!dpError && dpRows && dpRows.length > 0 && dpRows[0]?.puzzles) {

@@ -781,21 +781,20 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
         }
       }
     }
-    const activePuzzleIds = new Set<string>();
+    const existingPuzzleIds = new Set<string>();
     const sessionPuzzleIds = ((sessions ?? []) as PuzzleSessionRow[])
       .map((session) => session.puzzle_id)
       .filter((puzzleId): puzzleId is string => Boolean(puzzleId));
     if (sessionPuzzleIds.length > 0) {
-      const { data: activePuzzles, error: activePuzzlesError } = await supabase
+      const { data: existingPuzzles, error: existingPuzzlesError } = await supabase
         .from("puzzles")
         .select("puzzle_id")
-        .in("puzzle_id", sessionPuzzleIds)
-        .eq("is_active", true);
-      if (activePuzzlesError) {
-        updateDiagnostics({ lastError: activePuzzlesError.message });
+        .in("puzzle_id", sessionPuzzleIds);
+      if (existingPuzzlesError) {
+        updateDiagnostics({ lastError: existingPuzzlesError.message });
       } else {
-        for (const row of (activePuzzles ?? []) as { puzzle_id: string }[]) {
-          activePuzzleIds.add(row.puzzle_id);
+        for (const row of (existingPuzzles ?? []) as { puzzle_id: string }[]) {
+          existingPuzzleIds.add(row.puzzle_id);
         }
       }
     }
@@ -803,7 +802,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     const activeRows = ((sessions ?? []) as PuzzleSessionRow[]).filter((session) => {
       if (session.status !== "in_progress") return false;
       if (finalSessionIds.has(session.session_id)) return false;
-      if (!session.puzzle_id || !activePuzzleIds.has(session.puzzle_id)) return false;
+      if (!session.puzzle_id || !existingPuzzleIds.has(session.puzzle_id)) return false;
       const key = `${session.puzzle_id ?? ""}:${session.mode}:${session.difficulty}`;
       return !completedKeys.has(key);
     });
@@ -1012,14 +1011,14 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
         .maybeSingle(),
       supabase
         .from("puzzles")
-        .select("puzzle_id,is_active")
+        .select("puzzle_id")
         .eq("puzzle_id", session.puzzle_id)
         .maybeSingle(),
     ]);
 
     if (resultError) updateDiagnostics({ lastError: resultError.message });
     if (puzzleError) updateDiagnostics({ lastError: puzzleError.message });
-    if (finalResult || !puzzle || puzzle.is_active !== true) {
+    if (finalResult || !puzzle) {
       const nextStatus: SessionStatus = finalResult ? "completed" : "abandoned";
       setActiveSessions((prev) => prev.filter((entry) => entry.session_id !== session.session_id));
       void supabase
