@@ -29,9 +29,9 @@ const TECHNIQUE_WEIGHT = {
 
 const SUGGESTED_DIFFICULTY = [
   { max: 35, label: "Easy" },
-  { max: 50, label: "Medium" },
-  { max: 85, label: "Hard" },
-  { max: 140, label: "Expert" },
+  { max: 60, label: "Medium" },
+  { max: 95, label: "Hard" },
+  { max: 220, label: "Expert" },
   { max: Infinity, label: "Master" },
 ];
 
@@ -140,8 +140,12 @@ function computeCandidates(board) {
   return candidates;
 }
 
-function place(board, index, digit) {
+function place(board, candidates, index, digit) {
   board[index] = digit;
+  candidates[index] = 0;
+  for (const peer of PEERS[index]) {
+    if (board[peer] === 0) candidates[peer] &= ~DIGIT_MASKS[digit];
+  }
 }
 
 function record(stats, technique, amount = 1) {
@@ -153,7 +157,7 @@ function applyNakedSingle(board, candidates, stats) {
   for (let index = 0; index < 81; index += 1) {
     if (board[index] !== 0) continue;
     if (bitCount(candidates[index]) === 1) {
-      place(board, index, maskToDigits(candidates[index])[0]);
+      place(board, candidates, index, maskToDigits(candidates[index])[0]);
       record(stats, "naked_single");
       return true;
     }
@@ -167,7 +171,7 @@ function applyHiddenSingle(board, candidates, stats) {
       const mask = DIGIT_MASKS[digit];
       const cells = unit.filter((index) => board[index] === 0 && (candidates[index] & mask) !== 0);
       if (cells.length === 1) {
-        place(board, cells[0], digit);
+        place(board, candidates, cells[0], digit);
         record(stats, "hidden_single");
         return true;
       }
@@ -399,12 +403,77 @@ function scoreFromStats(stats, search) {
   return TECHNIQUE_WEIGHT[stats.hardest] + Math.round(moveScore / 18) + advancedMoves * 3 + searchScore;
 }
 
+function advancedMoveCount(stats) {
+  return Object.entries(stats.moves)
+    .filter(([technique]) => (TECHNIQUE_WEIGHT[technique] ?? 0) >= TECHNIQUE_WEIGHT.locked_candidate)
+    .reduce((total, [, count]) => total + count, 0);
+}
+
 function suggestedDifficulty(score, hardest) {
   if (hardest === "search") {
-    if (score >= 175) return "Master";
+    if (score >= 220) return "Master";
     return "Expert";
   }
   return SUGGESTED_DIFFICULTY.find((entry) => score <= entry.max).label;
+}
+
+function difficultyBand(score) {
+  return SUGGESTED_DIFFICULTY.find((entry) => score <= entry.max).label;
+}
+
+function isSinglesTechnique(technique) {
+  return technique === "naked_single" || technique === "hidden_single";
+}
+
+function evaluateTechniqueAcceptance(row, intendedDifficulty) {
+  if (!row.valid) {
+    return { accepted: false, reason: "invalid puzzle" };
+  }
+
+  const searchDepth = row.search?.maxDepth ?? 0;
+  const searchBranches = row.search?.branchEvents ?? 0;
+  const score = row.technique_score;
+  const advancedMoves = row.advanced_move_count ?? 0;
+  const hardest = row.hardest_technique;
+
+  if (intendedDifficulty === "Easy") {
+    if (score <= 35 && searchDepth === 0 && advancedMoves === 0 && isSinglesTechnique(hardest)) {
+      return { accepted: true, reason: "Easy singles-only solve path" };
+    }
+    return { accepted: false, reason: "Easy requires singles-only score <= 35" };
+  }
+
+  if (intendedDifficulty === "Medium") {
+    if (score >= 36 && score <= 60 && searchDepth === 0 && advancedMoves <= 1) {
+      return { accepted: true, reason: "Medium hidden-single/light candidate solve path" };
+    }
+    return { accepted: false, reason: "Medium requires score 36-60, no search, at most one advanced move" };
+  }
+
+  if (intendedDifficulty === "Hard") {
+    if (score >= 61 && score <= 95 && searchDepth === 0 && advancedMoves >= 1) {
+      return { accepted: true, reason: "Hard candidate-logic solve path" };
+    }
+    return { accepted: false, reason: "Hard requires score 61-95 with candidate logic and no search" };
+  }
+
+  if (intendedDifficulty === "Expert") {
+    const limitedSearch = searchDepth > 0 && searchDepth <= 8 && searchBranches <= 5;
+    if (score >= 96 && score <= 220 && (advancedMoves >= 2 || limitedSearch)) {
+      return { accepted: true, reason: "Expert advanced-pattern or limited-search solve path" };
+    }
+    return { accepted: false, reason: "Expert requires score 96-220 with advanced moves or limited search" };
+  }
+
+  if (intendedDifficulty === "Master") {
+    const deeperSearch = searchDepth >= 9 || searchBranches >= 6;
+    if (score > 220 && (advancedMoves >= 3 || deeperSearch)) {
+      return { accepted: true, reason: "Master advanced-pattern plus deep branching/search pressure" };
+    }
+    return { accepted: false, reason: "Master requires score > 220 with deeper advanced/search pressure" };
+  }
+
+  return { accepted: false, reason: `Unknown intended difficulty ${intendedDifficulty}` };
 }
 
 function ratePuzzle(puzzle) {
@@ -421,12 +490,12 @@ function ratePuzzle(puzzle) {
   const board = boardFromGivens(puzzle.givens);
   const solution = solutionBoard(puzzle.solution);
   const stats = { hardest: "none", moves: {} };
+  const candidates = computeCandidates(board);
   let guard = 0;
   let search = null;
 
   while (!solved(board) && guard < 300) {
     guard += 1;
-    const candidates = computeCandidates(board);
     const progress =
       applyNakedSingle(board, candidates, stats) ||
       applyHiddenSingle(board, candidates, stats) ||
@@ -444,6 +513,7 @@ function ratePuzzle(puzzle) {
   }
 
   const techniqueScore = scoreFromStats(stats, search);
+  const suggested = suggestedDifficulty(techniqueScore, stats.hardest);
   return {
     valid: true,
     puzzle_id: puzzle.puzzle_id,
@@ -453,15 +523,19 @@ function ratePuzzle(puzzle) {
     rating_score: puzzle.rating_score ?? null,
     technique_score: techniqueScore,
     hardest_technique: stats.hardest,
+    advanced_move_count: advancedMoveCount(stats),
+    solve_path_length: Object.values(stats.moves).reduce((total, count) => total + count, 0),
     moves: stats.moves,
     search,
-    suggested_difficulty: suggestedDifficulty(techniqueScore, stats.hardest),
-    mismatch: puzzle.difficulty !== suggestedDifficulty(techniqueScore, stats.hardest),
+    suggested_difficulty: suggested,
+    mismatch: puzzle.difficulty !== suggested,
   };
 }
 
 module.exports = {
   TECHNIQUE_WEIGHT,
   REPORT_PATH,
+  evaluateTechniqueAcceptance,
+  difficultyBand,
   ratePuzzle,
 };

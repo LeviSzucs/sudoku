@@ -157,7 +157,7 @@ This is an audit and calibration artifact only. It does not relabel production p
 - Current validation checks legal givens, legal solution, givens matching solution, and unique solution.
 - Current difficulty labels are primarily driven by target clue count: Easy 40, Medium 34, Hard 30, Expert 27, Master 24.
 - Current \`rating_score\` is fixed label/range metadata and is not currently a human solving complexity score.
-- The new rater prototype solves with human-style techniques first, then uses search/backtracking pressure as a fallback.
+- The new rater prototype solves with human-style techniques first, persists candidate eliminations through the solve path, then uses search/backtracking pressure as a fallback.
 
 ## Mismatch Summary
 
@@ -205,6 +205,7 @@ ${markdownTable(topMismatchExamples(rows, "Master"))}
 - Locked candidate logic covers pointing pairs/triples from box to line and claiming/box-line reductions from line to box.
 - Naked and hidden pairs/triples are implemented as candidate subset eliminations in each unit.
 - X-wing is implemented for row-pair and column-pair eliminations.
+- Candidate eliminations persist across passes, so locked candidates/subsets are not repeatedly recounted from a freshly recomputed candidate grid.
 - Search is only used after all implemented human techniques fail to make progress, so it is not used too early relative to the current technique stack.
 - The largest rater limitation is missing advanced human techniques beyond X-wing, such as swordfish, XY-wing, XYZ-wing, coloring/chains, uniqueness techniques, and more nuanced candidate graph logic.
 - Because those techniques are missing, some puzzles may be marked too hard when the rater falls back to search for a human-solvable advanced pattern.
@@ -212,11 +213,11 @@ ${markdownTable(topMismatchExamples(rows, "Master"))}
 
 ## Proposed Technique Difficulty Bands
 
-- Easy: mostly naked singles/basic scanning, with very small hidden-single usage; no locked candidates or search.
-- Medium: hidden singles and light candidate logic; no sustained advanced eliminations; no search.
-- Hard: locked candidates, pointing/claiming, pairs/triples, and multi-step candidate maintenance; no search fallback in accepted production Hard puzzles unless tightly bounded.
-- Expert: advanced patterns such as X-wing or multiple locked/subset chains, or very limited search pressure where the missing technique set likely explains the fallback.
-- Master: advanced patterns plus substantial branching/search pressure, or repeated advanced eliminations with high candidate complexity.
+- Easy: score 0-35; mostly naked singles/basic scanning, with very small hidden-single usage; no locked candidates or search.
+- Medium: score 36-60; hidden singles and light candidate logic; no sustained advanced eliminations; no search.
+- Hard: score 61-95; locked candidates, pointing/claiming, pairs/triples, and multi-step candidate maintenance; no search fallback in accepted production Hard puzzles unless tightly bounded.
+- Expert: score 96-220; advanced patterns such as X-wing or multiple locked/subset chains, or very limited search pressure where the missing technique set likely explains the fallback.
+- Master: score > 220; advanced patterns plus substantial branching/search pressure, or repeated advanced eliminations with high candidate complexity.
 
 ## Recommended Future Generation Acceptance Rules
 
