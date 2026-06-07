@@ -13,6 +13,7 @@
     "validate:unique-puzzles": "node scripts/validate-puzzles.js",
     "validate:scoring": "node scripts/validate-scoring.js",
     "audit:difficulty": "node scripts/audit-difficulty.js",
+    "audit:technique-difficulty": "node scripts/audit-technique-difficulty.js",
     "export:puzzles-sql": "node scripts/export-puzzles-sql.js",
     "validate:givens": "node scripts/validate-given-cells.js"
   },
