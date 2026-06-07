@@ -38,6 +38,8 @@ export default function SettingsScreen() {
   const [avatarSaving, setAvatarSaving] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<ProfileSettings["notifications"]>(profile.settings.notifications);
   const [privacy, setPrivacy] = useState<ProfileSettings["privacy"]>(profile.settings.privacy);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsSaving, setSettingsSaving] = useState<boolean>(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [hapticsEnabled, setHapticsEnabled] = useState<boolean>(true);
   const dailyDiagnostics = diagnostics.daily;
@@ -76,6 +78,35 @@ export default function SettingsScreen() {
       return;
     }
     setAvatarError(null);
+    setPanel(null);
+  };
+
+  const closePanel = () => {
+    setSettingsError(null);
+    setPanel(null);
+  };
+
+  const saveNotifications = async () => {
+    setSettingsSaving(true);
+    setSettingsError(null);
+    const result = await updateNotificationSettings(notifications);
+    setSettingsSaving(false);
+    if (!result.ok) {
+      setSettingsError(result.error ?? "Unable to save notification settings.");
+      return;
+    }
+    setPanel(null);
+  };
+
+  const savePrivacy = async () => {
+    setSettingsSaving(true);
+    setSettingsError(null);
+    const result = await updatePrivacySettings(privacy);
+    setSettingsSaving(false);
+    if (!result.ok) {
+      setSettingsError(result.error ?? "Unable to save privacy settings.");
+      return;
+    }
     setPanel(null);
   };
 
@@ -153,12 +184,12 @@ export default function SettingsScreen() {
         <View style={styles.backdrop}><Card style={styles.modalCard}><Text style={styles.modalTitle}>Avatar</Text><View style={styles.avatarPreview}><Avatar initials={avatarInitials || profile.initials} color={avatarColor} symbol={avatarSymbol} size={76} /></View><TextInput value={avatarInitials} onChangeText={(value) => { setAvatarInitials(value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3)); setAvatarError(null); }} maxLength={3} placeholder="AB" style={styles.input} /><Text style={styles.helper}>Initials can use 1-3 letters or numbers.</Text><Text style={styles.optionLabel}>Colour</Text><View style={styles.swatches}>{AVATAR_COLORS.map((color) => <Pressable key={color} onPress={() => setAvatarColor(color)} style={[styles.swatch, { backgroundColor: color }, avatarColor === color && styles.swatchActive]} />)}</View><Text style={styles.optionLabel}>Symbol</Text><View style={styles.symbols}>{AVATAR_SYMBOLS.map((symbol) => <Pressable key={symbol ?? "none"} onPress={() => setAvatarSymbol(symbol)} style={[styles.symbolButton, avatarSymbol === symbol && styles.symbolActive]}><Text style={[styles.symbolText, avatarSymbol === symbol && styles.symbolTextActive]}>{symbol ?? "None"}</Text></Pressable>)}</View>{avatarError ? <Text style={styles.error}>{avatarError}</Text> : null}<Actions onCancel={() => setPanel(null)} onSave={() => { void saveAvatar(); }} saveLabel={avatarSaving ? "Saving..." : "Done"} disabled={avatarSaving} /></Card></View>
       </Modal>
 
-      <Modal visible={panel === "notifications"} transparent animationType="fade" onRequestClose={() => setPanel(null)}>
-        <View style={styles.backdrop}><Card style={styles.modalCard}><Text style={styles.modalTitle}>Notifications</Text><Toggle label="Daily puzzle reminder" value={notifications.dailyPuzzleReminder} onValueChange={(value) => setNotifications({ ...notifications, dailyPuzzleReminder: value })} /><Toggle label="Streak reminder" value={notifications.streakReminder} onValueChange={(value) => setNotifications({ ...notifications, streakReminder: value })} /><Toggle label="Duel results" value={notifications.duelResults} onValueChange={(value) => setNotifications({ ...notifications, duelResults: value })} /><Toggle label="Ranked match updates" value={notifications.rankedMatchUpdates} onValueChange={(value) => setNotifications({ ...notifications, rankedMatchUpdates: value })} /><Actions onCancel={() => setPanel(null)} onSave={() => { updateNotificationSettings(notifications); setPanel(null); }} /></Card></View>
+      <Modal visible={panel === "notifications"} transparent animationType="fade" onRequestClose={closePanel}>
+        <View style={styles.backdrop}><Card style={styles.modalCard}><Text style={styles.modalTitle}>Notifications</Text><Toggle label="Daily puzzle reminder" value={notifications.dailyPuzzleReminder} onValueChange={(value) => { setSettingsError(null); setNotifications((current) => ({ ...current, dailyPuzzleReminder: value })); }} /><Toggle label="Streak reminder" value={notifications.streakReminder} onValueChange={(value) => { setSettingsError(null); setNotifications((current) => ({ ...current, streakReminder: value })); }} /><Toggle label="Duel results" value={notifications.duelResults} onValueChange={(value) => { setSettingsError(null); setNotifications((current) => ({ ...current, duelResults: value })); }} /><Toggle label="Ranked match updates" value={notifications.rankedMatchUpdates} onValueChange={(value) => { setSettingsError(null); setNotifications((current) => ({ ...current, rankedMatchUpdates: value })); }} />{settingsError ? <Text style={styles.error}>{settingsError}</Text> : null}<Actions onCancel={closePanel} onSave={() => { void saveNotifications(); }} saveLabel={settingsSaving ? "Saving..." : "Done"} disabled={settingsSaving} /></Card></View>
       </Modal>
 
-      <Modal visible={panel === "privacy"} transparent animationType="fade" onRequestClose={() => setPanel(null)}>
-        <View style={styles.backdrop}><Card style={styles.modalCard}><Text style={styles.modalTitle}>Privacy</Text><Toggle label="Public profile" value={privacy.publicProfile} onValueChange={(value) => setPrivacy({ ...privacy, publicProfile: value })} /><Toggle label="Show stats publicly" value={privacy.showStatsPublicly} onValueChange={(value) => setPrivacy({ ...privacy, showStatsPublicly: value })} /><Toggle label="Show recent results publicly" value={privacy.showRecentResultsPublicly} onValueChange={(value) => setPrivacy({ ...privacy, showRecentResultsPublicly: value })} /><Toggle label="Allow friend challenges" value={privacy.allowFriendChallenges} onValueChange={(value) => setPrivacy({ ...privacy, allowFriendChallenges: value })} /><Actions onCancel={() => setPanel(null)} onSave={() => { updatePrivacySettings(privacy); setPanel(null); }} /></Card></View>
+      <Modal visible={panel === "privacy"} transparent animationType="fade" onRequestClose={closePanel}>
+        <View style={styles.backdrop}><Card style={styles.modalCard}><Text style={styles.modalTitle}>Privacy</Text><Toggle label="Public profile" value={privacy.publicProfile} onValueChange={(value) => { setSettingsError(null); setPrivacy((current) => ({ ...current, publicProfile: value })); }} /><Toggle label="Show stats publicly" value={privacy.showStatsPublicly} onValueChange={(value) => { setSettingsError(null); setPrivacy((current) => ({ ...current, showStatsPublicly: value })); }} /><Toggle label="Show recent results publicly" value={privacy.showRecentResultsPublicly} onValueChange={(value) => { setSettingsError(null); setPrivacy((current) => ({ ...current, showRecentResultsPublicly: value })); }} /><Toggle label="Allow friend challenges" value={privacy.allowFriendChallenges} onValueChange={(value) => { setSettingsError(null); setPrivacy((current) => ({ ...current, allowFriendChallenges: value })); }} />{settingsError ? <Text style={styles.error}>{settingsError}</Text> : null}<Actions onCancel={closePanel} onSave={() => { void savePrivacy(); }} saveLabel={settingsSaving ? "Saving..." : "Done"} disabled={settingsSaving} /></Card></View>
       </Modal>
 
       <Modal visible={panel === "backend"} transparent animationType="slide" onRequestClose={() => setPanel(null)}>

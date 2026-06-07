@@ -10,6 +10,7 @@ const TAB_BAR_STYLE = {
   borderTopWidth: 1,
   height: Platform.OS === "ios" ? 86 : 68,
   paddingTop: 8,
+  paddingHorizontal: 4,
 } as const;
 
 export default function TabLayout() {
@@ -22,8 +23,14 @@ export default function TabLayout() {
         tabBarStyle: TAB_BAR_STYLE,
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: "600",
-          letterSpacing: 0.3,
+          fontWeight: "700",
+          letterSpacing: 0,
+          marginTop: 2,
+        },
+        tabBarItemStyle: {
+          flex: 1,
+          minWidth: 0,
+          paddingHorizontal: 0,
         },
       }}
     >
@@ -51,7 +58,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="leaderboards"
         options={{
-          title: "Leaderboards",
+          title: "Ranks",
           tabBarIcon: ({ color }) => <Trophy color={color} size={22} strokeWidth={2} />,
         }}
       />

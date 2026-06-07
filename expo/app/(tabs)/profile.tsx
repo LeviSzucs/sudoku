@@ -99,10 +99,14 @@ export default function ProfileScreen() {
               <Text style={styles.progressKicker}>MASTERY XP</Text>
               <Text style={styles.levelText}>Level {level.level}</Text>
             </View>
-            <Text style={styles.progressValue}>{profile.total_mastery_xp.toLocaleString()} XP</Text>
+            <View style={styles.xpTotalBlock}>
+              <Text style={styles.progressValue}>{profile.total_mastery_xp.toLocaleString()}</Text>
+              <Text style={styles.xpTotalLabel}>XP total</Text>
+            </View>
           </View>
           <View style={styles.barTrack}><View style={[styles.xpBar, { width: `${level.progress * 100}%` }]} /></View>
-          <Text style={styles.progressSub}>{level.xpInLevel.toLocaleString()}/{level.xpNeededForLevel.toLocaleString()} XP / {level.xpToNext.toLocaleString()} to next level</Text>
+          <Text style={styles.progressSub}>{level.xpInLevel.toLocaleString()} / {level.xpNeededForLevel.toLocaleString()} XP toward Level {level.level + 1}</Text>
+          <Text style={styles.progressHint}>{level.xpToNext.toLocaleString()} XP remaining</Text>
         </Card>
 
         <View style={{ marginTop: 12 }}>
@@ -251,10 +255,13 @@ const styles = StyleSheet.create({
   progressKicker: { fontSize: 10, color: C.muted, fontWeight: "800", letterSpacing: 1.4 },
   levelText: { fontSize: 20, fontWeight: "800", color: C.ink, marginTop: 3 },
   progressValue: { fontSize: 14, color: C.ink, fontWeight: "800" },
+  xpTotalBlock: { alignItems: "flex-end" },
+  xpTotalLabel: { color: C.muted, fontSize: 11, fontWeight: "800", marginTop: 2 },
   barTrack: { height: 8, backgroundColor: C.bgElevated, borderRadius: 999, overflow: "hidden", marginTop: 12 },
   xpBar: { height: 8, backgroundColor: C.accent, borderRadius: 999 },
   rankBar: { height: 8, backgroundColor: C.gold, borderRadius: 999 },
   progressSub: { fontSize: 12, color: C.muted, marginTop: 7, fontWeight: "600" },
+  progressHint: { fontSize: 12, color: C.inkSoft, marginTop: 3, fontWeight: "800" },
   statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12 },
   statCard: { flexBasis: "48%", flexGrow: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.border, padding: 14 },
   statTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },

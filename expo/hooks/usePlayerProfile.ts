@@ -2293,15 +2293,61 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     return { ok: true };
   }, [auth.isGuest, auth.isSignedIn, auth.mode, auth.user, persistLocal, profile, updateDiagnostics]);
 
-  const updateNotificationSettings = useCallback((notifications: ProfileSettings["notifications"]) => {
-    persist({ ...profile, settings: { ...profile.settings, notifications } });
-    if (auth.isSignedIn && auth.user && isSupabaseConfigured) void supabase.from("user_settings").upsert({ user_id: auth.user.id, daily_reminder: notifications.dailyPuzzleReminder, streak_reminder: notifications.streakReminder, duel_results: notifications.duelResults, ranked_updates: notifications.rankedMatchUpdates, updated_at: new Date().toISOString() }).catch(() => {});
-  }, [auth.isSignedIn, auth.user, persist, profile]);
+  const updateNotificationSettings = useCallback(async (notifications: ProfileSettings["notifications"]): Promise<SaveResult> => {
+    const next = normalizeProfile({ ...profile, settings: { ...profile.settings, notifications } });
+    setProfile(next);
+    if (auth.isGuest || auth.mode === "signed_out") {
+      persistLocal(next);
+      return { ok: true };
+    }
+    if (auth.isSignedIn && auth.user && isSupabaseConfigured) {
+      try {
+        const { error } = await supabase.from("user_settings").upsert({
+          user_id: auth.user.id,
+          daily_reminder: notifications.dailyPuzzleReminder,
+          streak_reminder: notifications.streakReminder,
+          duel_results: notifications.duelResults,
+          ranked_updates: notifications.rankedMatchUpdates,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id" });
+        updateDiagnostics({ lastError: error?.message ?? null });
+        return error ? { ok: false, error: error.message } : { ok: true };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to save notification settings.";
+        updateDiagnostics({ lastError: message });
+        return { ok: false, error: message };
+      }
+    }
+    return { ok: true };
+  }, [auth.isGuest, auth.isSignedIn, auth.mode, auth.user, persistLocal, profile, updateDiagnostics]);
 
-  const updatePrivacySettings = useCallback((privacy: ProfileSettings["privacy"]) => {
-    persist({ ...profile, settings: { ...profile.settings, privacy } });
-    if (auth.isSignedIn && auth.user && isSupabaseConfigured) void supabase.from("user_settings").upsert({ user_id: auth.user.id, public_profile: privacy.publicProfile, show_stats_publicly: privacy.showStatsPublicly, show_recent_results_publicly: privacy.showRecentResultsPublicly, allow_friend_challenges: privacy.allowFriendChallenges, updated_at: new Date().toISOString() }).catch(() => {});
-  }, [auth.isSignedIn, auth.user, persist, profile]);
+  const updatePrivacySettings = useCallback(async (privacy: ProfileSettings["privacy"]): Promise<SaveResult> => {
+    const next = normalizeProfile({ ...profile, settings: { ...profile.settings, privacy } });
+    setProfile(next);
+    if (auth.isGuest || auth.mode === "signed_out") {
+      persistLocal(next);
+      return { ok: true };
+    }
+    if (auth.isSignedIn && auth.user && isSupabaseConfigured) {
+      try {
+        const { error } = await supabase.from("user_settings").upsert({
+          user_id: auth.user.id,
+          public_profile: privacy.publicProfile,
+          show_stats_publicly: privacy.showStatsPublicly,
+          show_recent_results_publicly: privacy.showRecentResultsPublicly,
+          allow_friend_challenges: privacy.allowFriendChallenges,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id" });
+        updateDiagnostics({ lastError: error?.message ?? null });
+        return error ? { ok: false, error: error.message } : { ok: true };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to save privacy settings.";
+        updateDiagnostics({ lastError: message });
+        return { ok: false, error: message };
+      }
+    }
+    return { ok: true };
+  }, [auth.isGuest, auth.isSignedIn, auth.mode, auth.user, persistLocal, profile, updateDiagnostics]);
 
   const testSupabaseRead = useCallback(async (): Promise<SaveResult> => {
     if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Supabase read test requires a signed-in user." };
