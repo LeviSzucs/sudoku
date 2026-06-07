@@ -1,12 +1,11 @@
-import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { Grid3X3 } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import Avatar from "@/components/Avatar";
-import { APP_NAME, DEFAULT_AVATAR_COLOR } from "@/constants/branding";
+import BrandMark from "@/components/BrandMark";
+import { DEFAULT_AVATAR_COLOR } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile, type UsernameAvailability } from "@/hooks/usePlayerProfile";
@@ -90,11 +89,7 @@ export default function UsernameSetupScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.logoWrap}>
-            <LinearGradient colors={["#1E1B4B", "#C8A45D"]} style={styles.logo}>
-              <Grid3X3 color="#FBF8F2" size={34} strokeWidth={2.6} />
-            </LinearGradient>
-            <Text style={styles.appName}>{APP_NAME}</Text>
-            <Text style={styles.tagline}>Choose the username people will use to find you.</Text>
+            <BrandMark size={78} showWordmark tagline="Choose the username people will use to find you." />
           </View>
           <View style={styles.panel}>
             <Text style={styles.formTitle}>Set up your profile</Text>

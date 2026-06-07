@@ -1,11 +1,10 @@
-import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import { ChevronLeft, Grid3X3, Shield, Trophy } from "lucide-react-native";
+import { ChevronLeft, Shield, Trophy } from "lucide-react-native";
 import React, { useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { APP_NAME } from "@/constants/branding";
+import BrandMark from "@/components/BrandMark";
 import { C } from "@/constants/colors";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -46,7 +45,7 @@ export default function AuthScreen() {
 
   return <SafeAreaView style={styles.safe}><KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
     {step !== "splash" ? <Pressable onPress={() => setStep("splash")} style={styles.back}><ChevronLeft color={C.ink} size={22} /><Text style={styles.backText}>Back</Text></Pressable> : null}
-    <View style={styles.logoWrap}><LinearGradient colors={["#1E1B4B", "#C8A45D"]} style={styles.logo}><Grid3X3 color="#FBF8F2" size={34} strokeWidth={2.6} /></LinearGradient><Text style={styles.appName}>{APP_NAME}</Text><Text style={styles.tagline}>Daily Sudoku. Ranked duels. Same-board battles.</Text></View>
+    <View style={styles.logoWrap}><BrandMark size={78} showWordmark tagline="Sudoku, made competitive." /></View>
     {step === "splash" ? <View style={styles.panel}><Feature icon={<Trophy size={18} color={C.gold} />} title="Compete fairly" text="Same boards, score-first leaderboards, skill-based RP." /><Feature icon={<Shield size={18} color={C.accent} />} title="Cloud profile" text="Save XP, badges, settings and results to your account." /><PrimaryButton label="Create account" onPress={() => setStep("signup")} /><SecondaryButton label="Log in" onPress={() => setStep("login")} /></View> : null}
     {step === "signup" ? <AuthForm title="Create account" email={email} password={password} confirm={confirm} setEmail={setEmail} setPassword={setPassword} setConfirm={setConfirm} showConfirm error={error} loading={loading} button="Create account" onSubmit={createAccount} footer="Already have an account? Log in" onFooter={() => setStep("login")} /> : null}
     {step === "login" ? <AuthForm title="Log in" email={email} password={password} confirm={confirm} setEmail={setEmail} setPassword={setPassword} setConfirm={setConfirm} error={error} loading={loading} button="Log in" onSubmit={logIn} footer="New here? Create account" onFooter={() => setStep("signup")} forgot /> : null}

@@ -5,6 +5,7 @@ import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInpu
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/components/Avatar";
+import BrandMark from "@/components/BrandMark";
 import Card from "@/components/Card";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
@@ -86,6 +87,7 @@ export default function SettingsScreen() {
           <Pressable style={styles.backButton} onPress={() => router.replace("/(tabs)/profile")}>
             <ChevronLeft size={20} color={C.ink} />
           </Pressable>
+          <BrandMark size={42} />
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>Settings</Text>
             <Text style={styles.sub}>{APP_NAME} · v1.0.0</Text>
