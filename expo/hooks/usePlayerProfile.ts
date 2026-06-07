@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "@/hooks/useAuth";
 import type { PuzzleResult, SessionSnapshot } from "@/hooks/useSudokuGame";
@@ -509,6 +509,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
   const [lastUpdate, setLastUpdate] = useState<ProfileUpdateSummary | null>(null);
   const [activeSessions, setActiveSessions] = useState<PuzzleSessionRow[]>([]);
   const [activeGuestSessions, setActiveGuestSessions] = useState<GuestSessionEntry[]>([]);
+  const loadedProfileKeyRef = useRef<string | null>(null);
   const [diagnostics, setDiagnostics] = useState<BackendDiagnostics>({ sessionStatus: "loading", userId: null, profileLoaded: false, statsLoaded: false, settingsLoaded: false, recentResultsCount: 0, activeSessionCount: 0, latestSessionStatus: null, latestResultPuzzleId: null, lastError: null, lastSessionSaveAttemptedAt: null, lastSessionSaveSucceeded: null, lastSessionSaveError: null, daily: null });
 
   const updateDiagnostics = useCallback((patch: Partial<BackendDiagnostics>) => {
@@ -780,10 +781,29 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
         }
       }
     }
+    const activePuzzleIds = new Set<string>();
+    const sessionPuzzleIds = ((sessions ?? []) as PuzzleSessionRow[])
+      .map((session) => session.puzzle_id)
+      .filter((puzzleId): puzzleId is string => Boolean(puzzleId));
+    if (sessionPuzzleIds.length > 0) {
+      const { data: activePuzzles, error: activePuzzlesError } = await supabase
+        .from("puzzles")
+        .select("puzzle_id")
+        .in("puzzle_id", sessionPuzzleIds)
+        .eq("is_active", true);
+      if (activePuzzlesError) {
+        updateDiagnostics({ lastError: activePuzzlesError.message });
+      } else {
+        for (const row of (activePuzzles ?? []) as { puzzle_id: string }[]) {
+          activePuzzleIds.add(row.puzzle_id);
+        }
+      }
+    }
     const completedKeys = new Set(next.recent_results.map((result) => `${result.puzzle_id}:${result.mode}:${result.difficulty}`));
     const activeRows = ((sessions ?? []) as PuzzleSessionRow[]).filter((session) => {
       if (session.status !== "in_progress") return false;
       if (finalSessionIds.has(session.session_id)) return false;
+      if (!session.puzzle_id || !activePuzzleIds.has(session.puzzle_id)) return false;
       const key = `${session.puzzle_id ?? ""}:${session.mode}:${session.difficulty}`;
       return !completedKeys.has(key);
     });
@@ -810,7 +830,9 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
   useEffect(() => {
     let active = true;
     async function load(): Promise<void> {
-      setIsLoaded(false);
+      const profileKey = auth.isSignedIn ? `user:${auth.user?.id ?? "unknown"}` : auth.mode;
+      const isInitialProfileLoad = loadedProfileKeyRef.current !== profileKey;
+      if (isInitialProfileLoad) setIsLoaded(false);
       if (auth.mode === "loading") return;
       if (auth.isSignedIn) await loadBackendProfile();
       else {
@@ -821,7 +843,10 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
         await loadGuestSessions();
         updateDiagnostics({ profileLoaded: false, statsLoaded: false, settingsLoaded: false, recentResultsCount: 0, activeSessionCount: 0, latestSessionStatus: null, latestResultPuzzleId: null, lastError: null });
       }
-      if (active) setIsLoaded(true);
+      if (active) {
+        loadedProfileKeyRef.current = profileKey;
+        setIsLoaded(true);
+      }
     }
     void load().catch((error: unknown) => { const message = error instanceof Error ? error.message : "Unable to load profile."; setLoadError(message); updateDiagnostics({ lastError: message }); if (active) setIsLoaded(true); });
     return () => { active = false; };
@@ -971,6 +996,47 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     return session;
   }, [auth.user, updateDiagnostics]);
 
+  const getResumableBackendSession = useCallback(async (session: PuzzleSessionRow | null): Promise<PuzzleSessionRow | null> => {
+    if (!session || !auth.user || !isSupabaseConfigured) return session;
+    if (session.status !== "in_progress") return null;
+    if (!session.puzzle_id) return null;
+
+    const [{ data: finalResult, error: resultError }, { data: puzzle, error: puzzleError }] = await Promise.all([
+      supabase
+        .from("game_results")
+        .select("result_id")
+        .eq("user_id", auth.user.id)
+        .eq("session_id", session.session_id)
+        .eq("completed", true)
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("puzzles")
+        .select("puzzle_id,is_active")
+        .eq("puzzle_id", session.puzzle_id)
+        .maybeSingle(),
+    ]);
+
+    if (resultError) updateDiagnostics({ lastError: resultError.message });
+    if (puzzleError) updateDiagnostics({ lastError: puzzleError.message });
+    if (finalResult || !puzzle || puzzle.is_active !== true) {
+      const nextStatus: SessionStatus = finalResult ? "completed" : "abandoned";
+      setActiveSessions((prev) => prev.filter((entry) => entry.session_id !== session.session_id));
+      void supabase
+        .from("puzzle_sessions")
+        .update({ status: nextStatus, updated_at: new Date().toISOString() })
+        .eq("user_id", auth.user.id)
+        .eq("session_id", session.session_id)
+        .eq("status", "in_progress")
+        .then(({ error }) => {
+          if (error) updateDiagnostics({ lastError: error.message });
+        });
+      return null;
+    }
+
+    return session;
+  }, [auth.user, updateDiagnostics]);
+
   const deleteSessionById = useCallback(async (sessionId: string): Promise<void> => {
     if (auth.isSignedIn && auth.user && isSupabaseConfigured) {
       await supabase.from("puzzle_sessions").delete().eq("session_id", sessionId).eq("user_id", auth.user.id);
@@ -1041,12 +1107,12 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       return localClassicSession;
     }
 
-    const session = (data as PuzzleSessionRow | null) ?? null;
+    const session = await getResumableBackendSession((data as PuzzleSessionRow | null) ?? null);
     if (session) {
       setActiveSessions((prev) => [session, ...prev.filter((entry) => entry.session_id !== session.session_id && entry.status === "in_progress")]);
     }
     return session;
-  }, [activeSessions, auth.isSignedIn, auth.user, updateDiagnostics]);
+  }, [activeSessions, auth.isSignedIn, auth.user, getResumableBackendSession, updateDiagnostics]);
 
   const getInProgressDailySession = useCallback(async (mode: DailySessionMode, puzzleId: string, dateStr: string): Promise<PuzzleSessionRow | null> => {
     const { startIso, endIso } = getDailyDateWindow(dateStr);
@@ -1076,12 +1142,12 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       return localSession;
     }
 
-    const session = (data as PuzzleSessionRow | null) ?? null;
+    const session = await getResumableBackendSession((data as PuzzleSessionRow | null) ?? null);
     if (session) {
       setActiveSessions((prev) => [session, ...prev.filter((entry) => entry.session_id !== session.session_id && entry.status === "in_progress")]);
     }
     return session;
-  }, [activeSessions, auth.isSignedIn, auth.user, updateDiagnostics]);
+  }, [activeSessions, auth.isSignedIn, auth.user, getResumableBackendSession, updateDiagnostics]);
 
   const getCompletedDailyResult = useCallback(async (mode: DailySessionMode, puzzleId: string, dateStr: string): Promise<RecentResult | null> => {
     const localResult = profile.recent_results.find((result) =>

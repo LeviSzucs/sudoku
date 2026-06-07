@@ -272,19 +272,7 @@ export default function PlayHubScreen() {
               </View>
             </View>
           </Card>
-        ) : (
-          <Card style={{ marginTop: 18 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-              <View style={[styles.iconTile, { backgroundColor: C.border }]}>
-                <PlayIcon color={C.mutedSoft} size={20} fill={C.mutedSoft} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, { color: C.muted }]}>No puzzle in progress</Text>
-                <Text style={styles.cardSub}>Start a puzzle below to continue later</Text>
-              </View>
-            </View>
-          </Card>
-        )}
+        ) : null}
 
         {/* Daily hero */}
         <Pressable onPress={startDaily}>
@@ -572,8 +560,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
+    flexWrap: "wrap",
   },
-  heroFooterText: { color: "#FBF8F2AA", fontSize: 13, lineHeight: 18, flex: 1 },
+  heroFooterText: { color: "#FBF8F2AA", fontSize: 13, lineHeight: 18, flex: 1, minWidth: 0 },
   heroCTA: {
     flexDirection: "row",
     alignItems: "center",

@@ -494,11 +494,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 18,
     gap: 12,
+    flexWrap: "wrap",
   },
   heroFooterText: {
     color: "#FBF8F2AA",
     fontSize: 13,
     flex: 1,
+    minWidth: 0,
     lineHeight: 18,
   },
   heroCTA: {
