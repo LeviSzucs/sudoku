@@ -8,6 +8,8 @@ import type { Difficulty } from "@/constants/mockData";
 import { isSupabaseConfigured, supabase, type PuzzleRow, type DailyPuzzleRow } from "@/lib/supabase";
 import { parseTextToBoard, validatePuzzle } from "@/lib/puzzleValidator";
 
+const PREFERRED_PUZZLE_SOURCE = "technique_calibrated_20260607";
+
 export type Board = number[][]; // 9x9, 0 = empty
 export type NotesBoard = number[][][]; // 9x9 of arrays of pencil marks
 
@@ -176,8 +178,34 @@ async function fetchRandomActivePuzzleByDifficulty(
   difficulty: Difficulty,
   excludedPuzzleId?: string | null
 ): Promise<PuzzleRow | null> {
-  // rating_score is not comparable across all generated sources yet, so live
-  // fallback selection samples randomly within the requested difficulty.
+  const preferredCountQuery = supabase
+    .from("puzzles")
+    .select("puzzle_id", { count: "exact", head: true })
+    .eq("difficulty", difficulty)
+    .eq("is_active", true)
+    .eq("source", PREFERRED_PUZZLE_SOURCE);
+  const { count: preferredCount, error: preferredCountError } = excludedPuzzleId
+    ? await preferredCountQuery.neq("puzzle_id", excludedPuzzleId)
+    : await preferredCountQuery;
+
+  if (!preferredCountError && preferredCount && preferredCount > 0) {
+    const preferredOffset = Math.floor(Math.random() * preferredCount);
+    const preferredRowQuery = supabase
+      .from("puzzles")
+      .select("*")
+      .eq("difficulty", difficulty)
+      .eq("is_active", true)
+      .eq("source", PREFERRED_PUZZLE_SOURCE)
+      .range(preferredOffset, preferredOffset);
+    const { data: preferredData, error: preferredError } = excludedPuzzleId
+      ? await preferredRowQuery.neq("puzzle_id", excludedPuzzleId)
+      : await preferredRowQuery;
+
+    if (!preferredError && preferredData && preferredData.length > 0) {
+      return preferredData[0] as PuzzleRow;
+    }
+  }
+
   const countQuery = supabase
     .from("puzzles")
     .select("puzzle_id", { count: "exact", head: true })
