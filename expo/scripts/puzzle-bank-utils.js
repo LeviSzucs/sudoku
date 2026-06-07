@@ -556,6 +556,8 @@ module.exports = {
   readJsonPuzzleFile,
   findDuplicateIssues,
   collectExistingPuzzleKeys,
+  createSeededRandom,
+  generateUniquePuzzleForDifficulty,
   generatePuzzleBatch,
   puzzlesToInsertSql,
   ensureDir,

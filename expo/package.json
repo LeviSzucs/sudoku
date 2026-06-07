@@ -14,6 +14,7 @@
     "validate:scoring": "node scripts/validate-scoring.js",
     "audit:difficulty": "node scripts/audit-difficulty.js",
     "audit:technique-difficulty": "node scripts/audit-technique-difficulty.js",
+    "generate:technique-calibration": "node scripts/generate-technique-calibration-batch.js",
     "export:puzzles-sql": "node scripts/export-puzzles-sql.js",
     "validate:givens": "node scripts/validate-given-cells.js"
   },
