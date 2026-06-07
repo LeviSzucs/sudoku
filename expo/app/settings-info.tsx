@@ -4,6 +4,7 @@ import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import BrandMark from "@/components/BrandMark";
 import Card from "@/components/Card";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
@@ -20,7 +21,7 @@ const CONTENT: Record<InfoPage, {
   premium: {
     eyebrow: "PREMIUM",
     title: PREMIUM_NAME,
-    subtitle: "Premium is coming soon.",
+    subtitle: "SudoDuel Premium is coming soon.",
     icon: "premium",
     sections: [
       { title: "Planned areas", body: "Advanced stats, extra themes, profile cosmetics, puzzle archive, deeper history, and an ad-free experience if ads are added later." },
@@ -67,6 +68,7 @@ function getPage(value: string | string[] | undefined): InfoPage {
 }
 
 function PageIcon({ type }: { type: "premium" | "help" | "legal" }) {
+  if (type === "premium") return <BrandMark size={42} />;
   const Icon = type === "premium" ? Crown : type === "help" ? HelpCircle : Shield;
   return <View style={styles.icon}><Icon size={22} color={type === "premium" ? C.gold : C.inkSoft} /></View>;
 }
