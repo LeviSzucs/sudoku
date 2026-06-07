@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-07T14:42:55.514Z",
+  "generated_at": "2026-06-07T14:53:54.554Z",
   "method": {
     "current_generation": "Solved grid + random clue removal while preserving unique solution.",
     "current_rating": "Difficulty target clue count plus fixed rating_score band.",
