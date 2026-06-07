@@ -172,6 +172,38 @@ function parse(s: string): Board {
   return parseTextToBoard(s);
 }
 
+async function fetchRandomActivePuzzleByDifficulty(
+  difficulty: Difficulty,
+  excludedPuzzleId?: string | null
+): Promise<PuzzleRow | null> {
+  // rating_score is not comparable across all generated sources yet, so live
+  // fallback selection samples randomly within the requested difficulty.
+  const countQuery = supabase
+    .from("puzzles")
+    .select("puzzle_id", { count: "exact", head: true })
+    .eq("difficulty", difficulty)
+    .eq("is_active", true);
+  const { count, error: countError } = excludedPuzzleId
+    ? await countQuery.neq("puzzle_id", excludedPuzzleId)
+    : await countQuery;
+
+  if (countError || !count) return null;
+
+  const offset = Math.floor(Math.random() * count);
+  const rowQuery = supabase
+    .from("puzzles")
+    .select("*")
+    .eq("difficulty", difficulty)
+    .eq("is_active", true)
+    .range(offset, offset);
+  const { data, error } = excludedPuzzleId
+    ? await rowQuery.neq("puzzle_id", excludedPuzzleId)
+    : await rowQuery;
+
+  if (error || !data || data.length === 0) return null;
+  return data[0] as PuzzleRow;
+}
+
 // ── Backend-driven puzzle fetching ──────────────────────────────────
 
 /** Convert a PuzzleRow from Supabase to RawPuzzleData. */
@@ -224,17 +256,9 @@ export async function fetchClassicPuzzle(
 ): Promise<RawPuzzleData> {
   if (isSupabaseConfigured && userId) {
     if (excludedPuzzleId) {
-      const { data: replacementPuzzles, error: replacementError } = await supabase
-        .from("puzzles")
-        .select("*")
-        .eq("difficulty", difficulty)
-        .eq("is_active", true)
-        .neq("puzzle_id", excludedPuzzleId)
-        .order("rating_score", { ascending: true })
-        .limit(1);
-
-      if (!replacementError && replacementPuzzles && replacementPuzzles.length > 0) {
-        return puzzleRowToData(replacementPuzzles[0] as PuzzleRow);
+      const replacementPuzzle = await fetchRandomActivePuzzleByDifficulty(difficulty, excludedPuzzleId);
+      if (replacementPuzzle) {
+        return puzzleRowToData(replacementPuzzle);
       }
     }
 
@@ -266,29 +290,15 @@ export async function fetchClassicPuzzle(
     }
 
     // RPC returned no rows — try direct query as fallback
-    const { data: puzzles, error: queryError } = await supabase
-      .from("puzzles")
-      .select("*")
-      .eq("difficulty", difficulty)
-      .eq("is_active", true)
-      .limit(1)
-      .order("rating_score", { ascending: true });
-
-    if (!queryError && puzzles && puzzles.length > 0) {
-      return puzzleRowToData(puzzles[0] as PuzzleRow);
+    const fallbackPuzzle = await fetchRandomActivePuzzleByDifficulty(difficulty);
+    if (fallbackPuzzle) {
+      return puzzleRowToData(fallbackPuzzle);
     }
 
     if (excludedPuzzleId) {
-      const { data: fallbackPuzzles, error: fallbackQueryError } = await supabase
-        .from("puzzles")
-        .select("*")
-        .eq("difficulty", difficulty)
-        .eq("is_active", true)
-        .limit(1)
-        .order("rating_score", { ascending: true });
-
-      if (!fallbackQueryError && fallbackPuzzles && fallbackPuzzles.length > 0) {
-        return puzzleRowToData(fallbackPuzzles[0] as PuzzleRow);
+      const retryPuzzle = await fetchRandomActivePuzzleByDifficulty(difficulty);
+      if (retryPuzzle) {
+        return puzzleRowToData(retryPuzzle);
       }
     }
   }
