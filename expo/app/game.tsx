@@ -448,9 +448,9 @@ export default function GameScreen() {
     closeAllAndBack();
   }, [cancelPendingSave, game.completed, game.gameOver, saveSession, closeAllAndBack]);
 
-  const reserved = 50 + 58 + 60 + 64 + 40 + insets.top + Math.max(insets.bottom, 12);
+  const reserved = 50 + 58 + 60 + 168 + 40 + insets.top + Math.max(insets.bottom, 12);
   const boardSize = Math.max(
-    248,
+    224,
     Math.min(width - 16, Math.floor(height - reserved))
   );
 

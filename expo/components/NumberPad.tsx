@@ -19,7 +19,7 @@ function NumberPad({
 }: Props) {
   const values = useMemo(() => [1, 2, 3, 4, 5, 6, 7, 8, 9], []);
   return (
-    <View style={[styles.row, height ? { height } : null]}>
+    <View style={[styles.grid, height ? { height } : null]}>
       {values.map((n) => (
         <NumberPadButton
           key={n}
@@ -35,11 +35,13 @@ function NumberPad({
 }
 
 const styles = StyleSheet.create({
-  row: {
+  grid: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "stretch",
-    justifyContent: "space-between",
-    paddingHorizontal: 2,
+    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 4,
   },
 });
 
