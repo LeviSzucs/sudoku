@@ -230,6 +230,18 @@ export default function GameScreen() {
     });
   }, [paramsSignature]);
 
+  useEffect(() => {
+    if (!puzzleLoadError) return;
+    logDevDiagnostic("game puzzle load error", {
+      sessionId: sessionIdParam ?? null,
+      puzzleId: routePuzzleId ?? restorePuzzleId ?? null,
+      mode: effectiveMode,
+      difficulty,
+      error: puzzleLoadError,
+    });
+    console.warn("[Game] Puzzle load error; staying on error screen", puzzleLoadError);
+  }, [difficulty, effectiveMode, puzzleLoadError, restorePuzzleId, routePuzzleId, sessionIdParam]);
+
   // ── Stable refs for game callbacks (avoids re-render loops) ──────
   const getSnapshotRef = useRef(game.getSessionSnapshot);
   getSnapshotRef.current = game.getSessionSnapshot;
@@ -401,6 +413,12 @@ export default function GameScreen() {
   );
 
   const closeAllAndBack = useCallback(() => {
+    logDevDiagnostic("game navigation", {
+      reason: "leave_confirmed",
+      sessionId: currentSessionIdRef.current,
+      puzzleId: gameIdentityRef.current.puzzleId,
+      target: "/(tabs)",
+    });
     setLeaveOpen(false);
     setIsFocused(false);
     clearTransientUiRef.current();
@@ -877,6 +895,12 @@ export default function GameScreen() {
           setHasSavedOnce(false);
         }}
         onExit={() => {
+          logDevDiagnostic("game navigation", {
+            reason: "game_over_exit",
+            sessionId: currentSessionIdRef.current,
+            puzzleId: game.puzzleId,
+            target: "/(tabs)",
+          });
           setIsFocused(false);
           clearTransientUiRef.current();
           router.replace("/(tabs)");
