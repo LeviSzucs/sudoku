@@ -16,7 +16,8 @@
     "audit:technique-difficulty": "node scripts/audit-technique-difficulty.js",
     "generate:technique-calibration": "node scripts/generate-technique-calibration-batch.js",
     "export:puzzles-sql": "node scripts/export-puzzles-sql.js",
-    "validate:givens": "node scripts/validate-given-cells.js"
+    "validate:givens": "node scripts/validate-given-cells.js",
+    "qa:preflight": "npm run validate:puzzles && npm run validate:unique-puzzles && npm run validate:givens && npm run validate:scoring"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
