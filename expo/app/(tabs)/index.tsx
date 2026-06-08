@@ -167,7 +167,7 @@ export default function HomeScreen() {
             <Text style={styles.greeting}>Welcome back,</Text>
             <Text style={styles.greetingName}>{profile.username}</Text>
           </View>
-          <Avatar initials={profile.initials} color={profile.avatar_color} symbol={profile.avatar_symbol} size={48} />
+          <Avatar {...profile} initials={profile.initials} color={profile.avatar_color} symbol={profile.avatar_symbol} size={48} />
         </View>
 
         {/* Streak card */}

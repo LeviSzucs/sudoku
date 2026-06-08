@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import type { PuzzleResult, SessionSnapshot } from "@/hooks/useSudokuGame";
 import { getDailyDateKey, getDailyDateWindow } from "@/lib/daily";
 import { logDevDiagnostic, measureAsync } from "@/lib/performanceDiagnostics";
+import { normalizeAvatarConfig, type CharacterAvatarConfig } from "@/lib/avatar";
 import { applyPuzzleResult, createInitialPlayerProfile, createSimulatedResult, getRankFromRp, initialsFromName, normalizeProfile, type AchievementBadge, type BadgeCategory, type PlayerProfile, type ProfileSettings, type ProfileUpdateSummary, type RankOutcome, type RecentResult } from "@/lib/playerProfile";
 import { startPuzzleSession as insertPuzzleSession, type StartPuzzleSessionInput } from "@/lib/puzzleSessions";
 import type { ScoreBreakdown } from "@/lib/scoring";
@@ -371,6 +372,17 @@ function profileFromRows(profileRow: ProfileRow, statsRow: PlayerStatsRow, setti
   const handle = profileRow.username_handle?.trim().toLowerCase() || null;
   const displayName = profileRow.display_name?.trim() || handle || profileRow.username;
   const setupCompleted = profileRow.profile_setup_completed === true && handle !== null;
+  const avatarConfig = normalizeAvatarConfig({
+    avatar_style_version: profileRow.avatar_style_version,
+    avatar_bg_color: profileRow.avatar_bg_color,
+    avatar_initials: profileRow.avatar_initials,
+    avatar_hair_style: profileRow.avatar_hair_style,
+    avatar_hair_color: profileRow.avatar_hair_color,
+    avatar_top_style: profileRow.avatar_top_style,
+    avatar_top_color: profileRow.avatar_top_color,
+    avatar_accessory: profileRow.avatar_accessory,
+    avatar_frame: profileRow.avatar_frame,
+  }, { initials: profileRow.initials, color: profileRow.avatar_color, symbol: profileRow.avatar_symbol });
   return normalizeProfile({
     ...fallback,
     user_id: profileRow.id,
@@ -381,6 +393,7 @@ function profileFromRows(profileRow: ProfileRow, statsRow: PlayerStatsRow, setti
     initials: setupCompleted ? profileRow.initials : "",
     avatar_color: profileRow.avatar_color,
     avatar_symbol: profileRow.avatar_symbol ?? null,
+    ...avatarConfig,
     total_mastery_xp: statsRow.total_mastery_xp,
     account_level: statsRow.account_level,
     rank_points: statsRow.rank_points,
@@ -1844,11 +1857,21 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
 
     const username = normalizeUsernameHandle(usernameInput);
     const nextInitials = initialsFromName(displayName);
+    const avatarConfig = normalizeAvatarConfig({}, { initials: nextInitials, color: profile.avatar_color, symbol: profile.avatar_symbol });
     const { error } = await supabase.from("profiles").update({
       username: displayName,
       username_handle: username,
       display_name: displayName,
       initials: nextInitials,
+      avatar_style_version: avatarConfig.avatar_style_version,
+      avatar_bg_color: avatarConfig.avatar_bg_color,
+      avatar_initials: nextInitials,
+      avatar_hair_style: avatarConfig.avatar_hair_style,
+      avatar_hair_color: avatarConfig.avatar_hair_color,
+      avatar_top_style: avatarConfig.avatar_top_style,
+      avatar_top_color: avatarConfig.avatar_top_color,
+      avatar_accessory: avatarConfig.avatar_accessory,
+      avatar_frame: avatarConfig.avatar_frame,
       profile_setup_completed: true,
       updated_at: new Date().toISOString(),
     }).eq("id", auth.user.id);
@@ -1858,10 +1881,10 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       return { ok: false, error: message };
     }
 
-    setProfile((current) => normalizeProfile({ ...current, username: displayName, username_handle: username, display_name: displayName, initials: nextInitials, profile_setup_completed: true }));
+    setProfile((current) => normalizeProfile({ ...current, ...avatarConfig, username: displayName, username_handle: username, display_name: displayName, initials: nextInitials, avatar_initials: nextInitials, profile_setup_completed: true }));
     await loadBackendProfile();
     return { ok: true };
-  }, [auth.user, loadBackendProfile, updateDiagnostics]);
+  }, [auth.user, loadBackendProfile, profile.avatar_color, profile.avatar_symbol, updateDiagnostics]);
 
   const fetchFriends = useCallback(async (): Promise<FriendUser[]> => {
     if (!auth.user || !isSupabaseConfigured) return [];
@@ -2248,20 +2271,24 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     const trimmed = username.trim();
     if (trimmed.length === 0) return { ok: false, error: "Display name cannot be empty." };
     if (trimmed.length > 20) return { ok: false, error: "Display name must be 20 characters or fewer." };
-    const next = { ...profile, username: trimmed, display_name: trimmed, initials: initialsFromName(trimmed) };
+    const nextInitials = initialsFromName(trimmed);
+    const next = { ...profile, username: trimmed, display_name: trimmed, initials: nextInitials, avatar_initials: nextInitials };
     persist(next);
-    if (auth.isSignedIn && auth.user && isSupabaseConfigured) void supabase.from("profiles").upsert({ id: auth.user.id, username: trimmed, display_name: trimmed, initials: next.initials, avatar_color: next.avatar_color, updated_at: new Date().toISOString() }).then(({ error: saveError }) => { if (saveError) updateDiagnostics({ lastError: saveError.message }); }).catch((saveError: unknown) => updateDiagnostics({ lastError: saveError instanceof Error ? saveError.message : "Unable to save display name." }));
+    if (auth.isSignedIn && auth.user && isSupabaseConfigured) void supabase.from("profiles").upsert({ id: auth.user.id, username: trimmed, display_name: trimmed, initials: next.initials, avatar_initials: next.avatar_initials, avatar_color: next.avatar_color, updated_at: new Date().toISOString() }).then(({ error: saveError }) => { if (saveError) updateDiagnostics({ lastError: saveError.message }); }).catch((saveError: unknown) => updateDiagnostics({ lastError: saveError instanceof Error ? saveError.message : "Unable to save display name." }));
     return { ok: true };
   }, [auth.isSignedIn, auth.user, persist, profile, updateDiagnostics]);
 
-  const updateAvatar = useCallback(async (avatar: { initials: string; avatar_color: string; avatar_symbol?: string | null }): Promise<SaveResult> => {
-    const initials = avatar.initials.trim().toUpperCase();
+  const updateAvatar = useCallback(async (avatar: CharacterAvatarConfig & { initials: string; avatar_color: string; avatar_symbol?: string | null }): Promise<SaveResult> => {
+    const avatarConfig = normalizeAvatarConfig(avatar, { initials: avatar.initials, color: avatar.avatar_color, symbol: avatar.avatar_symbol });
+    const initials = (avatar.avatar_initials ?? avatar.initials).trim().toUpperCase();
     if (initials.length < 1 || initials.length > 3) return { ok: false, error: "Initials must be 1-3 characters." };
     const next = normalizeProfile({
       ...profile,
       initials,
-      avatar_color: avatar.avatar_color,
+      avatar_color: avatar.avatar_bg_color ?? avatar.avatar_color,
       avatar_symbol: avatar.avatar_symbol?.trim() || null,
+      ...avatarConfig,
+      avatar_initials: initials,
     });
     if (auth.isSignedIn && auth.user && isSupabaseConfigured) {
       const { data, error: saveError } = await supabase
@@ -2270,6 +2297,15 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
           initials: next.initials,
           avatar_color: next.avatar_color,
           avatar_symbol: next.avatar_symbol ?? null,
+          avatar_style_version: next.avatar_style_version,
+          avatar_bg_color: next.avatar_bg_color,
+          avatar_initials: next.avatar_initials,
+          avatar_hair_style: next.avatar_hair_style,
+          avatar_hair_color: next.avatar_hair_color,
+          avatar_top_style: next.avatar_top_style,
+          avatar_top_color: next.avatar_top_color,
+          avatar_accessory: next.avatar_accessory,
+          avatar_frame: next.avatar_frame,
           updated_at: new Date().toISOString(),
         })
         .eq("id", auth.user.id)
