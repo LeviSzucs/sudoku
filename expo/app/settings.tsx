@@ -9,6 +9,7 @@ import BrandMark from "@/components/BrandMark";
 import Card from "@/components/Card";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
+import { buttonShadow } from "@/constants/depth";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { printActionAuditReport } from "@/lib/actionAudit";
@@ -238,7 +239,7 @@ function Diagnostic({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
   header: { flexDirection: "row", alignItems: "center", gap: 12 },
-  backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
+  backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center", ...buttonShadow },
   title: { fontSize: 30, fontWeight: "800", color: C.ink, letterSpacing: -0.7 },
   sub: { color: C.muted, fontWeight: "700", marginTop: 4 },
   section: { marginTop: 20 },
@@ -278,7 +279,7 @@ const styles = StyleSheet.create({
   toggleLabel: { color: C.ink, fontWeight: "700", flex: 1 },
   actions: { flexDirection: "row", gap: 10, marginTop: 18 },
   cancel: { flex: 1, borderRadius: 14, borderWidth: 1, borderColor: C.border, paddingVertical: 12, alignItems: "center" },
-  save: { flex: 1, borderRadius: 14, backgroundColor: C.ink, paddingVertical: 12, alignItems: "center" },
+  save: { flex: 1, borderRadius: 14, backgroundColor: C.ink, paddingVertical: 12, alignItems: "center", ...buttonShadow },
   cancelText: { color: C.ink, fontWeight: "800" },
   saveText: { color: "#FBF8F2", fontWeight: "800" },
   diagnostic: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.border },

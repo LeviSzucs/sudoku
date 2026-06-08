@@ -3,14 +3,17 @@ import { Home, Play as PlayIcon, Swords, Trophy, User } from "lucide-react-nativ
 import React from "react";
 import { Platform } from "react-native";
 import { C } from "@/constants/colors";
+import { cardShadow } from "@/constants/depth";
 
 const TAB_BAR_STYLE = {
   backgroundColor: C.bgElevated,
   borderTopColor: C.border,
   borderTopWidth: 1,
-  height: Platform.OS === "ios" ? 86 : 68,
+  height: Platform.OS === "ios" ? 90 : 72,
   paddingTop: 8,
+  paddingBottom: Platform.OS === "ios" ? 22 : 8,
   paddingHorizontal: 4,
+  ...cardShadow,
 } as const;
 
 export default function TabLayout() {
@@ -44,14 +47,14 @@ export default function TabLayout() {
       <Tabs.Screen
         name="play"
         options={{
-          title: "Play",
+          title: "Solo",
           tabBarIcon: ({ color }) => <PlayIcon color={color} size={22} strokeWidth={2} />,
         }}
       />
       <Tabs.Screen
         name="versus"
         options={{
-          title: "Versus",
+          title: "Duel",
           tabBarIcon: ({ color }) => <Swords color={color} size={22} strokeWidth={2} />,
         }}
       />

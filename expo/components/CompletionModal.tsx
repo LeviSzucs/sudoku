@@ -2,6 +2,7 @@ import { Flame, Home, RotateCw, Share2, X } from "lucide-react-native";
 import React from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { C } from "@/constants/colors";
+import { buttonShadow } from "@/constants/depth";
 import type { ScoreBreakdown } from "@/lib/scoring";
 import { formatTime } from "@/lib/sudoku";
 
@@ -257,6 +258,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     marginTop: 16,
+    ...buttonShadow,
   },
   primaryText: { color: "#FBF8F2", fontSize: 15, fontWeight: "700" },
   secondaryRow: {

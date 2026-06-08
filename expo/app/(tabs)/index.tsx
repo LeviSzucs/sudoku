@@ -19,6 +19,7 @@ import Pill from "@/components/Pill";
 import SectionHeader from "@/components/SectionHeader";
 import { PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
+import { buttonShadow, premiumShadow } from "@/constants/depth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { getDailyDateKey } from "@/lib/daily";
@@ -201,9 +202,9 @@ export default function HomeScreen() {
         </Card>
 
         {/* Daily Sudoku — hero */}
-        <Pressable onPress={openDaily}>
+        <Pressable onPress={openDaily} style={premiumShadow}>
           {({ pressed }) => (
-            <View style={[styles.heroCard, { opacity: pressed ? 0.92 : 1 }]}>
+            <View style={[styles.heroCard, pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}>
               <LinearGradient
                 colors={["#15171C", "#2A2D36"]}
                 style={StyleSheet.absoluteFillObject}
@@ -303,7 +304,7 @@ export default function HomeScreen() {
         <View style={{ marginTop: 22 }}>
           <Pressable onPress={() => showComingSoon(PREMIUM_NAME)}>
             {({ pressed }) => (
-              <View style={[styles.premiumCard, { opacity: pressed ? 0.92 : 1 }]}>
+              <View style={[styles.premiumCard, pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}>
                 <LinearGradient
                   colors={["#1E1B4B", "#3B2A6A"]}
                   start={{ x: 0, y: 0 }}
@@ -512,6 +513,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: 999,
     flexShrink: 0,
+    ...buttonShadow,
   },
   heroCTAText: {
     color: C.ink,
@@ -543,6 +545,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    ...premiumShadow,
   },
   premiumGlow: {
     position: "absolute",
@@ -579,6 +582,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
+    ...buttonShadow,
   },
   premiumCTAText: {
     color: C.ink,

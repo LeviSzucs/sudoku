@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, View, ViewStyle } from "react-native";
 import { C } from "@/constants/colors";
+import { cardShadow, pressedDepth } from "@/constants/depth";
 
 interface CardProps {
   children: React.ReactNode;
@@ -18,7 +19,7 @@ export default function Card({ children, onPress, style, padded = true, testID }
   );
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={({ pressed }) => [{ opacity: pressed ? 0.88 : 1 }]}>
+      <Pressable onPress={onPress} style={({ pressed }) => [pressed && pressedDepth]}>
         {content}
       </Pressable>
     );
@@ -32,6 +33,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: C.border,
+    ...cardShadow,
   },
   padded: {
     padding: 18,
