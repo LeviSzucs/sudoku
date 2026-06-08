@@ -11,6 +11,7 @@ import Card from "@/components/Card";
 import Pill from "@/components/Pill";
 import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
+import { buttonShadow, premiumShadow } from "@/constants/depth";
 import { usePlayerProfile, type DailyDuelEntry, type RankedDuelEntry } from "@/hooks/usePlayerProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { getDailyDateKey } from "@/lib/daily";
@@ -419,9 +420,9 @@ export default function VersusScreen() {
         <Text style={styles.subtitle}>One attempt. Highest score wins.</Text>
 
         {/* Daily Duel hero */}
-        <Pressable onPress={startDailyDuel} style={{ marginTop: 22 }}>
+        <Pressable onPress={startDailyDuel} style={[{ marginTop: 22 }, premiumShadow]}>
           {({ pressed }) => (
-            <View style={[styles.duelHero, { opacity: pressed ? 0.92 : 1 }]}>
+            <View style={[styles.duelHero, pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}>
               <LinearGradient
                 colors={["#1E1B4B", "#3B2A6A"]}
                 start={{ x: 0, y: 0 }}
@@ -715,6 +716,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
+    ...buttonShadow,
   },
   heroCTAText: {
     color: C.ink,
@@ -759,6 +761,7 @@ const styles = StyleSheet.create({
     minHeight: 40,
     paddingHorizontal: 16,
     paddingVertical: 10,
+    ...buttonShadow,
   },
   rankedActionText: {
     color: C.amber,
@@ -777,6 +780,7 @@ const styles = StyleSheet.create({
     minHeight: 38,
     paddingHorizontal: 16,
     paddingVertical: 9,
+    ...buttonShadow,
   },
   rankedCancelText: {
     color: C.inkSoft,

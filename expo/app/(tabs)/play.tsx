@@ -17,6 +17,7 @@ import Card from "@/components/Card";
 import Pill from "@/components/Pill";
 import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
+import { buttonShadow, cardShadow, premiumShadow } from "@/constants/depth";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import type { GameMode } from "@/hooks/useSudokuGame";
@@ -275,9 +276,9 @@ export default function PlayHubScreen() {
         ) : null}
 
         {/* Daily hero */}
-        <Pressable onPress={startDaily}>
+        <Pressable onPress={startDaily} style={[premiumShadow, { marginTop: 14 }]}>
           {({ pressed }) => (
-            <View style={[styles.heroCard, { opacity: pressed ? 0.92 : 1, marginTop: 14 }]}>
+            <View style={[styles.heroCard, pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}>
               <LinearGradient
                 colors={["#15171C", "#2A2D36"]}
                 style={StyleSheet.absoluteFillObject}
@@ -572,6 +573,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: 999,
     flexShrink: 0,
+    ...buttonShadow,
   },
   heroCTAText: { color: C.ink, fontWeight: "700", fontSize: 14 },
   statsRow: { flexDirection: "row", alignItems: "center" },
@@ -601,6 +603,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
     marginTop: 8,
+    backgroundColor: C.card,
+    ...cardShadow,
   },
   premiumHintText: {
     fontSize: 13,
@@ -644,6 +648,7 @@ const modalStyles = StyleSheet.create({
     paddingVertical: 13,
     alignItems: "center",
     marginBottom: 10,
+    ...buttonShadow,
   },
   primaryText: {
     color: "#FBF8F2",

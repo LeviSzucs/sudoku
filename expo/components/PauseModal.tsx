@@ -2,6 +2,7 @@ import { Home, Play, RotateCcw, X } from "lucide-react-native";
 import React from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { C } from "@/constants/colors";
+import { buttonShadow } from "@/constants/depth";
 import { formatTime } from "@/lib/sudoku";
 
 interface Props {
@@ -186,6 +187,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     marginTop: 16,
+    ...buttonShadow,
   },
   primaryText: { color: "#FBF8F2", fontSize: 15, fontWeight: "700" },
   secondaryRow: { flexDirection: "row", width: "100%", gap: 10, marginTop: 10 },
