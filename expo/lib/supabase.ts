@@ -61,6 +61,15 @@ export interface ProfileRow {
   initials: string;
   avatar_color: string;
   avatar_symbol?: string | null;
+  avatar_style_version?: string | null;
+  avatar_bg_color?: string | null;
+  avatar_initials?: string | null;
+  avatar_hair_style?: string | null;
+  avatar_hair_color?: string | null;
+  avatar_top_style?: string | null;
+  avatar_top_color?: string | null;
+  avatar_accessory?: string | null;
+  avatar_frame?: string | null;
   profile_setup_completed?: boolean;
   created_at?: string;
   updated_at?: string;

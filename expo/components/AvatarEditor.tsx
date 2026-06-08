@@ -1,0 +1,105 @@
+import { Lock } from "lucide-react-native";
+import React from "react";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+
+import Avatar from "@/components/Avatar";
+import { C } from "@/constants/colors";
+import { avatarItemsFor, normalizeAvatarConfig, type AvatarCategory, type CharacterAvatarConfig } from "@/lib/avatar";
+
+interface AvatarEditorProps {
+  value: CharacterAvatarConfig & { initials: string; avatar_color: string; avatar_symbol?: string | null };
+  onChange: (value: CharacterAvatarConfig & { initials: string; avatar_color: string; avatar_symbol?: string | null }) => void;
+  error?: string | null;
+}
+
+const sections: { title: string; category: AvatarCategory; field: keyof CharacterAvatarConfig }[] = [
+  { title: "Background", category: "background", field: "avatar_bg_color" },
+  { title: "Hair style", category: "hairStyle", field: "avatar_hair_style" },
+  { title: "Hair colour", category: "hairColor", field: "avatar_hair_color" },
+  { title: "Top style", category: "topStyle", field: "avatar_top_style" },
+  { title: "Top colour", category: "topColor", field: "avatar_top_color" },
+  { title: "Accessories", category: "accessory", field: "avatar_accessory" },
+  { title: "Frame", category: "frame", field: "avatar_frame" },
+];
+
+export default function AvatarEditor({ value, onChange, error }: AvatarEditorProps) {
+  const config = normalizeAvatarConfig(value, { initials: value.initials, color: value.avatar_color, symbol: value.avatar_symbol });
+
+  const setField = (field: keyof CharacterAvatarConfig, nextValue: string | null) => {
+    onChange({
+      ...value,
+      [field]: nextValue,
+      avatar_color: field === "avatar_bg_color" && nextValue ? nextValue : value.avatar_color,
+    });
+  };
+
+  return (
+    <View>
+      <View style={styles.preview}>
+        <Avatar
+          {...config}
+          initials={value.initials}
+          color={config.avatar_bg_color}
+          symbol={null}
+          size={96}
+        />
+      </View>
+
+      <Text style={styles.label}>Initials fallback</Text>
+      <TextInput
+        value={value.initials}
+        onChangeText={(text) => onChange({ ...value, initials: text.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3), avatar_initials: text.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3) })}
+        maxLength={3}
+        placeholder="AB"
+        style={styles.input}
+      />
+      <Text style={styles.helper}>Used only when a compact fallback is needed.</Text>
+
+      {sections.map((section) => {
+        const selected = config[section.field];
+        return (
+          <View key={section.title} style={styles.section}>
+            <Text style={styles.label}>{section.title}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.options}>
+              {avatarItemsFor(section.category).map((item) => {
+                const active = selected === item.value;
+                return (
+                  <Pressable
+                    key={item.id}
+                    onPress={() => setField(section.field, item.value)}
+                    style={[styles.option, item.color ? styles.colorOption : null, active && styles.optionActive, !item.is_available && styles.optionLocked]}
+                  >
+                    {item.color ? <View style={[styles.swatch, { backgroundColor: item.color }]} /> : null}
+                    <Text style={[styles.optionText, active && styles.optionTextActive]}>{item.label}</Text>
+                    {!item.is_available ? <Lock size={12} color={active ? C.bgElevated : C.muted} /> : null}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        );
+      })}
+
+      <Text style={styles.futureNote}>Locked cosmetics are placeholders for future rewards and Premium items.</Text>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  preview: { alignItems: "center", marginBottom: 14 },
+  label: { color: C.ink, fontWeight: "900", marginTop: 14, marginBottom: 8 },
+  input: { backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, color: C.ink, fontSize: 16, fontWeight: "700" },
+  helper: { color: C.muted, fontSize: 12, marginTop: 8 },
+  section: { marginTop: 4 },
+  options: { gap: 8, paddingRight: 6 },
+  option: { minHeight: 38, borderRadius: 999, borderWidth: 1, borderColor: C.border, paddingHorizontal: 12, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: C.card },
+  colorOption: { paddingLeft: 8 },
+  optionActive: { backgroundColor: C.ink, borderColor: C.ink },
+  optionLocked: { opacity: 0.72 },
+  optionText: { color: C.ink, fontWeight: "800", fontSize: 12 },
+  optionTextActive: { color: C.bgElevated },
+  swatch: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: "rgba(21,23,28,0.14)" },
+  futureNote: { color: C.muted, fontSize: 12, lineHeight: 17, marginTop: 14 },
+  error: { color: C.danger, fontWeight: "700", marginTop: 8 },
+});

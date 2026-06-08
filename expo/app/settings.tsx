@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import Avatar from "@/components/Avatar";
+import AvatarEditor from "@/components/AvatarEditor";
 import BrandMark from "@/components/BrandMark";
 import Card from "@/components/Card";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
@@ -12,11 +12,21 @@ import { C } from "@/constants/colors";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { printActionAuditReport } from "@/lib/actionAudit";
-import type { ProfileSettings } from "@/lib/playerProfile";
+import { normalizeAvatarConfig, type CharacterAvatarConfig } from "@/lib/avatar";
+import type { PlayerProfile, ProfileSettings } from "@/lib/playerProfile";
 import { supabaseConfigDiagnostics } from "@/lib/supabase";
 
-const AVATAR_COLORS = ["#1E1B4B", "#2F5D62", "#7A4EAB", "#B86246", "#C8A45D", "#4169A8"];
-const AVATAR_SYMBOLS = [null, "*", "7", "S", "D", "#"];
+type AvatarDraft = CharacterAvatarConfig & { initials: string; avatar_color: string; avatar_symbol?: string | null };
+
+function avatarDraftFromProfile(profile: PlayerProfile): AvatarDraft {
+  const config = normalizeAvatarConfig(profile, { initials: profile.initials, color: profile.avatar_color, symbol: profile.avatar_symbol });
+  return {
+    initials: config.avatar_initials,
+    avatar_color: config.avatar_bg_color,
+    avatar_symbol: profile.avatar_symbol ?? null,
+    ...config,
+  };
+}
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -31,9 +41,7 @@ export default function SettingsScreen() {
   const [panel, setPanel] = useState<string | null>(null);
   const [name, setName] = useState<string>(profile.username);
   const [nameError, setNameError] = useState<string | null>(null);
-  const [avatarInitials, setAvatarInitials] = useState<string>(profile.initials);
-  const [avatarColor, setAvatarColor] = useState<string>(profile.avatar_color);
-  const [avatarSymbol, setAvatarSymbol] = useState<string | null>(profile.avatar_symbol ?? null);
+  const [avatarDraft, setAvatarDraft] = useState<AvatarDraft>(() => avatarDraftFromProfile(profile));
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [avatarSaving, setAvatarSaving] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<ProfileSettings["notifications"]>(profile.settings.notifications);
@@ -47,9 +55,7 @@ export default function SettingsScreen() {
   useEffect(() => { if (params.panel) setPanel(params.panel); }, [params.panel]);
   useEffect(() => {
     setName(profile.username);
-    setAvatarInitials(profile.initials);
-    setAvatarColor(profile.avatar_color);
-    setAvatarSymbol(profile.avatar_symbol ?? null);
+    setAvatarDraft(avatarDraftFromProfile(profile));
     setNotifications(profile.settings.notifications);
     setPrivacy(profile.settings.privacy);
   }, [profile]);
@@ -71,7 +77,7 @@ export default function SettingsScreen() {
 
   const saveAvatar = async () => {
     setAvatarSaving(true);
-    const result = await updateAvatar({ initials: avatarInitials, avatar_color: avatarColor, avatar_symbol: avatarSymbol });
+    const result = await updateAvatar(avatarDraft);
     setAvatarSaving(false);
     if (!result.ok) {
       setAvatarError(result.error ?? "Unable to save avatar.");
@@ -127,7 +133,7 @@ export default function SettingsScreen() {
 
         <Section title="Account">
           <Row icon={<UserRound size={18} color={C.inkSoft} />} title="Profile" detail={profile.display_name ?? profile.username} onPress={() => setPanel("display")} />
-          <Row icon={<Palette size={18} color={C.inkSoft} />} title="Avatar" detail="Initials, colour and symbol" onPress={() => setPanel("avatar")} />
+          <Row icon={<Palette size={18} color={C.inkSoft} />} title="Avatar" detail="Character, colours and frame" onPress={() => setPanel("avatar")} />
           <Row icon={<Bell size={18} color={C.inkSoft} />} title="Notifications" detail="Daily puzzle, streaks, duels" onPress={() => setPanel("notifications")} />
           <Row icon={<Shield size={18} color={C.inkSoft} />} title="Privacy" detail={privacy.publicProfile ? "Public profile" : "Private profile"} onPress={() => setPanel("privacy")} />
           <Row icon={<LogOut size={18} color={C.inkSoft} />} title="Sign out" detail="Return to the welcome screen" onPress={() => Alert.alert("Sign out?", "You will return to the welcome screen.", [{ text: "Cancel", style: "cancel" }, { text: "Sign out", style: "destructive", onPress: () => { void auth.signOut(); } }])} last />
@@ -181,7 +187,7 @@ export default function SettingsScreen() {
       </Modal>
 
       <Modal visible={panel === "avatar"} transparent animationType="fade" onRequestClose={() => setPanel(null)}>
-        <View style={styles.backdrop}><Card style={styles.modalCard}><Text style={styles.modalTitle}>Avatar</Text><View style={styles.avatarPreview}><Avatar initials={avatarInitials || profile.initials} color={avatarColor} symbol={avatarSymbol} size={76} /></View><TextInput value={avatarInitials} onChangeText={(value) => { setAvatarInitials(value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3)); setAvatarError(null); }} maxLength={3} placeholder="AB" style={styles.input} /><Text style={styles.helper}>Initials can use 1-3 letters or numbers.</Text><Text style={styles.optionLabel}>Colour</Text><View style={styles.swatches}>{AVATAR_COLORS.map((color) => <Pressable key={color} onPress={() => setAvatarColor(color)} style={[styles.swatch, { backgroundColor: color }, avatarColor === color && styles.swatchActive]} />)}</View><Text style={styles.optionLabel}>Symbol</Text><View style={styles.symbols}>{AVATAR_SYMBOLS.map((symbol) => <Pressable key={symbol ?? "none"} onPress={() => setAvatarSymbol(symbol)} style={[styles.symbolButton, avatarSymbol === symbol && styles.symbolActive]}><Text style={[styles.symbolText, avatarSymbol === symbol && styles.symbolTextActive]}>{symbol ?? "None"}</Text></Pressable>)}</View>{avatarError ? <Text style={styles.error}>{avatarError}</Text> : null}<Actions onCancel={() => setPanel(null)} onSave={() => { void saveAvatar(); }} saveLabel={avatarSaving ? "Saving..." : "Done"} disabled={avatarSaving} /></Card></View>
+        <View style={styles.backdrop}><Card style={styles.modalCard}><ScrollView showsVerticalScrollIndicator={false}><Text style={styles.modalTitle}>Avatar</Text><AvatarEditor value={avatarDraft} onChange={(next) => { setAvatarDraft(next); setAvatarError(null); }} error={avatarError} /><Actions onCancel={() => setPanel(null)} onSave={() => { void saveAvatar(); }} saveLabel={avatarSaving ? "Saving..." : "Done"} disabled={avatarSaving} /></ScrollView></Card></View>
       </Modal>
 
       <Modal visible={panel === "notifications"} transparent animationType="fade" onRequestClose={closePanel}>

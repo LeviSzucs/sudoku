@@ -442,6 +442,7 @@ export default function VersusScreen() {
               <View style={styles.vsRow}>
                 <View style={styles.vsPlayer}>
                   <Avatar
+                    {...profile}
                     initials={profile.initials}
                     color={profile.avatar_color}
                     symbol={profile.avatar_symbol}
