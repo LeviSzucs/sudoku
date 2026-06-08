@@ -1,6 +1,6 @@
 import { DEFAULT_AVATAR_COLOR, DEFAULT_INITIALS } from "@/constants/branding";
 
-export type AvatarCategory = "background" | "hairStyle" | "hairColor" | "topStyle" | "topColor" | "accessory" | "frame";
+export type AvatarCategory = "background" | "skinTone" | "hairStyle" | "hairColor" | "topStyle" | "topColor" | "accessory" | "frame";
 export type AvatarUnlockType = "free" | "premium" | "ranked" | "achievement" | "season";
 
 export interface AvatarItem {
@@ -18,6 +18,7 @@ export interface CharacterAvatarConfig {
   avatar_style_version?: string | null;
   avatar_bg_color?: string | null;
   avatar_initials?: string | null;
+  avatar_skin_tone?: string | null;
   avatar_hair_style?: string | null;
   avatar_hair_color?: string | null;
   avatar_top_style?: string | null;
@@ -35,6 +36,13 @@ export const AVATAR_ITEMS: AvatarItem[] = [
   { id: "bg_clay", label: "Clay", category: "background", value: "#B86246", color: "#B86246", unlock_type: "free", is_available: true },
   { id: "bg_gold", label: "Gold", category: "background", value: "#C8A45D", color: "#C8A45D", unlock_type: "free", is_available: true },
   { id: "bg_blue", label: "Blue", category: "background", value: "#4169A8", color: "#4169A8", unlock_type: "free", is_available: true },
+
+  { id: "skin_light", label: "Light", category: "skinTone", value: "#F0C7A1", color: "#F0C7A1", unlock_type: "free", is_available: true },
+  { id: "skin_fair", label: "Fair", category: "skinTone", value: "#E5B184", color: "#E5B184", unlock_type: "free", is_available: true },
+  { id: "skin_medium", label: "Medium", category: "skinTone", value: "#D19A6E", color: "#D19A6E", unlock_type: "free", is_available: true },
+  { id: "skin_tan", label: "Tan", category: "skinTone", value: "#B87856", color: "#B87856", unlock_type: "free", is_available: true },
+  { id: "skin_brown", label: "Brown", category: "skinTone", value: "#8E5D43", color: "#8E5D43", unlock_type: "free", is_available: true },
+  { id: "skin_dark", label: "Dark", category: "skinTone", value: "#5D3A2D", color: "#5D3A2D", unlock_type: "free", is_available: true },
 
   { id: "hair_none", label: "None", category: "hairStyle", value: null, unlock_type: "free", is_available: true },
   { id: "hair_buzz", label: "Buzz", category: "hairStyle", value: "buzz", unlock_type: "free", is_available: true },
@@ -84,6 +92,7 @@ export function normalizeAvatarConfig(config: CharacterAvatarConfig, legacy?: { 
     avatar_style_version: config.avatar_style_version || AVATAR_STYLE_VERSION,
     avatar_bg_color: config.avatar_bg_color || legacy?.color || DEFAULT_AVATAR_COLOR,
     avatar_initials: (config.avatar_initials || legacy?.initials || DEFAULT_INITIALS).trim().toUpperCase().slice(0, 3),
+    avatar_skin_tone: config.avatar_skin_tone || "#D19A6E",
     avatar_hair_style: config.avatar_hair_style || (legacy?.symbol ? null : "short"),
     avatar_hair_color: config.avatar_hair_color || "#6E432D",
     avatar_top_style: config.avatar_top_style || "tee",

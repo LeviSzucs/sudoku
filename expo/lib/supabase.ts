@@ -64,6 +64,7 @@ export interface ProfileRow {
   avatar_style_version?: string | null;
   avatar_bg_color?: string | null;
   avatar_initials?: string | null;
+  avatar_skin_tone?: string | null;
   avatar_hair_style?: string | null;
   avatar_hair_color?: string | null;
   avatar_top_style?: string | null;
