@@ -146,7 +146,6 @@ export default function HomeScreen() {
   const openDuel = () => {
     router.push("/versus");
   };
-  const showComingSoon = (title = "Coming soon") => Alert.alert(title, "Coming soon");
 
   const streak = profile.current_streak;
   const streakDots = Math.min(streak, 7);
@@ -302,7 +301,7 @@ export default function HomeScreen() {
 
         {/* Premium */}
         <View style={{ marginTop: 22 }}>
-          <Pressable onPress={() => showComingSoon(PREMIUM_NAME)}>
+          <Pressable onPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })}>
             {({ pressed }) => (
               <View style={[styles.premiumCard, pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}>
                 <LinearGradient
@@ -317,14 +316,14 @@ export default function HomeScreen() {
                     <Crown size={14} color={C.gold} fill={C.gold} />
                     <Text style={styles.premiumKicker}>{PREMIUM_NAME.toUpperCase()}</Text>
                   </View>
-                  <Text style={styles.premiumTitle}>Unlimited hints & expert puzzles</Text>
+                  <Text style={styles.premiumTitle}>Premium is coming soon</Text>
                   <Text style={styles.premiumSub}>
-                    Plus ad-free play and exclusive duels
+                    Advanced stats, themes, cosmetics, and solo practice extras
                   </Text>
                 </View>
                 <View style={styles.premiumCTA}>
                   <Sparkles size={14} color={C.ink} />
-                  <Text style={styles.premiumCTAText}>Try free</Text>
+                  <Text style={styles.premiumCTAText}>Learn more</Text>
                 </View>
               </View>
             )}
