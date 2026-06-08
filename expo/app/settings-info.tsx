@@ -8,6 +8,7 @@ import BrandMark from "@/components/BrandMark";
 import Card from "@/components/Card";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
+import { FREE_FEATURES, FUTURE_PREMIUM_FEATURES, PREMIUM_FAIRNESS_NOTE } from "@/constants/premium";
 
 type InfoPage = "premium" | "help" | "terms" | "privacy";
 
@@ -21,11 +22,17 @@ const CONTENT: Record<InfoPage, {
   premium: {
     eyebrow: "PREMIUM",
     title: PREMIUM_NAME,
-    subtitle: "SudoDuel Premium is coming soon.",
+    subtitle: "Premium is coming soon.",
     icon: "premium",
     sections: [
-      { title: "Planned areas", body: "Advanced stats, extra themes, profile cosmetics, puzzle archive, deeper history, and an ad-free experience if ads are added later." },
-      { title: "Current access", body: "No current gameplay, social, ranked, or leaderboard feature is gated behind Premium." },
+      { title: "Advanced stats", body: "Deeper solve trends, difficulty splits, and long-term performance insights." },
+      { title: "More puzzle history", body: "A deeper results archive with richer filtering for solo practice and review." },
+      { title: "Expert & Master solo practice", body: "Future Premium can expand advanced Classic practice without changing competitive fairness." },
+      { title: "Premium themes", body: "Extra visual themes for the app experience." },
+      { title: "Avatar cosmetics", body: "More character items, frames, and profile cosmetics." },
+      { title: "Season/ranked cosmetic rewards", body: "Ranked cosmetics can show achievement, but they will stay cosmetic only." },
+      { title: "Fair play promise", body: PREMIUM_FAIRNESS_NOTE },
+      { title: "Current access", body: "Daily Sudoku, Daily Duel, Ranked Duel, Friend Challenge, leaderboards, and current gameplay remain available without Premium." },
       { title: "Subscriptions", body: "Payments and subscription management are not implemented yet." },
     ],
   },
@@ -95,6 +102,18 @@ export default function SettingsInfoScreen() {
         </View>
 
         <Card style={{ marginTop: 18 }}>
+          {getPage(params.page) === "premium" ? (
+            <View style={[styles.featureStrip, styles.divider]}>
+              <Text style={styles.featureStripTitle}>Planned Premium areas</Text>
+              <Text style={styles.featureStripBody}>
+                {FUTURE_PREMIUM_FEATURES.map((feature) => feature.title).join(" · ")}
+              </Text>
+              <Text style={[styles.featureStripTitle, { marginTop: 14 }]}>Included for everyone</Text>
+              <Text style={styles.featureStripBody}>
+                {FREE_FEATURES.slice(0, 5).map((feature) => feature.title).join(" · ")}
+              </Text>
+            </View>
+          ) : null}
           {content.sections.map((section, index) => (
             <View key={section.title} style={[styles.section, index < content.sections.length - 1 && styles.divider]}>
               <Text style={styles.sectionTitle}>{section.title}</Text>
@@ -119,4 +138,7 @@ const styles = StyleSheet.create({
   divider: { borderBottomWidth: 1, borderBottomColor: C.border, paddingBottom: 16, marginBottom: 6 },
   sectionTitle: { color: C.ink, fontSize: 16, fontWeight: "900" },
   body: { color: C.muted, fontSize: 14, fontWeight: "700", lineHeight: 20, marginTop: 6 },
+  featureStrip: { paddingBottom: 16, marginBottom: 6 },
+  featureStripTitle: { color: C.gold, fontSize: 12, fontWeight: "900", letterSpacing: 1.1, textTransform: "uppercase" },
+  featureStripBody: { color: C.ink, fontSize: 13, fontWeight: "800", lineHeight: 19, marginTop: 8 },
 });

@@ -18,6 +18,7 @@ import Pill from "@/components/Pill";
 import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
 import { buttonShadow, cardShadow, premiumShadow } from "@/constants/depth";
+import { PREMIUM_DEV_NOTE } from "@/constants/premium";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import type { GameMode } from "@/hooks/useSudokuGame";
@@ -348,7 +349,7 @@ export default function PlayHubScreen() {
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                       <Text style={styles.cardTitle}>{d.key}</Text>
-                      {(d.key === "Expert" || d.key === "Master") ? <Pill label="Premium" tone="amber" /> : null}
+                      {(d.key === "Expert" || d.key === "Master") ? <Pill label="Future Premium" tone="amber" /> : null}
                     </View>
                     <Text style={styles.cardSub}>{checkingClassicDifficulty === d.key ? "Loading..." : d.sub}</Text>
                   </View>
@@ -424,14 +425,15 @@ export default function PlayHubScreen() {
         </View>
 
         <View style={{ height: 8 }} />
-        <Pressable onPress={() => showComingSoon("Premium coming soon")}>
+        <Pressable onPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })}>
           {({ pressed }) => (
             <View style={[styles.premiumHint, { opacity: pressed ? 0.92 : 1 }]}>
               <Sparkles size={14} color={C.gold} />
-              <Text style={styles.premiumHintText}>Unlock Expert & unlimited hints</Text>
+              <Text style={styles.premiumHintText}>Premium solo extras coming soon</Text>
             </View>
           )}
         </Pressable>
+        <Text style={styles.premiumDevNote}>{PREMIUM_DEV_NOTE}</Text>
       </ScrollView>
       <ClassicSessionChoiceModal
         visible={!!pendingClassicSession}
@@ -610,6 +612,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: C.muted,
     fontWeight: "600",
+  },
+  premiumDevNote: {
+    color: C.muted,
+    fontSize: 11,
+    fontWeight: "700",
+    lineHeight: 16,
+    marginTop: 8,
+    textAlign: "center",
   },
 });
 
