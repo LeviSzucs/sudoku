@@ -14,6 +14,7 @@ interface AvatarEditorProps {
 
 const sections: { title: string; category: AvatarCategory; field: keyof CharacterAvatarConfig }[] = [
   { title: "Background", category: "background", field: "avatar_bg_color" },
+  { title: "Skin tone", category: "skinTone", field: "avatar_skin_tone" },
   { title: "Hair style", category: "hairStyle", field: "avatar_hair_style" },
   { title: "Hair colour", category: "hairColor", field: "avatar_hair_color" },
   { title: "Top style", category: "topStyle", field: "avatar_top_style" },
@@ -36,13 +37,15 @@ export default function AvatarEditor({ value, onChange, error }: AvatarEditorPro
   return (
     <View>
       <View style={styles.preview}>
-        <Avatar
-          {...config}
-          initials={value.initials}
-          color={config.avatar_bg_color}
-          symbol={null}
-          size={96}
-        />
+        <View style={styles.previewHalo}>
+          <Avatar
+            {...config}
+            initials={value.initials}
+            color={config.avatar_bg_color || value.avatar_color}
+            symbol={null}
+            size={108}
+          />
+        </View>
       </View>
 
       <Text style={styles.label}>Initials fallback</Text>
@@ -60,7 +63,7 @@ export default function AvatarEditor({ value, onChange, error }: AvatarEditorPro
         return (
           <View key={section.title} style={styles.section}>
             <Text style={styles.label}>{section.title}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.options}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.optionScroller} contentContainerStyle={styles.options}>
               {avatarItemsFor(section.category).map((item) => {
                 const active = selected === item.value;
                 return (
@@ -88,11 +91,13 @@ export default function AvatarEditor({ value, onChange, error }: AvatarEditorPro
 
 const styles = StyleSheet.create({
   preview: { alignItems: "center", marginBottom: 14 },
+  previewHalo: { borderRadius: 64, padding: 8, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border },
   label: { color: C.ink, fontWeight: "900", marginTop: 14, marginBottom: 8 },
   input: { backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, color: C.ink, fontSize: 16, fontWeight: "700" },
   helper: { color: C.muted, fontSize: 12, marginTop: 8 },
   section: { marginTop: 4 },
-  options: { gap: 8, paddingRight: 6 },
+  optionScroller: { marginHorizontal: -8, overflow: "visible" },
+  options: { gap: 8, paddingHorizontal: 8, paddingRight: 18 },
   option: { minHeight: 38, borderRadius: 999, borderWidth: 1, borderColor: C.border, paddingHorizontal: 12, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: C.card },
   colorOption: { paddingLeft: 8 },
   optionActive: { backgroundColor: C.ink, borderColor: C.ink },

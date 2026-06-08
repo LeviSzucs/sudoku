@@ -191,7 +191,7 @@ export function createInitialPlayerProfile(withMockProgress = true): PlayerProfi
   const level = getLevelFromXp(totalXp);
   const base: PlayerProfile = {
     user_id: "u_self", username: DEFAULT_USERNAME, username_handle: null, display_name: null, profile_setup_completed: false, initials: DEFAULT_INITIALS, avatar_color: DEFAULT_AVATAR_COLOR,
-    avatar_style_version: "character_v1", avatar_bg_color: DEFAULT_AVATAR_COLOR, avatar_initials: DEFAULT_INITIALS, avatar_hair_style: "short", avatar_hair_color: "#6E432D", avatar_top_style: "tee", avatar_top_color: "#1E1B4B", avatar_accessory: null, avatar_frame: null,
+    avatar_style_version: "character_v1", avatar_bg_color: DEFAULT_AVATAR_COLOR, avatar_initials: DEFAULT_INITIALS, avatar_skin_tone: "#D19A6E", avatar_hair_style: "short", avatar_hair_color: "#6E432D", avatar_top_style: "tee", avatar_top_color: "#1E1B4B", avatar_accessory: null, avatar_frame: null,
     account_level: level.level, mastery_xp: level.xpInLevel, mastery_xp_to_next_level: level.xpToNext, total_mastery_xp: totalXp,
     rank_tier: "Bronze", rank_division: "II", rank_points: withMockProgress ? 120 : 0, current_streak: withMockProgress ? 4 : 0, longest_streak: withMockProgress ? 7 : 0,
     puzzles_completed: withMockProgress ? 18 : 0, flawless_puzzles: withMockProgress ? 6 : 0, total_mistakes: withMockProgress ? 14 : 0, total_hints_used: withMockProgress ? 5 : 0,
