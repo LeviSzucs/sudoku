@@ -9,6 +9,7 @@ import Card from "@/components/Card";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { FREE_FEATURES, FUTURE_PREMIUM_FEATURES, PREMIUM_FAIRNESS_NOTE } from "@/constants/premium";
+import { usePremiumStatus } from "@/hooks/usePremiumStatus";
 
 type InfoPage = "premium" | "help" | "terms" | "privacy";
 
@@ -83,7 +84,10 @@ function PageIcon({ type }: { type: "premium" | "help" | "legal" }) {
 export default function SettingsInfoScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ page?: string }>();
-  const content = CONTENT[getPage(params.page)];
+  const page = getPage(params.page);
+  const content = CONTENT[page];
+  const premium = usePremiumStatus();
+  const planLabel = premium.isLoading ? "checking..." : premium.isPremium ? "Premium" : "Free";
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -102,7 +106,31 @@ export default function SettingsInfoScreen() {
         </View>
 
         <Card style={{ marginTop: 18 }}>
-          {getPage(params.page) === "premium" ? (
+          {page === "premium" ? (
+            <View style={[styles.planCard, styles.divider]}>
+              <View style={styles.planHeader}>
+                <View>
+                  <Text style={styles.planEyebrow}>PLAN STATUS</Text>
+                  <Text style={styles.planTitle}>Current plan: {planLabel}</Text>
+                </View>
+                <View style={[styles.planBadge, premium.isPremium && styles.planBadgePremium]}>
+                  <Text style={[styles.planBadgeText, premium.isPremium && styles.planBadgeTextPremium]}>
+                    {premium.isPremium ? "Active" : "Free"}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.planBody}>
+                {premium.isPremium
+                  ? "Premium entitlement is active for this account."
+                  : "Every account is on the Free plan while Premium and payments are still coming soon."}
+              </Text>
+              <View style={styles.disabledCta}>
+                <Text style={styles.disabledCtaText}>{premium.isPremium ? "Premium active" : "Coming soon"}</Text>
+              </View>
+            </View>
+          ) : null}
+
+          {page === "premium" ? (
             <View style={[styles.featureStrip, styles.divider]}>
               <Text style={styles.featureStripTitle}>Planned Premium areas</Text>
               <Text style={styles.featureStripBody}>
@@ -138,6 +166,17 @@ const styles = StyleSheet.create({
   divider: { borderBottomWidth: 1, borderBottomColor: C.border, paddingBottom: 16, marginBottom: 6 },
   sectionTitle: { color: C.ink, fontSize: 16, fontWeight: "900" },
   body: { color: C.muted, fontSize: 14, fontWeight: "700", lineHeight: 20, marginTop: 6 },
+  planCard: { paddingBottom: 16, marginBottom: 6 },
+  planHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  planEyebrow: { color: C.gold, fontSize: 12, fontWeight: "900", letterSpacing: 1.1 },
+  planTitle: { color: C.ink, fontSize: 24, fontWeight: "900", marginTop: 4 },
+  planBadge: { borderRadius: 999, borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, paddingHorizontal: 12, paddingVertical: 7 },
+  planBadgePremium: { borderColor: C.gold, backgroundColor: C.goldSoft },
+  planBadgeText: { color: C.muted, fontSize: 12, fontWeight: "900" },
+  planBadgeTextPremium: { color: C.ink },
+  planBody: { color: C.muted, fontSize: 14, fontWeight: "700", lineHeight: 20, marginTop: 10 },
+  disabledCta: { alignSelf: "flex-start", borderRadius: 14, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, paddingHorizontal: 14, paddingVertical: 10, marginTop: 12 },
+  disabledCtaText: { color: C.muted, fontSize: 13, fontWeight: "900" },
   featureStrip: { paddingBottom: 16, marginBottom: 6 },
   featureStripTitle: { color: C.gold, fontSize: 12, fontWeight: "900", letterSpacing: 1.1, textTransform: "uppercase" },
   featureStripBody: { color: C.ink, fontSize: 13, fontWeight: "800", lineHeight: 19, marginTop: 8 },
