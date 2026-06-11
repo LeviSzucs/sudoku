@@ -160,7 +160,7 @@ export default function SettingsScreen() {
         <Section title="Legal">
           <Row icon={<Shield size={18} color={C.inkSoft} />} title="Terms & Conditions" detail="Terms of Use" onPress={() => router.push({ pathname: "/settings-info", params: { page: "terms" } })} />
           <Row icon={<Shield size={18} color={C.inkSoft} />} title="Privacy Policy" detail="Data and privacy practices" onPress={() => router.push({ pathname: "/settings-info", params: { page: "privacy" } })} />
-          <Row icon={<Database size={18} color={C.inkSoft} />} title="App version" detail="v1.0.0" onPress={() => Alert.alert(APP_NAME, "Version 1.0.0")} last />
+          <Row icon={<Database size={18} color={C.inkSoft} />} title="App version" detail="v1.0.0 · Source build: PR84+" onPress={() => Alert.alert(APP_NAME, "Version 1.0.0\nSource build: PR84+")} last />
         </Section>
 
         {auth.isGuest ? (
