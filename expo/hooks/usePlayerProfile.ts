@@ -457,8 +457,52 @@ function statsPayload(profile: PlayerProfile): Partial<PlayerStatsRow> {
   };
 }
 
+function normalizedWon(row: Pick<GameResultRow, "mode" | "completed" | "won" | "final_score" | "elapsed_seconds" | "result_id">): boolean | null {
+  if (row.won !== null) return row.won;
+  if (
+    row.completed === true
+    && (row.mode === "classic" || row.mode === "daily")
+    && !row.result_id.endsWith("_failed")
+    && row.final_score > 0
+    && row.elapsed_seconds > 0
+  ) {
+    return true;
+  }
+  return null;
+}
+
 function resultFromRow(row: GameResultRow): RecentResult {
-  return { result_id: row.result_id, session_id: row.session_id ?? undefined, puzzle_id: row.puzzle_id ?? "unknown", mode: row.mode as RecentResult["mode"], difficulty: row.difficulty as RecentResult["difficulty"], completed: true, elapsed_seconds: row.elapsed_seconds, mistakes: row.mistakes, hints_used: row.hints_used, undo_count: row.undo_count, move_count: 0, final_score: row.final_score, eligible_for_leaderboard: row.eligible_for_leaderboard, eligible_for_ranked: row.eligible_for_ranked, completed_at: row.completed_at, xp_earned: row.xp_earned, rp_change: row.rp_change ?? null, won: row.won, result_outcome: row.won === true ? "win" : row.won === false ? "loss" : undefined };
+  const won = normalizedWon(row);
+  return { result_id: row.result_id, session_id: row.session_id ?? undefined, puzzle_id: row.puzzle_id ?? "unknown", mode: row.mode as RecentResult["mode"], difficulty: row.difficulty as RecentResult["difficulty"], completed: true, elapsed_seconds: row.elapsed_seconds, mistakes: row.mistakes, hints_used: row.hints_used, undo_count: row.undo_count, move_count: 0, final_score: row.final_score, eligible_for_leaderboard: row.eligible_for_leaderboard, eligible_for_ranked: row.eligible_for_ranked, completed_at: row.completed_at, xp_earned: row.xp_earned, rp_change: row.rp_change ?? null, won, result_outcome: won === true ? "win" : won === false ? "loss" : undefined };
+}
+
+function logicalResultKey(result: RecentResult): string {
+  return [
+    result.mode,
+    result.puzzle_id ?? "",
+    result.difficulty,
+    result.completed_at,
+    result.elapsed_seconds,
+    result.final_score,
+  ].join("|");
+}
+
+function dedupeRecentResults(results: RecentResult[]): RecentResult[] {
+  const byKey = new Map<string, RecentResult>();
+  for (const result of results) {
+    const key = logicalResultKey(result);
+    const current = byKey.get(key);
+    if (!current) {
+      byKey.set(key, result);
+      continue;
+    }
+    const currentHasSession = Boolean(current.session_id);
+    const nextHasSession = Boolean(result.session_id);
+    if ((nextHasSession && !currentHasSession) || (nextHasSession === currentHasSession && (result.result_id ?? "") < (current.result_id ?? ""))) {
+      byKey.set(key, result);
+    }
+  }
+  return Array.from(byKey.values()).sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime());
 }
 
 function deterministicResultId(userId: string, result: PuzzleResult, sessionId: string | null): string {
@@ -736,6 +780,30 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       }
     }
 
+    if (next.recent_results.some((result) => result.mode === "friend_challenge")) {
+      const { data: friendChallengeRows, error: friendChallengeError } = await supabase.rpc("get_friend_challenges");
+      if (friendChallengeError) {
+        updateDiagnostics({ lastError: friendChallengeError.message });
+      } else if (Array.isArray(friendChallengeRows)) {
+        const outcomeByResultId = new Map<string, RankOutcome>();
+        const outcomeBySessionId = new Map<string, RankOutcome>();
+        for (const row of friendChallengeRows as Array<Record<string, string | null>>) {
+          if (row.status !== "completed") continue;
+          const outcome: RankOutcome = !row.winner_user_id ? "draw" : row.winner_user_id === auth.user.id ? "win" : "loss";
+          if (row.current_user_result_id) outcomeByResultId.set(row.current_user_result_id, outcome);
+          if (row.session_id) outcomeBySessionId.set(row.session_id, outcome);
+        }
+        next.recent_results = next.recent_results.map((result) => {
+          if (result.mode !== "friend_challenge") return result;
+          const outcome = (result.result_id ? outcomeByResultId.get(result.result_id) : undefined)
+            ?? (result.session_id ? outcomeBySessionId.get(result.session_id) : undefined);
+          return outcome ? { ...result, result_outcome: outcome } : result;
+        });
+      }
+    }
+
+    next.recent_results = dedupeRecentResults(next.recent_results);
+
     const completedResults = next.recent_results.filter((result) => result.completed);
     const solvedResults = completedResults.filter((result) => result.won === true);
     next.puzzles_completed = solvedResults.length;
@@ -751,8 +819,8 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }, {});
     next.best_times_by_difficulty = computedBestTimes;
     const duelResults = completedResults.filter((result) => ["duel", "daily_duel", "friend_challenge", "ranked", "ranked_duel"].includes(result.mode));
-    next.duels_played = Math.max(next.duels_played, duelResults.length);
-    next.duels_won = Math.max(next.duels_won, duelResults.filter((result) => result.result_outcome === "win").length);
+    next.duels_played = duelResults.length;
+    next.duels_won = duelResults.filter((result) => result.result_outcome === "win").length;
     next.last_completed_date = solvedResults.find((result) => result.mode === "daily")?.completed_at?.slice(0, 10) ?? next.last_completed_date;
     const { data: activeSeason, error: activeSeasonError } = await supabase
       .from("ranked_seasons")
@@ -1337,7 +1405,9 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       return summary;
     }
     if (auth.isSignedIn && auth.user && isSupabaseConfigured) {
-      const row = { result_id: deterministicResultId(auth.user.id, result, sessionId), user_id: auth.user.id, session_id: sessionId, puzzle_id: result.puzzle_id, mode: result.mode, difficulty: result.difficulty, completed: result.completed, won: outcome === "win" ? true : outcome === "loss" ? false : null, elapsed_seconds: result.elapsed_seconds, mistakes: result.mistakes, hints_used: result.hints_used, undo_count: result.undo_count, final_score: result.final_score, xp_earned: summary.xpEarned, rp_change: summary.updatedProfile.rank_points - profile.rank_points, eligible_for_leaderboard: result.eligible_for_leaderboard, eligible_for_ranked: result.eligible_for_ranked, completed_at: result.completed_at };
+      const resultId = deterministicResultId(auth.user.id, result, sessionId);
+      const won = outcome === "win" ? true : outcome === "loss" ? false : normalizedWon({ ...result, result_id: resultId, won: null });
+      const row = { result_id: resultId, user_id: auth.user.id, session_id: sessionId, puzzle_id: result.puzzle_id, mode: result.mode, difficulty: result.difficulty, completed: result.completed, won, elapsed_seconds: result.elapsed_seconds, mistakes: result.mistakes, hints_used: result.hints_used, undo_count: result.undo_count, final_score: result.final_score, xp_earned: summary.xpEarned, rp_change: summary.updatedProfile.rank_points - profile.rank_points, eligible_for_leaderboard: result.eligible_for_leaderboard, eligible_for_ranked: result.eligible_for_ranked, completed_at: result.completed_at };
       void measureAsync("result save duration", async () => {
         const { error: resultError } = await supabase.from("game_results").upsert(row, { onConflict: "result_id" });
         if (resultError) {
@@ -1375,6 +1445,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
   const summaryFromOfficialPayload = useCallback((payload: OfficialResultPayload, previousProfile: PlayerProfile): ProfileUpdateSummary => {
     const stats = payload.updated_profile_stats;
     const xpEarned = payload.already_finalized ? 0 : payload.xp_earned;
+    const won = normalizedWon({ result_id: payload.result_id, mode: payload.mode, completed: true, won: payload.won ?? null, final_score: payload.final_score, elapsed_seconds: payload.elapsed_seconds });
     const officialResult: RecentResult = {
       result_id: payload.result_id,
       session_id: payload.session_id,
@@ -1393,8 +1464,8 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       eligible_for_ranked: payload.ranked_eligible ?? false,
       completed_at: payload.completed_at ?? new Date().toISOString(),
       xp_earned: payload.xp_earned,
-      won: payload.won ?? null,
-      result_outcome: payload.won === true ? "win" : payload.won === false ? "loss" : undefined,
+      won,
+      result_outcome: won === true ? "win" : won === false ? "loss" : undefined,
     };
     const previousLevel = previousProfile.account_level;
     const unlockedBadges = payload.badges_unlocked ?? [];
