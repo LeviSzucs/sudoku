@@ -168,7 +168,7 @@ export default function SettingsInfoScreen() {
               <Text style={styles.planBody}>
                 {premium.isPremium
                   ? "Premium entitlement is active for this account."
-                  : "Every account is on the Free plan while Premium and payments are still coming soon."}
+                  : "Every account is on the Free plan. All Classic difficulties are free, including Expert and Master."}
               </Text>
               <View style={styles.disabledCta}>
                 <Text style={styles.disabledCtaText}>{premium.isPremium ? "Premium active" : "Coming soon"}</Text>
@@ -178,14 +178,14 @@ export default function SettingsInfoScreen() {
 
           {page === "premium" ? (
             <View style={[styles.featureStrip, styles.divider]}>
-              <Text style={styles.featureStripTitle}>Planned Premium areas</Text>
+              <Text style={styles.featureStripTitle}>Premium focus</Text>
               <Text style={styles.featureStripBody}>
                 {FUTURE_PREMIUM_FEATURES.map((feature) => feature.title).join(" - ")}
               </Text>
               <Text style={styles.adPolicyNote}>{AD_POLICY_NOTE}</Text>
-              <Text style={[styles.featureStripTitle, { marginTop: 14 }]}>Included for everyone</Text>
+              <Text style={[styles.featureStripTitle, { marginTop: 14 }]}>Free for everyone</Text>
               <Text style={styles.featureStripBody}>
-                {FREE_FEATURES.slice(0, 5).map((feature) => feature.title).join(" - ")}
+                {FREE_FEATURES.map((feature) => feature.title).join(" - ")}
               </Text>
             </View>
           ) : null}
