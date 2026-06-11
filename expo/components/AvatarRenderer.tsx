@@ -72,7 +72,13 @@ export default function AvatarRenderer({
         <Ellipse cx="41" cy="51" rx="4" ry="2.4" fill="#FFFFFF" opacity="0.18" />
         <Ellipse cx="59" cy="51" rx="4" ry="2.4" fill="#FFFFFF" opacity="0.18" />
 
-        {avatar.avatar_hair_style === "buzz" ? <Path d="M27 35 C30 22 69 22 73 35 C62 29 39 29 27 35 Z" fill={hair} /> : null}
+        {avatar.avatar_hair_style === "buzz" ? (
+          <>
+            <Path d="M27 38 C26 25 36 17 50 17 C64 17 74 25 73 38 C63 32 37 32 27 38 Z" fill={hair} />
+            <Path d="M30 35 C38 29 62 29 70 35 C66 25 58 22 50 22 C42 22 34 25 30 35 Z" fill={CREAM} opacity="0.08" />
+            <Path d="M28 38 C36 34 64 34 72 38" stroke={INK} strokeWidth="1.4" opacity="0.14" strokeLinecap="round" fill="none" />
+          </>
+        ) : null}
         {avatar.avatar_hair_style === "short" ? <Path d="M25 38 C27 20 44 16 57 20 C68 23 75 31 73 43 C63 35 47 32 32 40 C30 40 27 39 25 38 Z" fill={hair} /> : null}
         {avatar.avatar_hair_style === "side_part" ? (
           <>

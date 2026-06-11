@@ -9,16 +9,76 @@ import { C } from "@/constants/colors";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import type { RecentResult } from "@/lib/playerProfile";
 
-function dateKey(offset: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() - offset);
-  return date.toISOString().slice(0, 10);
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function isoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
-function dayDiff(fromIso: string | null): number {
-  if (!fromIso) return 0;
-  const start = new Date(fromIso).getTime();
-  return Math.max(0, Math.floor((Date.now() - start) / 86400000));
+function dateFromKey(key: string): Date {
+  const [year, month, day] = key.split("-").map(Number);
+  return new Date(year, (month || 1) - 1, day || 1);
+}
+
+function dayDiff(fromKey: string | null, toKey = isoDate(new Date())): number {
+  if (!fromKey) return 0;
+  const start = dateFromKey(fromKey).getTime();
+  const end = dateFromKey(toKey).getTime();
+  return Math.max(0, Math.floor((end - start) / 86400000));
+}
+
+function calculateStreaks(days: string[]): { current: number; longest: number; missed: number; last: string | null } {
+  const sorted = Array.from(new Set(days)).sort();
+  let longest = 0;
+  let run = 0;
+  let previous: string | null = null;
+  for (const day of sorted) {
+    run = previous && dayDiff(previous, day) === 1 ? run + 1 : 1;
+    longest = Math.max(longest, run);
+    previous = day;
+  }
+  const solved = new Set(sorted);
+  const today = isoDate(new Date());
+  let cursor = solved.has(today) ? today : (() => {
+    const date = dateFromKey(today);
+    date.setDate(date.getDate() - 1);
+    return isoDate(date);
+  })();
+  let current = 0;
+  while (solved.has(cursor)) {
+    current += 1;
+    const date = dateFromKey(cursor);
+    date.setDate(date.getDate() - 1);
+    cursor = isoDate(date);
+  }
+  const last = sorted[sorted.length - 1] ?? null;
+  return { current, longest, missed: Math.max(0, dayDiff(last) - 1), last };
+}
+
+function monthCalendar(): { key: string; day: number | null; isToday: boolean }[] {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const first = new Date(year, month, 1);
+  const totalDays = new Date(year, month + 1, 0).getDate();
+  const cells: { key: string; day: number | null; isToday: boolean }[] = [];
+  for (let index = 0; index < first.getDay(); index += 1) {
+    cells.push({ key: `blank-${index}`, day: null, isToday: false });
+  }
+  const todayKey = isoDate(now);
+  for (let day = 1; day <= totalDays; day += 1) {
+    const date = new Date(year, month, day);
+    const key = isoDate(date);
+    cells.push({ key, day, isToday: key === todayKey });
+  }
+  return cells;
+}
+
+function monthTitle(): string {
+  return new Date().toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
 
 function isSolvedDaily(result: RecentResult): boolean {
@@ -28,12 +88,16 @@ function isSolvedDaily(result: RecentResult): boolean {
 export default function StreakStatsScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = usePlayerProfile();
-  const solvedDaily = useMemo(
-    () => new Set(profile.recent_results.filter(isSolvedDaily).map((result) => result.completed_at.slice(0, 10))),
+  const dailyDays = useMemo(
+    () => profile.recent_results.filter(isSolvedDaily).map((result) => result.completed_at.slice(0, 10)),
     [profile.recent_results]
   );
-  const calendar = useMemo(() => Array.from({ length: 28 }, (_, index) => dateKey(27 - index)), []);
-  const missedDays = Math.max(0, dayDiff(profile.last_completed_date) - 1);
+  const solvedDaily = useMemo(
+    () => new Set(dailyDays),
+    [dailyDays]
+  );
+  const streaks = useMemo(() => calculateStreaks(dailyDays), [dailyDays]);
+  const calendar = useMemo(() => monthCalendar(), []);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -50,24 +114,28 @@ export default function StreakStatsScreen() {
         </View>
 
         <View style={styles.grid}>
-          <Mini title="Current" value={`${profile.current_streak}`} detail="days" />
-          <Mini title="Longest" value={`${profile.longest_streak}`} detail="days" />
-          <Mini title="Missed" value={`${missedDays}`} detail="recent days" />
+          <Mini title="Current" value={`${streaks.current}`} detail="days" />
+          <Mini title="Longest" value={`${streaks.longest}`} detail="days" />
+          <Mini title="Missed" value={`${streaks.missed}`} detail="recent days" />
           <Mini
             title="Last daily"
-            value={profile.last_completed_date ? new Date(profile.last_completed_date).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "-"}
+            value={streaks.last ? dateFromKey(streaks.last).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "-"}
             detail="solved"
           />
         </View>
 
         <Text style={styles.section}>Daily puzzle calendar</Text>
         <Card>
+          <Text style={styles.monthTitle}>{monthTitle()}</Text>
+          <View style={styles.weekHeader}>
+            {WEEKDAYS.map((day) => <Text key={day} style={styles.weekday}>{day}</Text>)}
+          </View>
           <View style={styles.calendar}>
-            {calendar.map((day) => {
-              const done = solvedDaily.has(day) || day === profile.last_completed_date;
+            {calendar.map((cell) => {
+              const done = cell.day !== null && solvedDaily.has(cell.key);
               return (
-                <View key={day} style={[styles.day, done && styles.dayDone]}>
-                  <Text style={[styles.dayText, done && styles.dayTextDone]}>{new Date(day).getDate()}</Text>
+                <View key={cell.key} style={[styles.day, cell.day === null && styles.dayBlank, cell.isToday && styles.dayToday, done && styles.dayDone]}>
+                  <Text style={[styles.dayText, cell.isToday && styles.dayTextToday, done && styles.dayTextDone]}>{cell.day ?? ""}</Text>
                 </View>
               );
             })}
@@ -106,10 +174,16 @@ const styles = StyleSheet.create({
   miniValue: { color: C.ink, fontWeight: "900", fontSize: 30, marginTop: 4 },
   miniDetail: { color: C.muted, fontWeight: "700" },
   section: { color: C.ink, fontWeight: "900", fontSize: 18, marginTop: 24, marginBottom: 10 },
-  calendar: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  monthTitle: { color: C.ink, fontWeight: "900", fontSize: 18, marginBottom: 12 },
+  weekHeader: { flexDirection: "row", gap: 6, marginBottom: 8 },
+  weekday: { width: 36, color: C.muted, fontWeight: "900", fontSize: 10, textAlign: "center", textTransform: "uppercase" },
+  calendar: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   day: { width: 34, height: 34, borderRadius: 12, backgroundColor: C.bgElevated, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: C.border },
+  dayBlank: { backgroundColor: "transparent", borderColor: "transparent" },
+  dayToday: { borderColor: C.accent, borderWidth: 2 },
   dayDone: { backgroundColor: C.streakSoft, borderColor: C.streak },
   dayText: { color: C.muted, fontWeight: "800", fontSize: 12 },
+  dayTextToday: { color: C.accent },
   dayTextDone: { color: C.streak },
   note: { color: C.muted, fontWeight: "700", fontSize: 12, marginTop: 12, lineHeight: 17 },
   freezeTitle: { color: C.ink, fontWeight: "900", fontSize: 18 },

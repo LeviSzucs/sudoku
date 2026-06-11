@@ -384,6 +384,20 @@ order by completed_at desc
 limit 30;
 ```
 
+### Possible Duplicate Results For Current User
+
+```sql
+select user_id, mode, difficulty, puzzle_id, elapsed_seconds, final_score,
+       completed_at, count(*) as duplicate_count,
+       array_agg(result_id order by result_id) as result_ids
+from public.game_results
+where user_id = '6c90ea5a-ac2b-4660-accd-b03c2a35ebf0'
+  and completed = true
+group by user_id, mode, difficulty, puzzle_id, elapsed_seconds, final_score, completed_at
+having count(*) > 1
+order by completed_at desc;
+```
+
 ### Recent Ranked Duels Involving Current User
 
 ```sql
