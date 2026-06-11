@@ -141,6 +141,7 @@ export interface AchievementRow {
   description: string;
   category: string;
   icon: string;
+  rarity?: string | null;
   progress_target: number;
   created_at?: string;
 }
@@ -157,6 +158,7 @@ export interface UserAchievementRow {
     description: string;
     category: string;
     icon: string;
+    rarity?: string | null;
     progress_target: number;
   } | null;
 }
