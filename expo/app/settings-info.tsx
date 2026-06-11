@@ -31,7 +31,7 @@ const CONTENT: Record<InfoPage, {
     icon: "premium",
     sections: [
       { title: "Premium is coming soon", body: "Premium is not available for purchase yet. Every current account is on the Free plan." },
-      { title: "Planned Premium benefits", body: "Future Premium may include an ad-free experience, advanced stats, full result history, more challenge tools, Premium avatar items, themes, and season recaps." },
+      { title: "Planned Premium benefits", body: "Premium may include an ad-free experience, advanced stats, full result history, more challenge tools, Premium avatar items, themes, and season recaps." },
       { title: "All difficulties stay free", body: "Classic Easy, Medium, Hard, Expert, and Master are playable on the Free plan. Premium is not centred on locking Sudoku difficulty." },
       { title: "Competitive fairness", body: PREMIUM_FAIRNESS_NOTE },
       { title: "Included for everyone", body: "Daily Sudoku, Daily Duel, Ranked Duel, Friend Challenge basic access, leaderboards, Basic stats, Basic result history, and Basic avatar customisation remain available without Premium." },
@@ -83,7 +83,7 @@ const CONTENT: Record<InfoPage, {
       { title: "Fair play", body: "SudoDuel is designed to be competitive but fair. Do not use cheats, automation, exploits, modified clients, or other methods that give an unfair advantage." },
       { title: "Game results, rankings, and stats", body: "Scores, RP, streaks, results, leaderboards, achievements, and stats may be recalculated or corrected if we identify bugs, duplicate results, abuse, exploits, or data integrity issues." },
       { title: "Usernames, avatars, and profile content", body: "Choose usernames, display names, avatars, and feedback content that are respectful and do not impersonate others, harass people, include hate or abuse, or violate another person's rights." },
-      { title: "Premium features", body: "Premium features are not currently available. Future Premium may remove ads and add richer stats, history, cosmetics, season identity, and duel tools. Premium will not provide competitive advantages in Ranked Duel, Daily Duel, Friend Challenge, or leaderboards." },
+      { title: "Premium features", body: "Premium features are not currently available. Premium may remove ads and add richer stats, history, cosmetics, season identity, and duel tools. Premium will not provide competitive advantages in Ranked Duel, Daily Duel, Friend Challenge, or leaderboards." },
       { title: "Acceptable use", body: "Do not attack, disrupt, scrape, overload, reverse engineer, exploit, or interfere with the app, backend, matchmaking, scoring, leaderboards, feedback tools, or other users." },
       { title: "Service availability", body: "SudoDuel is in TestFlight and may have downtime, bugs, resets, balance changes, or unavailable features. Some features may change before public release." },
       { title: "Changes to the app", body: "We may update, add, remove, rebalance, or rename features during testing. We may also update these Terms as the product evolves." },
