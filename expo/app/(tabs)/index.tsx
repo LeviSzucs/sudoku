@@ -318,7 +318,7 @@ export default function HomeScreen() {
                   </View>
                   <Text style={styles.premiumTitle}>Premium is coming soon</Text>
                   <Text style={styles.premiumSub}>
-                    Advanced stats, themes, cosmetics, and solo practice extras
+                    Ad-free play, advanced stats, deeper history, themes, and cosmetics
                   </Text>
                 </View>
                 <View style={styles.premiumCTA}>
