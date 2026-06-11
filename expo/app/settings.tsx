@@ -152,14 +152,15 @@ export default function SettingsScreen() {
 
         <Section title="Support">
           <Row icon={<HelpCircle size={18} color={C.inkSoft} />} title="Help & FAQ" detail="Answers and gameplay basics" onPress={() => router.push({ pathname: "/settings-info", params: { page: "help" } })} />
+          <Row icon={<LifeBuoy size={18} color={C.inkSoft} />} title="Support" detail="Contact and account requests" onPress={() => router.push({ pathname: "/settings-info", params: { page: "support" } })} />
           <Row icon={<MessageSquare size={18} color={C.inkSoft} />} title="Send feedback" detail="Tell us what to improve" onPress={() => router.push({ pathname: "/settings-feedback", params: { category: "feedback" } })} />
           <Row icon={<LifeBuoy size={18} color={C.inkSoft} />} title="Report a problem" detail="Bug reports and issues" onPress={() => router.push({ pathname: "/settings-feedback", params: { category: "problem" } })} last />
         </Section>
 
         <Section title="Legal">
-          <Row icon={<Shield size={18} color={C.inkSoft} />} title="Terms & Conditions" detail="Development placeholder" onPress={() => router.push({ pathname: "/settings-info", params: { page: "terms" } })} />
-          <Row icon={<Shield size={18} color={C.inkSoft} />} title="Privacy Policy" detail="Development placeholder" onPress={() => router.push({ pathname: "/settings-info", params: { page: "privacy" } })} />
-          <Row icon={<Database size={18} color={C.inkSoft} />} title="App version" detail="v1.0.0 build placeholder" onPress={() => Alert.alert(APP_NAME, "Version 1.0.0 · Build placeholder")} last />
+          <Row icon={<Shield size={18} color={C.inkSoft} />} title="Terms & Conditions" detail="Terms of Use" onPress={() => router.push({ pathname: "/settings-info", params: { page: "terms" } })} />
+          <Row icon={<Shield size={18} color={C.inkSoft} />} title="Privacy Policy" detail="Data and privacy practices" onPress={() => router.push({ pathname: "/settings-info", params: { page: "privacy" } })} />
+          <Row icon={<Database size={18} color={C.inkSoft} />} title="App version" detail="v1.0.0" onPress={() => Alert.alert(APP_NAME, "Version 1.0.0")} last />
         </Section>
 
         {auth.isGuest ? (

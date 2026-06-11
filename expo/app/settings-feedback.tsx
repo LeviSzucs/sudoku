@@ -7,16 +7,19 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import Card from "@/components/Card";
 import { APP_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
+import { SUPPORT_EMAIL_LABEL } from "@/constants/legal";
 import { useAuth } from "@/hooks/useAuth";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
-type FeedbackCategory = "general_feedback" | "bug_report" | "account_issue" | "gameplay_issue" | "other";
+type FeedbackCategory = "general_feedback" | "bug_report" | "account_issue" | "gameplay_issue" | "ranked_duel_issue" | "privacy_data_request" | "other";
 
 const CATEGORY_OPTIONS: { value: FeedbackCategory; label: string }[] = [
   { value: "general_feedback", label: "General feedback" },
   { value: "bug_report", label: "Bug report" },
   { value: "account_issue", label: "Account issue" },
   { value: "gameplay_issue", label: "Gameplay issue" },
+  { value: "ranked_duel_issue", label: "Ranked Duel issue" },
+  { value: "privacy_data_request", label: "Privacy/data request" },
   { value: "other", label: "Other" },
 ];
 
@@ -29,14 +32,14 @@ export default function SettingsFeedbackScreen() {
   const insets = useSafeAreaInsets();
   const auth = useAuth();
   const params = useLocalSearchParams<{ category?: string }>();
-  const category = getCategory(params.category);
+  const isProblemReport = params.category === "problem";
   const [message, setMessage] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<FeedbackCategory>(() => getCategory(params.category));
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [sent, setSent] = useState<boolean>(false);
-  const title = category === "problem" ? "Report a problem" : "Send feedback";
-  const helper = category === "problem" ? "Describe what went wrong and what you were doing." : "Tell us what would make SudoDuel better.";
-  const Icon = category === "problem" ? LifeBuoy : MessageSquare;
+  const title = isProblemReport ? "Report a problem" : "Send feedback";
+  const helper = isProblemReport ? "Describe what went wrong and what you were doing." : "Tell us what would make SudoDuel better.";
+  const Icon = isProblemReport ? LifeBuoy : MessageSquare;
   const canSubmit = message.trim().length >= 3 && !isSubmitting;
 
   const appVersion = useMemo(() => "1.0.0", []);
@@ -84,7 +87,7 @@ export default function SettingsFeedbackScreen() {
         {sent ? (
           <Card style={{ marginTop: 18 }}>
             <Text style={styles.successTitle}>Thanks - your feedback has been sent.</Text>
-            <Text style={styles.successBody}>We saved your message for the {APP_NAME} team.</Text>
+            <Text style={styles.successBody}>We saved your message for the {APP_NAME} team. For account, privacy, or data requests, you can also contact {SUPPORT_EMAIL_LABEL}.</Text>
             <Pressable onPress={() => router.replace("/settings")} style={styles.primary}>
               <Text style={styles.primaryText}>Done</Text>
             </Pressable>
@@ -109,7 +112,7 @@ export default function SettingsFeedbackScreen() {
               placeholderTextColor={C.mutedSoft}
               style={styles.input}
             />
-            <Text style={styles.helper}>{message.trim().length}/3 minimum characters</Text>
+            <Text style={styles.helper}>For account, privacy, or deletion requests, include the email or username tied to your account. Minimum 3 characters.</Text>
             <Pressable disabled={!canSubmit} onPress={() => { void submit(); }} style={[styles.primary, !canSubmit && { opacity: 0.5 }]}>
               <Text style={styles.primaryText}>{isSubmitting ? "Sending..." : "Send"}</Text>
             </Pressable>
