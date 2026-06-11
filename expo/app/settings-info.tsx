@@ -30,12 +30,12 @@ const CONTENT: Record<InfoPage, {
     subtitle: "Current plan: Free. Premium is coming soon.",
     icon: "premium",
     sections: [
-      { title: "Premium is coming soon", body: "Premium is not available for purchase yet. Every current account is on the Free plan unless a test entitlement is manually granted." },
+      { title: "Premium is coming soon", body: "Premium is not available for purchase yet. Every current account is on the Free plan." },
       { title: "Planned Premium benefits", body: "Future Premium may include an ad-free experience, advanced stats, full result history, more challenge tools, Premium avatar items, themes, and season recaps." },
       { title: "All difficulties stay free", body: "Classic Easy, Medium, Hard, Expert, and Master are playable on the Free plan. Premium is not centred on locking Sudoku difficulty." },
       { title: "Competitive fairness", body: PREMIUM_FAIRNESS_NOTE },
       { title: "Included for everyone", body: "Daily Sudoku, Daily Duel, Ranked Duel, Friend Challenge basic access, leaderboards, Basic stats, Basic result history, and Basic avatar customisation remain available without Premium." },
-      { title: "Payments", body: "Payments, subscriptions, trials, and subscription management are not implemented in this TestFlight build. Any future paid features will be clearly explained before purchase." },
+      { title: "Payments", body: "Payments, subscriptions, trials, and subscription management are not available yet. Any future paid features will be clearly explained before purchase." },
     ],
   },
   help: {

@@ -208,7 +208,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Future ads are disallowed during active puzzles, before result save, matchmaking, leaderboards, profile, settings, and Premium screen.
 - [ ] Premium plan is treated as ad-free by policy.
 - [ ] `user_entitlements` RLS is enabled.
-- [ ] Current user has no entitlement row unless manually granted for testing.
+- [ ] Current user has no active Premium entitlement unless intentionally configured for QA.
 
 ## M. Results / History / Stats
 
