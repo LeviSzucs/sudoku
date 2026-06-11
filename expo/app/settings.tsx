@@ -10,6 +10,7 @@ import Card from "@/components/Card";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { buttonShadow } from "@/constants/depth";
+import { SHOW_DEVELOPER_TOOLS } from "@/constants/developer";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { printActionAuditReport } from "@/lib/actionAudit";
@@ -52,6 +53,7 @@ export default function SettingsScreen() {
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [hapticsEnabled, setHapticsEnabled] = useState<boolean>(true);
   const dailyDiagnostics = diagnostics.daily;
+  const developerToolsEnabled = SHOW_DEVELOPER_TOOLS && profile.settings.devMode;
 
   useEffect(() => { if (params.panel) setPanel(params.panel); }, [params.panel]);
   useEffect(() => {
@@ -169,16 +171,16 @@ export default function SettingsScreen() {
           </Pressable>
         ) : null}
 
-        {profile.settings.devMode ? (
+        {developerToolsEnabled ? (
           <View style={styles.devSection}>
             <View style={styles.devHeader}><FlaskConical size={16} color={C.muted} /><Text style={styles.devTitle}>Developer Tools</Text></View>
             <View style={styles.devButtons}>
-              <DevButton label="Simulate Result" onPress={() => { simulateResult(); }} />
-              <DevButton label="Ranked Win" onPress={() => { simulateRankedWin(); }} />
-              <DevButton label="Ranked Loss" onPress={() => { simulateRankedLoss(); }} />
-              <DevButton label="Reset Local" onPress={resetLocalProfile} />
-              <DevButton label="Backend Diagnostics" onPress={() => setPanel("backend")} />
-              <DevButton label="Action Report" onPress={() => Alert.alert("Action Report", printActionAuditReport())} />
+              <DevButton label="Simulate Result" onPress={() => { if (developerToolsEnabled) simulateResult(); }} />
+              <DevButton label="Ranked Win" onPress={() => { if (developerToolsEnabled) simulateRankedWin(); }} />
+              <DevButton label="Ranked Loss" onPress={() => { if (developerToolsEnabled) simulateRankedLoss(); }} />
+              <DevButton label="Reset Local" onPress={() => { if (developerToolsEnabled) resetLocalProfile(); }} />
+              <DevButton label="Backend Diagnostics" onPress={() => { if (developerToolsEnabled) setPanel("backend"); }} />
+              <DevButton label="Action Report" onPress={() => { if (developerToolsEnabled) Alert.alert("Action Report", printActionAuditReport()); }} />
             </View>
           </View>
         ) : null}
@@ -200,7 +202,7 @@ export default function SettingsScreen() {
         <View style={styles.backdrop}><Card style={styles.modalCard}><Text style={styles.modalTitle}>Privacy</Text><Toggle label="Public profile" value={privacy.publicProfile} onValueChange={(value) => { setSettingsError(null); setPrivacy((current) => ({ ...current, publicProfile: value })); }} /><Toggle label="Show stats publicly" value={privacy.showStatsPublicly} onValueChange={(value) => { setSettingsError(null); setPrivacy((current) => ({ ...current, showStatsPublicly: value })); }} /><Toggle label="Show recent results publicly" value={privacy.showRecentResultsPublicly} onValueChange={(value) => { setSettingsError(null); setPrivacy((current) => ({ ...current, showRecentResultsPublicly: value })); }} /><Toggle label="Allow friend challenges" value={privacy.allowFriendChallenges} onValueChange={(value) => { setSettingsError(null); setPrivacy((current) => ({ ...current, allowFriendChallenges: value })); }} />{settingsError ? <Text style={styles.error}>{settingsError}</Text> : null}<Actions onCancel={closePanel} onSave={() => { void savePrivacy(); }} saveLabel={settingsSaving ? "Saving..." : "Done"} disabled={settingsSaving} /></Card></View>
       </Modal>
 
-      <Modal visible={panel === "backend"} transparent animationType="slide" onRequestClose={() => setPanel(null)}>
+      <Modal visible={developerToolsEnabled && panel === "backend"} transparent animationType="slide" onRequestClose={() => setPanel(null)}>
         <View style={styles.backdrop}><Card style={styles.modalCard}><ScrollView showsVerticalScrollIndicator={false}><View style={styles.modalHeader}><Database size={20} color={C.ink} /><Text style={styles.modalTitle}>Backend Diagnostics</Text></View><Diagnostic label="Supabase URL configured" value={supabaseConfigDiagnostics.urlConfigured ? "Yes" : "No"} /><Diagnostic label="Supabase URL host" value={supabaseConfigDiagnostics.urlHost || "None"} /><Diagnostic label="Supabase URL valid" value={supabaseConfigDiagnostics.urlValid ? "Yes" : "No"} /><Diagnostic label="Session" value={diagnostics.sessionStatus} /><Diagnostic label="User ID" value={diagnostics.userId ?? "None"} /><Diagnostic label="Profile loaded" value={diagnostics.profileLoaded ? "Yes" : "No"} /><Diagnostic label="Recent results" value={String(diagnostics.recentResultsCount)} /><Diagnostic label="Active sessions" value={String(diagnostics.activeSessionCount)} /><Diagnostic label="Last error" value={diagnostics.lastError ?? "None"} /><Text style={styles.devTitle}>Daily Diagnostics</Text><Diagnostic label="Current auth user id" value={dailyDiagnostics?.currentUserId ?? "None"} /><Diagnostic label="Today dateStr" value={dailyDiagnostics?.todayDateStr ?? "None"} /><Diagnostic label="Assigned puzzle_id" value={dailyDiagnostics?.assignedDailyPuzzleId ?? "None"} /><Diagnostic label="Replay query rows" value={String(dailyDiagnostics?.replayQueryResultCount ?? "N/A")} /><Diagnostic label="Leaderboard RPC rows" value={String(dailyDiagnostics?.leaderboardRpcResultCount ?? "N/A")} /><Diagnostic label="Daily errors" value={formatDiagnosticValue(dailyDiagnostics?.errors)} /><View style={styles.devButtons}><DevButton label="Test read" onPress={() => { void showResult("Supabase read", testSupabaseRead); }} /><DevButton label="Test write" onPress={() => { void showResult("Supabase write", testSupabaseWrite); }} /><DevButton label="Test Daily Result Query" onPress={() => { void showResult("Daily result query", testDailyResultQuery); }} /><DevButton label="Repair rows" onPress={() => { void showResult("Repair profile rows", repairMissingProfileRows); }} /><DevButton label="Repair sessions" onPress={() => { void showResult("Repair completed sessions", repairCompletedSessions); }} /></View><Actions onCancel={() => setPanel(null)} onSave={() => setPanel(null)} /></ScrollView></Card></View>
       </Modal>
     </SafeAreaView>
