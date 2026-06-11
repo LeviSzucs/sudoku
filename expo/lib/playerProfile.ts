@@ -15,6 +15,15 @@ export interface RecentResult extends PuzzleResult {
   won?: boolean | null;
 }
 
+export type DuelMatchMode = "daily_duel" | "friend_challenge" | "ranked_duel";
+
+export interface DuelMatchSummary {
+  match_id: string;
+  mode: DuelMatchMode;
+  completed_at: string;
+  result_outcome: RankOutcome;
+}
+
 export interface AchievementBadge {
   badge_id: string;
   name: string;
@@ -72,6 +81,7 @@ export interface PlayerProfile extends CharacterAvatarConfig {
   ranked_won: number;
   badges_unlocked: AchievementBadge[];
   recent_results: RecentResult[];
+  duel_match_history: DuelMatchSummary[];
   last_completed_date: string | null;
   easy_completed: number;
   medium_completed: number;
@@ -197,7 +207,7 @@ export function createInitialPlayerProfile(withMockProgress = true): PlayerProfi
     puzzles_completed: withMockProgress ? 18 : 0, flawless_puzzles: withMockProgress ? 6 : 0, total_mistakes: withMockProgress ? 14 : 0, total_hints_used: withMockProgress ? 5 : 0,
     best_times_by_difficulty: withMockProgress ? { Easy: 171, Medium: 292, Hard: 612 } : {},
     duels_played: withMockProgress ? 7 : 0, duels_won: withMockProgress ? 4 : 0, ranked_played: withMockProgress ? 3 : 0, ranked_won: withMockProgress ? 2 : 0,
-    badges_unlocked: BADGE_DEFINITIONS.map((b) => ({ ...b, unlocked: false, unlocked_at: null, progress_current: 0 })), recent_results: [], last_completed_date: withMockProgress ? new Date().toISOString().slice(0, 10) : null,
+    badges_unlocked: BADGE_DEFINITIONS.map((b) => ({ ...b, unlocked: false, unlocked_at: null, progress_current: 0 })), recent_results: [], duel_match_history: [], last_completed_date: withMockProgress ? new Date().toISOString().slice(0, 10) : null,
     easy_completed: withMockProgress ? 9 : 0, medium_completed: withMockProgress ? 6 : 0, hard_completed: withMockProgress ? 3 : 0, expert_completed: 0, master_completed: 0,
     settings: defaultSettings,
   };
@@ -208,6 +218,7 @@ export function createInitialPlayerProfile(withMockProgress = true): PlayerProfi
       mockRecent("mock_daily", "daily", "Easy", 171, 1, 0, 0, 1079, 140, now - 2 * 86400000),
       mockRecent("mock_duel", "duel", "Hard", 612, 2, 1, 2, 3628, 110, now - 3 * 86400000, "win"),
     ];
+    base.duel_match_history = [{ match_id: "mock_duel", mode: "daily_duel", completed_at: new Date(now - 3 * 86400000).toISOString(), result_outcome: "win" }];
     const badgeResult = progressBadges(base, new Date().toISOString());
     base.badges_unlocked = badgeResult.badges;
   }

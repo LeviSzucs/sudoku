@@ -350,7 +350,7 @@ export default function LeaderboardsScreen() {
                       <Text style={styles.metaText}>{entry.time} - {entry.mistakes ?? 0}M {entry.hints ?? 0}H {entry.undos ?? 0}U</Text>
                     ) : null}
                     {tab === "weekly" || tab === "friends" ? (
-                      <Text style={styles.metaText}>{entry.puzzlesCompleted ?? 0} puzzles - best score {(entry.bestScore ?? 0).toLocaleString()} - total time {entry.time}</Text>
+                      <Text style={styles.metaText}>{entry.puzzlesCompleted ?? 0} solves - best score {(entry.bestScore ?? 0).toLocaleString()}</Text>
                     ) : null}
                     {tab === "ranked" ? (
                       <Text style={styles.metaText}>{entry.tier ?? "Bronze III"} - {entry.wins ?? 0}W {entry.losses ?? 0}L {entry.draws ?? 0}D</Text>

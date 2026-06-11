@@ -7,7 +7,7 @@ import type { PuzzleResult, SessionSnapshot } from "@/hooks/useSudokuGame";
 import { getDailyDateKey, getDailyDateWindow } from "@/lib/daily";
 import { logDevDiagnostic, measureAsync } from "@/lib/performanceDiagnostics";
 import { normalizeAvatarConfig, type CharacterAvatarConfig } from "@/lib/avatar";
-import { applyPuzzleResult, createInitialPlayerProfile, createSimulatedResult, getRankFromRp, initialsFromName, normalizeProfile, type AchievementBadge, type BadgeCategory, type PlayerProfile, type ProfileSettings, type ProfileUpdateSummary, type RankOutcome, type RecentResult } from "@/lib/playerProfile";
+import { applyPuzzleResult, createInitialPlayerProfile, createSimulatedResult, getRankFromRp, initialsFromName, normalizeProfile, type AchievementBadge, type BadgeCategory, type DuelMatchSummary, type PlayerProfile, type ProfileSettings, type ProfileUpdateSummary, type RankOutcome, type RecentResult } from "@/lib/playerProfile";
 import { startPuzzleSession as insertPuzzleSession, type StartPuzzleSessionInput } from "@/lib/puzzleSessions";
 import type { ScoreBreakdown } from "@/lib/scoring";
 import { fetchDailyPuzzle } from "@/lib/sudoku";
@@ -505,6 +505,19 @@ function dedupeRecentResults(results: RecentResult[]): RecentResult[] {
   return Array.from(byKey.values()).sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime());
 }
 
+function duelOutcomeForUser(winnerUserId: string | null | undefined, userId: string): RankOutcome {
+  if (!winnerUserId) return "draw";
+  return winnerUserId === userId ? "win" : "loss";
+}
+
+function dedupeDuelMatches(matches: DuelMatchSummary[]): DuelMatchSummary[] {
+  const byKey = new Map<string, DuelMatchSummary>();
+  for (const match of matches) {
+    byKey.set(`${match.mode}:${match.match_id}`, match);
+  }
+  return Array.from(byKey.values()).sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime());
+}
+
 function deterministicResultId(userId: string, result: PuzzleResult, sessionId: string | null): string {
   if (sessionId) return `${userId}_${sessionId}`;
   return `${userId}_${result.puzzle_id}_${result.mode}_${result.difficulty}_${result.completed_at}`;
@@ -698,6 +711,44 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     const next = profileFromRows(p as ProfileRow, s as PlayerStatsRow, settings as UserSettingsRow, empty);
     const resultRows = ((results ?? []) as GameResultRow[]);
     next.recent_results = resultRows.map(resultFromRow);
+    const authoritativeDuelMatches: DuelMatchSummary[] = [];
+    let friendChallengeRowsForStats: Array<Record<string, string | null>> | null = null;
+
+    // Duel win rate is match-record based. game_results.won only describes whether
+    // the puzzle was solved, and duplicate result rows must not affect duel stats.
+    const [{ data: dailyDuelStatRows, error: dailyDuelStatError }, { data: rankedDuelStatRows, error: rankedDuelStatError }, { data: friendChallengeStatRows, error: friendChallengeStatError }] = await Promise.all([
+      supabase
+        .from("daily_duels")
+        .select("duel_id,status,winner_user_id,player_a_id,player_b_id,completed_at")
+        .eq("status", "completed")
+        .or(`player_a_id.eq.${auth.user.id},player_b_id.eq.${auth.user.id}`),
+      supabase
+        .from("ranked_duels")
+        .select("ranked_duel_id,status,winner_user_id,player_a_id,player_b_id,completed_at")
+        .eq("status", "completed")
+        .or(`player_a_id.eq.${auth.user.id},player_b_id.eq.${auth.user.id}`),
+      supabase.rpc("get_friend_challenges"),
+    ]);
+    if (dailyDuelStatError) updateDiagnostics({ lastError: dailyDuelStatError.message });
+    if (rankedDuelStatError) updateDiagnostics({ lastError: rankedDuelStatError.message });
+    if (friendChallengeStatError) updateDiagnostics({ lastError: friendChallengeStatError.message });
+
+    for (const row of (dailyDuelStatRows ?? []) as Array<Record<string, string | null>>) {
+      if (!row.duel_id || !row.completed_at) continue;
+      authoritativeDuelMatches.push({ match_id: row.duel_id, mode: "daily_duel", completed_at: row.completed_at, result_outcome: duelOutcomeForUser(row.winner_user_id, auth.user.id) });
+    }
+    for (const row of (rankedDuelStatRows ?? []) as Array<Record<string, string | null>>) {
+      if (!row.ranked_duel_id || !row.completed_at) continue;
+      authoritativeDuelMatches.push({ match_id: row.ranked_duel_id, mode: "ranked_duel", completed_at: row.completed_at, result_outcome: duelOutcomeForUser(row.winner_user_id, auth.user.id) });
+    }
+    if (Array.isArray(friendChallengeStatRows)) {
+      friendChallengeRowsForStats = friendChallengeStatRows as Array<Record<string, string | null>>;
+      for (const row of friendChallengeRowsForStats) {
+        if (row.status !== "completed" || !row.challenge_id || !row.completed_at) continue;
+        authoritativeDuelMatches.push({ match_id: row.challenge_id, mode: "friend_challenge", completed_at: row.completed_at, result_outcome: duelOutcomeForUser(row.winner_user_id, auth.user.id) });
+      }
+    }
+    next.duel_match_history = dedupeDuelMatches(authoritativeDuelMatches);
 
     if (next.recent_results.some((result) => result.mode === "daily_duel")) {
       const { data: dailyDuelRows, error: dailyDuelError } = await supabase
@@ -781,7 +832,9 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }
 
     if (next.recent_results.some((result) => result.mode === "friend_challenge")) {
-      const { data: friendChallengeRows, error: friendChallengeError } = await supabase.rpc("get_friend_challenges");
+      const { data: friendChallengeRows, error: friendChallengeError } = friendChallengeRowsForStats
+        ? { data: friendChallengeRowsForStats, error: null }
+        : await supabase.rpc("get_friend_challenges");
       if (friendChallengeError) {
         updateDiagnostics({ lastError: friendChallengeError.message });
       } else if (Array.isArray(friendChallengeRows)) {
@@ -818,9 +871,8 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       return acc;
     }, {});
     next.best_times_by_difficulty = computedBestTimes;
-    const duelResults = completedResults.filter((result) => ["duel", "daily_duel", "friend_challenge", "ranked", "ranked_duel"].includes(result.mode));
-    next.duels_played = duelResults.length;
-    next.duels_won = duelResults.filter((result) => result.result_outcome === "win").length;
+    next.duels_played = next.duel_match_history.length;
+    next.duels_won = next.duel_match_history.filter((match) => match.result_outcome === "win").length;
     next.last_completed_date = solvedResults.find((result) => result.mode === "daily")?.completed_at?.slice(0, 10) ?? next.last_completed_date;
     const { data: activeSeason, error: activeSeasonError } = await supabase
       .from("ranked_seasons")

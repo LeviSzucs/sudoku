@@ -1,6 +1,6 @@
 import { Stack, router } from "expo-router";
-import { ChevronLeft } from "lucide-react-native";
-import React, { useMemo } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react-native";
+import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -58,10 +58,10 @@ function calculateStreaks(days: string[]): { current: number; longest: number; m
   return { current, longest, missed: Math.max(0, dayDiff(last) - 1), last };
 }
 
-function monthCalendar(): { key: string; day: number | null; isToday: boolean }[] {
+function monthCalendar(selectedMonth: Date): { key: string; day: number | null; isToday: boolean }[] {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
+  const year = selectedMonth.getFullYear();
+  const month = selectedMonth.getMonth();
   const first = new Date(year, month, 1);
   const totalDays = new Date(year, month + 1, 0).getDate();
   const cells: { key: string; day: number | null; isToday: boolean }[] = [];
@@ -77,8 +77,8 @@ function monthCalendar(): { key: string; day: number | null; isToday: boolean }[
   return cells;
 }
 
-function monthTitle(): string {
-  return new Date().toLocaleDateString(undefined, { month: "long", year: "numeric" });
+function monthTitle(selectedMonth: Date): string {
+  return selectedMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
 
 function isSolvedDaily(result: RecentResult): boolean {
@@ -88,6 +88,10 @@ function isSolvedDaily(result: RecentResult): boolean {
 export default function StreakStatsScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = usePlayerProfile();
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const dailyDays = useMemo(
     () => profile.recent_results.filter(isSolvedDaily).map((result) => result.completed_at.slice(0, 10)),
     [profile.recent_results]
@@ -97,7 +101,15 @@ export default function StreakStatsScreen() {
     [dailyDays]
   );
   const streaks = useMemo(() => calculateStreaks(dailyDays), [dailyDays]);
-  const calendar = useMemo(() => monthCalendar(), []);
+  const calendar = useMemo(() => monthCalendar(selectedMonth), [selectedMonth]);
+  const currentMonth = useMemo(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  }, []);
+  const canGoNext = selectedMonth.getTime() < currentMonth.getTime();
+  const moveMonth = (offset: number) => {
+    setSelectedMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -126,7 +138,15 @@ export default function StreakStatsScreen() {
 
         <Text style={styles.section}>Daily puzzle calendar</Text>
         <Card>
-          <Text style={styles.monthTitle}>{monthTitle()}</Text>
+          <View style={styles.monthHeader}>
+            <Pressable style={styles.monthButton} onPress={() => moveMonth(-1)}>
+              <ChevronLeft color={C.ink} size={18} />
+            </Pressable>
+            <Text style={styles.monthTitle}>{monthTitle(selectedMonth)}</Text>
+            <Pressable style={[styles.monthButton, !canGoNext && styles.monthButtonDisabled]} onPress={() => canGoNext && moveMonth(1)} disabled={!canGoNext}>
+              <ChevronRight color={canGoNext ? C.ink : C.muted} size={18} />
+            </Pressable>
+          </View>
           <View style={styles.weekHeader}>
             {WEEKDAYS.map((day) => <Text key={day} style={styles.weekday}>{day}</Text>)}
           </View>
@@ -174,7 +194,10 @@ const styles = StyleSheet.create({
   miniValue: { color: C.ink, fontWeight: "900", fontSize: 30, marginTop: 4 },
   miniDetail: { color: C.muted, fontWeight: "700" },
   section: { color: C.ink, fontWeight: "900", fontSize: 18, marginTop: 24, marginBottom: 10 },
-  monthTitle: { color: C.ink, fontWeight: "900", fontSize: 18, marginBottom: 12 },
+  monthHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+  monthTitle: { color: C.ink, fontWeight: "900", fontSize: 18 },
+  monthButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
+  monthButtonDisabled: { opacity: 0.42 },
   weekHeader: { flexDirection: "row", gap: 6, marginBottom: 8 },
   weekday: { width: 36, color: C.muted, fontWeight: "900", fontSize: 10, textAlign: "center", textTransform: "uppercase" },
   calendar: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
