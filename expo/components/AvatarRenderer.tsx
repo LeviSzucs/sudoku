@@ -74,29 +74,42 @@ export default function AvatarRenderer({
 
         {avatar.avatar_hair_style === "buzz" ? (
           <>
-            <Path d="M27 38 C26 25 36 17 50 17 C64 17 74 25 73 38 C63 32 37 32 27 38 Z" fill={hair} />
-            <Path d="M30 35 C38 29 62 29 70 35 C66 25 58 22 50 22 C42 22 34 25 30 35 Z" fill={CREAM} opacity="0.08" />
-            <Path d="M28 38 C36 34 64 34 72 38" stroke={INK} strokeWidth="1.4" opacity="0.14" strokeLinecap="round" fill="none" />
+            <Path d="M26 39 C25 24 36 16 50 16 C64 16 75 24 74 39 C68 34 60 32 50 32 C40 32 32 34 26 39 Z" fill={hair} />
+            <Path d="M29 36 C37 31 63 31 71 36" stroke={INK} strokeWidth="1.5" opacity="0.16" strokeLinecap="round" fill="none" />
+            <Path d="M31 31 C40 25 60 25 69 31" stroke={CREAM} strokeWidth="2" opacity="0.08" strokeLinecap="round" fill="none" />
           </>
         ) : null}
-        {avatar.avatar_hair_style === "short" ? <Path d="M25 38 C27 20 44 16 57 20 C68 23 75 31 73 43 C63 35 47 32 32 40 C30 40 27 39 25 38 Z" fill={hair} /> : null}
+        {avatar.avatar_hair_style === "short" ? (
+          <>
+            <Path d="M24 39 C25 24 36 16 50 16 C65 16 76 25 76 41 C67 35 58 33 48 34 C40 34 32 37 24 43 Z" fill={hair} />
+            <Path d="M27 40 C35 34 45 32 55 33 C63 33 70 36 75 41 L73 47 C64 39 38 38 28 47 Z" fill={hair} />
+          </>
+        ) : null}
         {avatar.avatar_hair_style === "side_part" ? (
           <>
-            <Path d="M25 39 C31 19 55 17 73 34 C60 31 48 35 35 45 C31 42 28 40 25 39 Z" fill={hair} />
-            <Path d="M50 22 C45 30 38 37 30 41" stroke={CREAM} strokeWidth="2" opacity="0.16" strokeLinecap="round" />
+            <Path d="M24 40 C28 22 42 16 55 18 C66 20 74 28 77 42 C64 34 51 34 39 41 C34 44 30 46 26 48 Z" fill={hair} />
+            <Path d="M35 24 C45 30 60 31 76 39 C65 26 49 20 35 24 Z" fill={hair} />
+            <Path d="M44 22 C42 30 35 38 27 45" stroke={CREAM} strokeWidth="2.2" opacity="0.18" strokeLinecap="round" />
           </>
         ) : null}
         {avatar.avatar_hair_style === "curly" ? (
           <>
-            {[29, 38, 47, 56, 65, 72].map((cx) => <Circle key={cx} cx={cx} cy={30 + (cx % 2) * 3} r="7.8" fill={hair} />)}
-            <Path d="M24 40 C32 28 68 27 76 41 C66 36 37 36 24 40 Z" fill={hair} />
+            <Path d="M23 42 C25 27 37 18 50 18 C64 18 75 27 77 42 C66 36 34 36 23 42 Z" fill={hair} />
+            {[28, 36, 44, 52, 60, 68, 74].map((cx, index) => <Circle key={cx} cx={cx} cy={31 + (index % 2) * 3} r="7.4" fill={hair} />)}
+            <Path d="M27 42 C37 36 63 36 73 42 L72 48 C63 40 37 40 28 48 Z" fill={hair} />
           </>
         ) : null}
-        {avatar.avatar_hair_style === "long" ? <Path d="M23 39 C26 18 73 18 77 40 L73 69 C68 64 65 53 66 43 C57 34 43 34 34 43 C35 54 32 64 27 69 Z" fill={hair} /> : null}
+        {avatar.avatar_hair_style === "long" ? (
+          <>
+            <Path d="M22 40 C24 20 36 15 50 15 C64 15 76 20 78 40 L75 72 C68 66 65 54 66 43 C59 36 41 36 34 43 C35 54 32 66 25 72 Z" fill={hair} />
+            <Path d="M28 42 C38 33 62 33 72 42 C63 39 37 39 28 42 Z" fill={hair} />
+          </>
+        ) : null}
         {avatar.avatar_hair_style === "bun" ? (
           <>
-            <Circle cx="50" cy="16" r="9" fill={hair} />
-            <Path d="M26 38 C29 21 71 21 74 38 C63 32 37 32 26 38 Z" fill={hair} />
+            <Circle cx="50" cy="15" r="9.5" fill={hair} />
+            <Path d="M25 39 C27 23 38 18 50 18 C62 18 73 23 75 39 C64 33 36 33 25 39 Z" fill={hair} />
+            <Path d="M32 34 C40 28 60 28 68 34" stroke={CREAM} strokeWidth="2" opacity="0.1" strokeLinecap="round" fill="none" />
           </>
         ) : null}
 

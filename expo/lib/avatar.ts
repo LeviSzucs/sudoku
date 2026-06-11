@@ -93,7 +93,7 @@ export function normalizeAvatarConfig(config: CharacterAvatarConfig, legacy?: { 
     avatar_bg_color: config.avatar_bg_color || legacy?.color || DEFAULT_AVATAR_COLOR,
     avatar_initials: (config.avatar_initials || legacy?.initials || DEFAULT_INITIALS).trim().toUpperCase().slice(0, 3),
     avatar_skin_tone: config.avatar_skin_tone || "#D19A6E",
-    avatar_hair_style: config.avatar_hair_style || (legacy?.symbol ? null : "short"),
+    avatar_hair_style: config.avatar_hair_style === undefined ? (legacy?.symbol ? null : "short") : config.avatar_hair_style,
     avatar_hair_color: config.avatar_hair_color || "#6E432D",
     avatar_top_style: config.avatar_top_style || "tee",
     avatar_top_color: config.avatar_top_color || "#1E1B4B",
