@@ -182,6 +182,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Report a problem opens.
 - [ ] Submitting feedback creates a Supabase row.
 - [ ] Help & FAQ opens.
+- [ ] Support opens.
 - [ ] Premium opens.
 - [ ] Terms & Conditions opens.
 - [ ] Privacy Policy opens.
@@ -262,7 +263,14 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] No service role key exists in app code.
 - [ ] No secrets are committed.
 - [ ] Supabase anon key is the only client key present.
-- [ ] Support/legal placeholder copy is clearly marked where not final.
+- [ ] Terms screen has no placeholder copy.
+- [ ] Privacy screen has no placeholder copy.
+- [ ] Support/contact route works.
+- [ ] App privacy disclosures match actual data collection.
+- [ ] Account deletion/request route is explained.
+- [ ] Premium copy does not imply active payments.
+- [ ] TestFlight review notes mention Premium is coming soon and payments are not implemented.
+- [ ] Demo/test account details are prepared before external TestFlight review.
 
 ## R. Release Blockers
 
@@ -435,6 +443,11 @@ limit 20;
 - [ ] Privacy Policy is no longer placeholder copy.
 - [ ] Terms & Conditions are no longer placeholder copy.
 - [ ] Support/contact route works.
+- [ ] App privacy disclosures match actual data collection.
+- [ ] Account deletion/request route is explained in-app.
+- [ ] Premium copy does not imply active payments.
+- [ ] TestFlight review notes mention Premium is coming soon and payments are not implemented.
+- [ ] Demo/test account details are prepared before external TestFlight review.
 - [ ] TestFlight build number/version is set.
 - [ ] App icon is acceptable.
 - [ ] Splash screen is acceptable.

@@ -83,7 +83,7 @@ export default function AvatarEditor({ value, onChange, error }: AvatarEditorPro
         );
       })}
 
-      <Text style={styles.futureNote}>Locked cosmetics are placeholders for future rewards and Premium items.</Text>
+      <Text style={styles.futureNote}>Locked cosmetics preview future rewards and Premium items.</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );

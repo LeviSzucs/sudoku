@@ -145,7 +145,7 @@ export default function StreakStatsScreen() {
 
         <Card style={{ marginTop: 14 }}>
           <Text style={styles.freezeTitle}>Streak Freeze</Text>
-          <Text style={styles.freezeText}>Premium placeholder: protect a streak when life gets busy. Coming later.</Text>
+          <Text style={styles.freezeText}>Coming soon: protect a streak when life gets busy.</Text>
         </Card>
       </ScrollView>
     </SafeAreaView>

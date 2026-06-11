@@ -9,9 +9,12 @@ import Card from "@/components/Card";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { FREE_FEATURES, FUTURE_PREMIUM_FEATURES, PREMIUM_FAIRNESS_NOTE } from "@/constants/premium";
+import { LEGAL_LAST_UPDATED, PRIVACY_POLICY_VERSION, SUPPORT_EMAIL_LABEL, TERMS_VERSION } from "@/constants/legal";
 import { usePremiumStatus } from "@/hooks/usePremiumStatus";
 
-type InfoPage = "premium" | "help" | "terms" | "privacy";
+type InfoPage = "premium" | "help" | "support" | "terms" | "privacy";
+
+const CONTACT = `Contact us at ${SUPPORT_EMAIL_LABEL}.`;
 
 const CONTENT: Record<InfoPage, {
   eyebrow: string;
@@ -23,18 +26,15 @@ const CONTENT: Record<InfoPage, {
   premium: {
     eyebrow: "PREMIUM",
     title: PREMIUM_NAME,
-    subtitle: "Premium is coming soon.",
+    subtitle: "Current plan: Free. Premium is coming soon.",
     icon: "premium",
     sections: [
-      { title: "Advanced stats", body: "Deeper solve trends, difficulty splits, and long-term performance insights." },
-      { title: "More puzzle history", body: "A deeper results archive with richer filtering for solo practice and review." },
-      { title: "Expert & Master solo practice", body: "Future Premium can expand advanced Classic practice without changing competitive fairness." },
-      { title: "Premium themes", body: "Extra visual themes for the app experience." },
-      { title: "Avatar cosmetics", body: "More character items, frames, and profile cosmetics." },
-      { title: "Season/ranked cosmetic rewards", body: "Ranked cosmetics can show achievement, but they will stay cosmetic only." },
-      { title: "Fair play promise", body: PREMIUM_FAIRNESS_NOTE },
-      { title: "Current access", body: "Daily Sudoku, Daily Duel, Ranked Duel, Friend Challenge, leaderboards, and current gameplay remain available without Premium." },
-      { title: "Subscriptions", body: "Payments and subscription management are not implemented yet." },
+      { title: "Premium is coming soon", body: "Premium is not available for purchase yet. Every current account is on the Free plan unless a test entitlement is manually granted." },
+      { title: "Planned Premium areas", body: "Future Premium may include advanced stats, deeper results history, extra themes, profile cosmetics, puzzle archive access, and additional solo practice options." },
+      { title: "Expert & Master solo practice", body: "Expert and Master can be marked as future Premium solo practice, but Premium restrictions are not active for testing in this build." },
+      { title: "Competitive fairness", body: PREMIUM_FAIRNESS_NOTE },
+      { title: "Included for everyone", body: "Daily Sudoku, Daily Duel, Ranked Duel, Friend Challenge, leaderboards, and current profile features remain available without Premium." },
+      { title: "Payments", body: "Payments, subscriptions, trials, and subscription management are not implemented in this TestFlight build. Any future paid features will be clearly explained before purchase." },
     ],
   },
   help: {
@@ -43,36 +43,79 @@ const CONTENT: Record<InfoPage, {
     subtitle: "Quick answers for the current SudoDuel build.",
     icon: "help",
     sections: [
-      { title: "Daily modes", body: "Daily Sudoku is one solo attempt per assigned puzzle. Daily Duel matches you asynchronously against another player on the same board." },
-      { title: "Duels", body: "Friend Challenge, Daily Duel, and Ranked Duel use final score first, then time and completion timestamp as tiebreakers." },
-      { title: "Failed attempts", body: "A failed Daily, Daily Duel, Friend Challenge, or Ranked Duel attempt is final and still appears in Results History." },
+      { title: "What is Daily Sudoku?", body: "Daily Sudoku is a solo puzzle assigned for the day. You get one official attempt, and successful solves can count toward daily stats and relevant leaderboards." },
+      { title: "What is Daily Duel?", body: "Daily Duel matches you asynchronously with another player on the same daily duel puzzle. The winner is decided by highest final score, then elapsed time, then completion time." },
+      { title: "What is Ranked Duel?", body: "Ranked Duel is an asynchronous competitive match against another player near your RP. Completed matches can change RP. Cancelling while still searching does not count as a match." },
+      { title: "How does RP work?", body: "RP changes after completed Ranked Duel matches. Wins, losses, draws, opponent strength, and the final match result can affect RP. Ranked queue cancellation does not award or remove RP." },
+      { title: "What are streaks?", body: "Streaks track successfully solved Daily Sudoku puzzles. Failed or abandoned attempts may be saved as final attempts, but they do not extend solved streaks." },
+      { title: "Why did my result not count?", body: "A result may be excluded from solved stats if the puzzle was failed, abandoned, duplicated, or not finalised correctly. Rankings and stats may be corrected if data integrity issues are found." },
+      { title: "What is SudoDuel Premium?", body: "Premium is a coming-soon plan for extra experience and cosmetic features. Premium is not currently available for purchase." },
+      { title: "Can Premium affect Ranked RP?", body: "No. Premium will never boost Ranked RP, leaderboard scores, duel outcomes, or competitive matchmaking results." },
+      { title: "How do I report a bug?", body: "Use Settings > Report a problem and include what you were doing, which mode you were playing, and what happened." },
+      { title: "How do I request account deletion?", body: `In-app self-service account deletion is not currently available. Contact support at ${SUPPORT_EMAIL_LABEL} to request account or data deletion.` },
+    ],
+  },
+  support: {
+    eyebrow: "SUPPORT",
+    title: "Support",
+    subtitle: "Help, feedback, bug reports, and account requests.",
+    icon: "help",
+    sections: [
+      { title: "Contact support", body: `Need help with ${APP_NAME}? Send feedback or report an issue from the app. For account, privacy, or data requests, contact ${SUPPORT_EMAIL_LABEL}.` },
+      { title: "Report a bug", body: "Use Report a problem for crashes, broken screens, missing results, incorrect stats, or anything that blocks play." },
+      { title: "Feedback", body: "Use Send feedback for suggestions about puzzle difficulty, avatars, leaderboards, Premium ideas, or general product feedback." },
+      { title: "Account and data requests", body: "For account access, privacy questions, data export requests, or deletion requests, contact support and include the email or username tied to your account." },
+      { title: "Useful categories", body: "Bug report, Account issue, Gameplay/result issue, Ranked Duel issue, Feedback, and Privacy/data request." },
+      { title: "Response expectations", body: "During TestFlight, support responses may be slower than a public release. We will prioritise account, privacy, data, crash, and result-integrity issues." },
     ],
   },
   terms: {
     eyebrow: "LEGAL",
-    title: "Terms & Conditions",
-    subtitle: "Development placeholder.",
+    title: "Terms of Use",
+    subtitle: `Version ${TERMS_VERSION} - Last updated ${LEGAL_LAST_UPDATED}`,
     icon: "legal",
     sections: [
-      { title: "Review required", body: "These terms are placeholder copy for development and must be replaced with final legal terms before App Store release." },
-      { title: "Current product", body: `${APP_NAME} is in active development. Features, scoring, rankings, and availability may change before release.` },
+      { title: "About SudoDuel", body: `${APP_NAME} is a competitive Sudoku puzzle game with solo puzzles, daily play, asynchronous duels, ranked progression, leaderboards, profile stats, avatars, friends, and feedback tools.` },
+      { title: "Eligibility", body: "You are responsible for using the app in a lawful way and only if you are allowed to use online game services in your location. If you are under the age required by your region, use the app only with permission from a parent or guardian." },
+      { title: "Your account", body: "You are responsible for your account activity, display name, username, avatar choices, and keeping access to your sign-in method secure. Do not impersonate another person or use misleading profile information." },
+      { title: "Fair play", body: "SudoDuel is designed to be competitive but fair. Do not use cheats, automation, exploits, modified clients, or other methods that give an unfair advantage." },
+      { title: "Game results, rankings, and stats", body: "Scores, RP, streaks, results, leaderboards, achievements, and stats may be recalculated or corrected if we identify bugs, duplicate results, abuse, exploits, or data integrity issues." },
+      { title: "Usernames, avatars, and profile content", body: "Choose usernames, display names, avatars, and feedback content that are respectful and do not impersonate others, harass people, include hate or abuse, or violate another person's rights." },
+      { title: "Premium features", body: "Premium features are not currently available. Any future paid features will be clearly explained before purchase. Premium will not provide competitive advantages in Ranked Duel, Daily Duel, Friend Challenge, or leaderboards." },
+      { title: "Acceptable use", body: "Do not attack, disrupt, scrape, overload, reverse engineer, exploit, or interfere with the app, backend, matchmaking, scoring, leaderboards, feedback tools, or other users." },
+      { title: "Service availability", body: "SudoDuel is in TestFlight and may have downtime, bugs, resets, balance changes, or unavailable features. Some features may change before public release." },
+      { title: "Changes to the app", body: "We may update, add, remove, rebalance, or rename features during testing. We may also update these Terms as the product evolves." },
+      { title: "Limitation of liability", body: "To the fullest extent allowed by law, SudoDuel is provided as-is for testing and entertainment. We are not responsible for indirect losses, lost progress, unavailable service, or issues outside our reasonable control." },
+      { title: "Contact us", body: CONTACT },
     ],
   },
   privacy: {
     eyebrow: "LEGAL",
     title: "Privacy Policy",
-    subtitle: "Development placeholder.",
+    subtitle: `Version ${PRIVACY_POLICY_VERSION} - Last updated ${LEGAL_LAST_UPDATED}`,
     icon: "legal",
     sections: [
-      { title: "Review required", body: "This privacy policy is placeholder copy for development and must be replaced with final legal language before App Store release." },
-      { title: "Data areas", body: "The app uses account profile data, gameplay results, leaderboard entries, friend relationships, and support feedback to operate current features." },
+      { title: "What we collect", body: "SudoDuel may store your account identifier from the authentication provider, display name, username handle, avatar settings, user settings, friend relationships, feedback submissions, and support/report messages." },
+      { title: "Game and progress data", body: "We store puzzle progress, continue state, completed and failed attempts, mode, difficulty, score, elapsed time, mistakes, hints, undos, XP, RP changes, streak information, leaderboard records, ranked duel records, daily duel records, and friend challenge records." },
+      { title: "How we use data", body: "We use your data to operate the app, save progress, calculate scores, run duels, maintain leaderboards, provide support, investigate bugs, prevent abuse, and improve reliability." },
+      { title: "Game data and leaderboards", body: "Some profile and gameplay information can be visible to other players, such as display name, username, avatar, rank, leaderboard position, duel outcome, and public challenge or friend-related information needed for gameplay." },
+      { title: "Feedback and support", body: "When you send feedback or report a problem, we store the category, message, account identifier if signed in, app version if available, and submission time so we can review and respond to issues." },
+      { title: "Premium and payments", body: "Premium payments are not currently implemented. SudoDuel does not currently process subscription payments or store payment details in this build." },
+      { title: "Data sharing", body: "SudoDuel does not currently sell personal data. We use backend service providers, such as Supabase, to operate account, profile, gameplay, and feedback features." },
+      { title: "Advertising and tracking", body: "SudoDuel does not currently include third-party advertising. If this changes, this policy and app privacy disclosures should be updated before release." },
+      { title: "Data storage and security", body: "We use backend access controls and authentication to protect user-owned data. No system can be guaranteed perfectly secure, especially during beta testing." },
+      { title: "Your choices", body: "You can update profile information, avatar settings, notification preferences, and privacy settings in the app. Some game results and duel records are kept to preserve competitive integrity." },
+      { title: "Account deletion", body: `In-app self-service account deletion is not currently available. Contact ${SUPPORT_EMAIL_LABEL} to request account deletion or a data request.` },
+      { title: "Children", body: "SudoDuel is not intended to knowingly collect personal data from children below the age required by applicable law without appropriate permission." },
+      { title: "Changes to this policy", body: "We may update this Privacy Policy as SudoDuel changes. App privacy disclosures should match the app's actual data collection before public release." },
+      { title: "Contact us", body: CONTACT },
     ],
   },
 };
 
 function getPage(value: string | string[] | undefined): InfoPage {
   const page = Array.isArray(value) ? value[0] : value;
-  return page === "help" || page === "terms" || page === "privacy" || page === "premium" ? page : "help";
+  return page === "help" || page === "support" || page === "terms" || page === "privacy" || page === "premium" ? page : "help";
 }
 
 function PageIcon({ type }: { type: "premium" | "help" | "legal" }) {
@@ -134,11 +177,11 @@ export default function SettingsInfoScreen() {
             <View style={[styles.featureStrip, styles.divider]}>
               <Text style={styles.featureStripTitle}>Planned Premium areas</Text>
               <Text style={styles.featureStripBody}>
-                {FUTURE_PREMIUM_FEATURES.map((feature) => feature.title).join(" · ")}
+                {FUTURE_PREMIUM_FEATURES.map((feature) => feature.title).join(" - ")}
               </Text>
               <Text style={[styles.featureStripTitle, { marginTop: 14 }]}>Included for everyone</Text>
               <Text style={styles.featureStripBody}>
-                {FREE_FEATURES.slice(0, 5).map((feature) => feature.title).join(" · ")}
+                {FREE_FEATURES.slice(0, 5).map((feature) => feature.title).join(" - ")}
               </Text>
             </View>
           ) : null}
@@ -161,7 +204,7 @@ const styles = StyleSheet.create({
   icon: { width: 42, height: 42, borderRadius: 14, backgroundColor: C.bgElevated, alignItems: "center", justifyContent: "center" },
   eyebrow: { color: C.muted, fontSize: 11, fontWeight: "900", letterSpacing: 1.4 },
   title: { color: C.ink, fontSize: 28, fontWeight: "900", letterSpacing: -0.6, marginTop: 2 },
-  sub: { color: C.muted, fontSize: 13, fontWeight: "700", marginTop: 4 },
+  sub: { color: C.muted, fontSize: 13, fontWeight: "700", marginTop: 4, lineHeight: 18 },
   section: { paddingVertical: 10 },
   divider: { borderBottomWidth: 1, borderBottomColor: C.border, paddingBottom: 16, marginBottom: 6 },
   sectionTitle: { color: C.ink, fontSize: 16, fontWeight: "900" },
