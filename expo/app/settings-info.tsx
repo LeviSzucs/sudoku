@@ -6,6 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import BrandMark from "@/components/BrandMark";
 import Card from "@/components/Card";
+import { AD_POLICY_NOTE } from "@/constants/ads";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { FREE_FEATURES, FUTURE_PREMIUM_FEATURES, PREMIUM_FAIRNESS_NOTE } from "@/constants/premium";
@@ -30,10 +31,10 @@ const CONTENT: Record<InfoPage, {
     icon: "premium",
     sections: [
       { title: "Premium is coming soon", body: "Premium is not available for purchase yet. Every current account is on the Free plan unless a test entitlement is manually granted." },
-      { title: "Planned Premium areas", body: "Future Premium may include advanced stats, deeper results history, extra themes, profile cosmetics, puzzle archive access, and additional solo practice options." },
-      { title: "Expert & Master solo practice", body: "Expert and Master can be marked as future Premium solo practice, but Premium restrictions are not active for testing in this build." },
+      { title: "Planned Premium benefits", body: "Future Premium may include an ad-free experience, advanced stats, full result history, more challenge tools, Premium avatar items, themes, and season recaps." },
+      { title: "All difficulties stay free", body: "Classic Easy, Medium, Hard, Expert, and Master are playable on the Free plan. Premium is not centred on locking Sudoku difficulty." },
       { title: "Competitive fairness", body: PREMIUM_FAIRNESS_NOTE },
-      { title: "Included for everyone", body: "Daily Sudoku, Daily Duel, Ranked Duel, Friend Challenge, leaderboards, and current profile features remain available without Premium." },
+      { title: "Included for everyone", body: "Daily Sudoku, Daily Duel, Ranked Duel, Friend Challenge basic access, leaderboards, Basic stats, Basic result history, and Basic avatar customisation remain available without Premium." },
       { title: "Payments", body: "Payments, subscriptions, trials, and subscription management are not implemented in this TestFlight build. Any future paid features will be clearly explained before purchase." },
     ],
   },
@@ -51,6 +52,7 @@ const CONTENT: Record<InfoPage, {
       { title: "Why did my result not count?", body: "A result may be excluded from solved stats if the puzzle was failed, abandoned, duplicated, or not finalised correctly. Rankings and stats may be corrected if data integrity issues are found." },
       { title: "What is SudoDuel Premium?", body: "Premium is a coming-soon plan for extra experience and cosmetic features. Premium is not currently available for purchase." },
       { title: "Can Premium affect Ranked RP?", body: "No. Premium will never boost Ranked RP, leaderboard scores, duel outcomes, or competitive matchmaking results." },
+      { title: "Are there ads?", body: "Free accounts may see occasional ads at natural breaks in the future, never during an active puzzle or before a result is saved. Premium removes ads. No real ad SDK is active in this build." },
       { title: "How do I report a bug?", body: "Use Settings > Report a problem and include what you were doing, which mode you were playing, and what happened." },
       { title: "How do I request account deletion?", body: `In-app self-service account deletion is not currently available. Contact support at ${SUPPORT_EMAIL_LABEL} to request account or data deletion.` },
     ],
@@ -81,7 +83,7 @@ const CONTENT: Record<InfoPage, {
       { title: "Fair play", body: "SudoDuel is designed to be competitive but fair. Do not use cheats, automation, exploits, modified clients, or other methods that give an unfair advantage." },
       { title: "Game results, rankings, and stats", body: "Scores, RP, streaks, results, leaderboards, achievements, and stats may be recalculated or corrected if we identify bugs, duplicate results, abuse, exploits, or data integrity issues." },
       { title: "Usernames, avatars, and profile content", body: "Choose usernames, display names, avatars, and feedback content that are respectful and do not impersonate others, harass people, include hate or abuse, or violate another person's rights." },
-      { title: "Premium features", body: "Premium features are not currently available. Any future paid features will be clearly explained before purchase. Premium will not provide competitive advantages in Ranked Duel, Daily Duel, Friend Challenge, or leaderboards." },
+      { title: "Premium features", body: "Premium features are not currently available. Future Premium may remove ads and add richer stats, history, cosmetics, season identity, and duel tools. Premium will not provide competitive advantages in Ranked Duel, Daily Duel, Friend Challenge, or leaderboards." },
       { title: "Acceptable use", body: "Do not attack, disrupt, scrape, overload, reverse engineer, exploit, or interfere with the app, backend, matchmaking, scoring, leaderboards, feedback tools, or other users." },
       { title: "Service availability", body: "SudoDuel is in TestFlight and may have downtime, bugs, resets, balance changes, or unavailable features. Some features may change before public release." },
       { title: "Changes to the app", body: "We may update, add, remove, rebalance, or rename features during testing. We may also update these Terms as the product evolves." },
@@ -102,7 +104,8 @@ const CONTENT: Record<InfoPage, {
       { title: "Feedback and support", body: "When you send feedback or report a problem, we store the category, message, account identifier if signed in, app version if available, and submission time so we can review and respond to issues." },
       { title: "Premium and payments", body: "Premium payments are not currently implemented. SudoDuel does not currently process subscription payments or store payment details in this build." },
       { title: "Data sharing", body: "SudoDuel does not currently sell personal data. We use backend service providers, such as Supabase, to operate account, profile, gameplay, and feedback features." },
-      { title: "Advertising and tracking", body: "SudoDuel does not currently include third-party advertising. If this changes, this policy and app privacy disclosures should be updated before release." },
+      // TODO: Update privacy disclosures before enabling a real ad SDK or tracking.
+      { title: "Advertising and tracking", body: "SudoDuel does not currently include a real ad SDK or third-party advertising network. Ads are planned for Free accounts at natural breaks only. Before enabling a real ad SDK, this policy and app privacy disclosures must be updated." },
       { title: "Data storage and security", body: "We use backend access controls and authentication to protect user-owned data. No system can be guaranteed perfectly secure, especially during beta testing." },
       { title: "Your choices", body: "You can update profile information, avatar settings, notification preferences, and privacy settings in the app. Some game results and duel records are kept to preserve competitive integrity." },
       { title: "Account deletion", body: `In-app self-service account deletion is not currently available. Contact ${SUPPORT_EMAIL_LABEL} to request account deletion or a data request.` },
@@ -179,6 +182,7 @@ export default function SettingsInfoScreen() {
               <Text style={styles.featureStripBody}>
                 {FUTURE_PREMIUM_FEATURES.map((feature) => feature.title).join(" - ")}
               </Text>
+              <Text style={styles.adPolicyNote}>{AD_POLICY_NOTE}</Text>
               <Text style={[styles.featureStripTitle, { marginTop: 14 }]}>Included for everyone</Text>
               <Text style={styles.featureStripBody}>
                 {FREE_FEATURES.slice(0, 5).map((feature) => feature.title).join(" - ")}
@@ -223,4 +227,5 @@ const styles = StyleSheet.create({
   featureStrip: { paddingBottom: 16, marginBottom: 6 },
   featureStripTitle: { color: C.gold, fontSize: 12, fontWeight: "900", letterSpacing: 1.1, textTransform: "uppercase" },
   featureStripBody: { color: C.ink, fontSize: 13, fontWeight: "800", lineHeight: 19, marginTop: 8 },
+  adPolicyNote: { color: C.muted, fontSize: 12, fontWeight: "700", lineHeight: 18, marginTop: 10 },
 });

@@ -14,7 +14,6 @@ import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "rea
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Card from "@/components/Card";
-import Pill from "@/components/Pill";
 import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
 import { buttonShadow, cardShadow, premiumShadow } from "@/constants/depth";
@@ -347,10 +346,7 @@ export default function PlayHubScreen() {
                     />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                      <Text style={styles.cardTitle}>{d.key}</Text>
-                      {(d.key === "Expert" || d.key === "Master") ? <Pill label="Future Premium" tone="amber" /> : null}
-                    </View>
+                    <Text style={styles.cardTitle}>{d.key}</Text>
                     <Text style={styles.cardSub}>{checkingClassicDifficulty === d.key ? "Loading..." : d.sub}</Text>
                   </View>
                   <ChevronRight color={C.mutedSoft} size={20} />
@@ -429,7 +425,7 @@ export default function PlayHubScreen() {
           {({ pressed }) => (
             <View style={[styles.premiumHint, { opacity: pressed ? 0.92 : 1 }]}>
               <Sparkles size={14} color={C.gold} />
-              <Text style={styles.premiumHintText}>Premium solo extras coming soon</Text>
+              <Text style={styles.premiumHintText}>Premium extras coming soon: ad-free, stats, history, and cosmetics</Text>
             </View>
           )}
         </Pressable>

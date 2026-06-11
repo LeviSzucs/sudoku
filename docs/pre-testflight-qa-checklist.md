@@ -45,8 +45,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Easy opens.
 - [ ] Medium opens.
 - [ ] Hard opens.
-- [ ] Expert opens or shows clean Premium-coming-soon behavior.
-- [ ] Master opens or shows clean Premium-coming-soon behavior.
+- [ ] Expert opens.
+- [ ] Master opens.
 - [ ] Board renders correctly.
 - [ ] Number pad works.
 - [ ] Number pad tap targets feel reliable on a small phone.
@@ -194,13 +194,19 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Premium coming soon is clear.
 - [ ] Fairness note is visible.
 - [ ] Subscriptions/payment copy says payments are not implemented.
-- [ ] Expert/Master badges are understandable.
-- [ ] Expert/Master remain testable or show clean non-blocking coming-soon behavior.
+- [ ] All Classic difficulties, including Expert and Master, are free.
+- [ ] Premium benefits focus on ad-free experience, stats, history, duel tools, and cosmetics.
+- [ ] Premium does not imply Expert/Master are paywalled.
 - [ ] Daily Sudoku is not paywalled.
 - [ ] Daily Duel is not paywalled.
 - [ ] Ranked Duel is not paywalled.
 - [ ] Friend Challenge is not paywalled.
 - [ ] Leaderboards are not paywalled.
+- [ ] No real ad SDK is integrated.
+- [ ] No tracking or App Tracking Transparency prompt is present.
+- [ ] Ad policy allows future ads only at natural result-screen breaks.
+- [ ] Future ads are disallowed during active puzzles, before result save, matchmaking, leaderboards, profile, settings, and Premium screen.
+- [ ] Premium plan is treated as ad-free by policy.
 - [ ] `user_entitlements` RLS is enabled.
 - [ ] Current user has no entitlement row unless manually granted for testing.
 
@@ -269,6 +275,9 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] App privacy disclosures match actual data collection.
 - [ ] Account deletion/request route is explained.
 - [ ] Premium copy does not imply active payments.
+- [ ] Premium copy does not imply Expert/Master are paywalled.
+- [ ] Ad copy says ads are planned/coming soon if no real ad SDK is active.
+- [ ] App privacy disclosures must be updated before enabling a real ad SDK or tracking.
 - [ ] TestFlight review notes mention Premium is coming soon and payments are not implemented.
 - [ ] Demo/test account details are prepared before external TestFlight review.
 
