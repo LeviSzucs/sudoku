@@ -52,12 +52,12 @@ export const FREE_FEATURES: PremiumFeature[] = [
   { title: "Daily Duel", description: "Fair same-puzzle asynchronous duels.", category: "core", status: "free" },
   { title: "Ranked Duel", description: "Competitive RP matchmaking stays open to everyone.", category: "core", status: "free" },
   { title: "Accept Friend Challenges", description: "Receiving and playing friend challenges remains free.", category: "duel", status: "free" },
-  { title: "Limited Friend Challenge creation", description: `Free accounts can create ${PREMIUM_V1_LIMITS.freeFriendChallengesPerDay} friend challenges per day once limits are enforced.`, category: "duel", status: "free" },
+  { title: "Limited Friend Challenge creation", description: `Free accounts include ${PREMIUM_V1_LIMITS.freeFriendChallengesPerDay} friend challenge creations per day.`, category: "duel", status: "free" },
   { key: "basic_stats", title: "Basic stats", description: "Level, XP, streaks, best times, and rank overview.", category: "stats", status: "free" },
   { key: "basic_achievements", title: "Basic achievements", description: "Launch achievements remain available without Premium.", category: "stats", status: "free" },
   { key: "basic_avatar_customisation", title: "Basic profile and avatar customisation", description: "Core character avatar and profile options remain free.", category: "cosmetics", status: "free" },
-  { key: "basic_result_history", title: "Basic result history", description: `Free accounts can see their most recent ${PREMIUM_V1_LIMITS.freeResultHistoryLimit} results once history limits are enforced.`, category: "stats", status: "free" },
-  { title: "Occasional future ads", description: "Free accounts may later see ads at natural breaks only, never during active puzzles.", category: "experience", status: "free" },
+  { key: "basic_result_history", title: "Basic result history", description: `Free accounts include access to the latest ${PREMIUM_V1_LIMITS.freeResultHistoryLimit} results.`, category: "stats", status: "free" },
+  { title: "Natural-break ads", description: "Free accounts may see occasional ads at natural breaks in a future version. No real ad SDK is active yet.", category: "experience", status: "free" },
 ];
 
 export const FUTURE_PREMIUM_FEATURES: PremiumFeature[] = [
@@ -76,7 +76,7 @@ export const FUTURE_PREMIUM_FEATURES: PremiumFeature[] = [
 export const PREMIUM_ENTITLEMENT_TYPE = "sudoduel_premium";
 export const PAYMENT_SYSTEM_IMPLEMENTED = false;
 export const PREMIUM_FAIRNESS_NOTE = "Premium never boosts Ranked RP, leaderboard scores, matchmaking, or duel outcomes.";
-export const PREMIUM_PURCHASES_NOTE = "Purchases are not available yet. Premium access will be activated through the official app purchase flow before public launch.";
+export const PREMIUM_PURCHASES_NOTE = "Purchases are not available yet. Paid features will be clearly explained before they are offered.";
 export const PREMIUM_DEV_NOTE = "All Classic difficulties are free. Premium focuses on ad-free play, stats, history, cosmetics, and fair duel tools.";
 
 export function planFromPremium(isPremium: boolean): PremiumPlan {

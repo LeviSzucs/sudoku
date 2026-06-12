@@ -211,7 +211,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] `user_entitlements` RLS is enabled.
 - [ ] Current user has no active Premium entitlement unless intentionally configured for QA.
 - [ ] Friend Challenge creation limits are documented as Free: 3 per day and Premium: higher/unlimited.
-- [ ] Free result history limit is documented as latest 20 results once limits are enforced.
+- [ ] Free result history limit is documented as latest 20 results.
 - [ ] Friend Challenge limits, stats limits, history limits, and ad-free behaviour must be retested once payments are integrated.
 
 ## M. Results / History / Stats
