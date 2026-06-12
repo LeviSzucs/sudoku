@@ -191,11 +191,12 @@ Use this checklist before TestFlight builds and before adding another major feat
 ## L. Premium Foundation
 
 - [ ] Premium screen shows Current plan: Free.
-- [ ] Premium coming soon is clear.
+- [ ] Premium purchase flow is clearly marked as not implemented yet.
 - [ ] Fairness note is visible.
 - [ ] Subscriptions/payment copy says payments are not implemented.
 - [ ] All Classic difficulties, including Expert and Master, are free.
 - [ ] Premium benefits focus on ad-free experience, stats, history, duel tools, and cosmetics.
+- [ ] Premium does not affect RP, leaderboard scores, matchmaking, or duel outcomes.
 - [ ] Premium does not imply Expert/Master are paywalled.
 - [ ] Daily Sudoku is not paywalled.
 - [ ] Daily Duel is not paywalled.
@@ -209,6 +210,9 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Premium plan is treated as ad-free by policy.
 - [ ] `user_entitlements` RLS is enabled.
 - [ ] Current user has no active Premium entitlement unless intentionally configured for QA.
+- [ ] Friend Challenge creation limits are documented as Free: 3 per day and Premium: higher/unlimited.
+- [ ] Free result history limit is documented as latest 20 results once limits are enforced.
+- [ ] Friend Challenge limits, stats limits, history limits, and ad-free behaviour must be retested once payments are integrated.
 
 ## M. Results / History / Stats
 
@@ -278,7 +282,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Premium copy does not imply Expert/Master are paywalled.
 - [ ] Ad copy says ads are planned/coming soon if no real ad SDK is active.
 - [ ] App privacy disclosures must be updated before enabling a real ad SDK or tracking.
-- [ ] TestFlight review notes mention Premium is coming soon and payments are not implemented.
+- [ ] TestFlight review notes mention Premium/payments only once the purchase flow exists.
 - [ ] Demo/test account details are prepared before external TestFlight review.
 
 ## R. Release Blockers
@@ -455,7 +459,7 @@ limit 20;
 - [ ] App privacy disclosures match actual data collection.
 - [ ] Account deletion/request route is explained in-app.
 - [ ] Premium copy does not imply active payments.
-- [ ] TestFlight review notes mention Premium is coming soon and payments are not implemented.
+- [ ] TestFlight review notes mention Premium/payments only once the purchase flow exists.
 - [ ] Demo/test account details are prepared before external TestFlight review.
 - [ ] TestFlight build number/version is set.
 - [ ] App icon is acceptable.

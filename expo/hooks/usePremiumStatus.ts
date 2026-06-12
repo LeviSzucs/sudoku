@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { PAYMENT_SYSTEM_IMPLEMENTED, PREMIUM_ENTITLEMENT_TYPE, type PremiumFeatureKey } from "@/constants/premium";
+import {
+  canUsePremiumFeature,
+  PAYMENT_SYSTEM_IMPLEMENTED,
+  planFromPremium,
+  PREMIUM_ENTITLEMENT_TYPE,
+  type PremiumFeatureKey,
+  type PremiumPlan,
+} from "@/constants/premium";
 import { useAuth } from "@/hooks/useAuth";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
-type PremiumPlan = "free" | "premium";
 type EntitlementStatus = "active" | "inactive" | "expired" | "trialing";
 
 interface EntitlementRow {
@@ -75,12 +81,13 @@ export function usePremiumStatus(): PremiumStatus {
   }, [auth.user]);
 
   const isPremium = entitlementIsActive(row);
-  const canUseFeature = useCallback((_feature: PremiumFeatureKey) => {
-    return isPremium;
-  }, [isPremium]);
+  const plan = planFromPremium(isPremium);
+  const canUseFeature = useCallback((feature: PremiumFeatureKey) => {
+    return canUsePremiumFeature(plan, feature);
+  }, [plan]);
 
   return useMemo(() => ({
-    plan: isPremium ? "premium" : "free",
+    plan,
     isPremium,
     isLoading,
     entitlementStatus: row?.status ?? null,
@@ -88,5 +95,5 @@ export function usePremiumStatus(): PremiumStatus {
     expiresAt: row?.expires_at ?? null,
     paymentSystemImplemented: PAYMENT_SYSTEM_IMPLEMENTED,
     canUseFeature,
-  }), [canUseFeature, isLoading, isPremium, row?.expires_at, row?.source, row?.status]);
+  }), [canUseFeature, isLoading, isPremium, plan, row?.expires_at, row?.source, row?.status]);
 }

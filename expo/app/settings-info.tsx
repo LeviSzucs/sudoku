@@ -9,7 +9,7 @@ import Card from "@/components/Card";
 import { AD_POLICY_NOTE } from "@/constants/ads";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
-import { FREE_FEATURES, FUTURE_PREMIUM_FEATURES, PREMIUM_FAIRNESS_NOTE } from "@/constants/premium";
+import { FREE_FEATURES, FUTURE_PREMIUM_FEATURES, PREMIUM_FAIRNESS_NOTE, PREMIUM_PURCHASES_NOTE, PREMIUM_V1_LIMITS } from "@/constants/premium";
 import { LEGAL_LAST_UPDATED, PRIVACY_POLICY_VERSION, SUPPORT_EMAIL_LABEL, TERMS_VERSION } from "@/constants/legal";
 import { usePremiumStatus } from "@/hooks/usePremiumStatus";
 
@@ -27,15 +27,16 @@ const CONTENT: Record<InfoPage, {
   premium: {
     eyebrow: "PREMIUM",
     title: PREMIUM_NAME,
-    subtitle: "Current plan: Free. Premium is coming soon.",
+    subtitle: "Current plan: Free. Purchases are not available yet.",
     icon: "premium",
     sections: [
-      { title: "Premium is coming soon", body: "Premium is not available for purchase yet. Every current account is on the Free plan." },
-      { title: "Planned Premium benefits", body: "Premium may include an ad-free experience, advanced stats, full result history, more challenge tools, Premium avatar items, themes, and season recaps." },
-      { title: "All difficulties stay free", body: "Classic Easy, Medium, Hard, Expert, and Master are playable on the Free plan. Premium is not centred on locking Sudoku difficulty." },
+      { title: "Premium access", body: PREMIUM_PURCHASES_NOTE },
+      { title: "Premium v1 focus", body: "Premium is planned around ad-free play, higher Friend Challenge creation, advanced stats, full result history, head-to-head history, premium avatar items, themes, and season recaps." },
+      { title: "All difficulties stay free", body: "Classic Easy, Medium, Hard, Expert, and Master are playable on the Free plan. Premium is not used to lock core Sudoku difficulty." },
+      { title: "Planned v1 limits", body: `Free accounts include ${PREMIUM_V1_LIMITS.freeFriendChallengesPerDay} Friend Challenge creations per day and the latest ${PREMIUM_V1_LIMITS.freeResultHistoryLimit} results once limits are enforced. Premium raises or removes those caps. These limits are defined centrally but should not interrupt active gameplay or result saving.` },
       { title: "Competitive fairness", body: PREMIUM_FAIRNESS_NOTE },
-      { title: "Included for everyone", body: "Daily Sudoku, Daily Duel, Ranked Duel, Friend Challenge basic access, leaderboards, Basic stats, Basic result history, and Basic avatar customisation remain available without Premium." },
-      { title: "Payments", body: "Payments, subscriptions, trials, and subscription management are not available yet. Any future paid features will be clearly explained before purchase." },
+      { title: "Included for everyone", body: "Unlimited Classic Sudoku, Daily Sudoku, Daily Duel, Ranked Duel fair access, accepting Friend Challenges, leaderboards, achievements, basic stats, basic result history, and basic avatar customisation remain available without Premium." },
+      { title: "Payments", body: "StoreKit, RevenueCat, subscriptions, trials, and subscription management are not integrated yet. Any future paid features will be clearly explained before purchase." },
     ],
   },
   help: {
@@ -50,8 +51,8 @@ const CONTENT: Record<InfoPage, {
       { title: "How does RP work?", body: "RP changes after completed Ranked Duel matches. Wins, losses, draws, opponent strength, and the final match result can affect RP. Ranked queue cancellation does not award or remove RP." },
       { title: "What are streaks?", body: "Streaks track successfully solved Daily Sudoku puzzles. Failed or abandoned attempts may be saved as final attempts, but they do not extend solved streaks." },
       { title: "Why did my result not count?", body: "A result may be excluded from solved stats if the puzzle was failed, abandoned, duplicated, or not finalised correctly. Rankings and stats may be corrected if data integrity issues are found." },
-      { title: "What is SudoDuel Premium?", body: "Premium is a coming-soon plan for extra experience and cosmetic features. Premium is not currently available for purchase." },
-      { title: "Can Premium affect Ranked RP?", body: "No. Premium will never boost Ranked RP, leaderboard scores, duel outcomes, or competitive matchmaking results." },
+      { title: "What is SudoDuel Premium?", body: "Premium is the planned paid plan for ad-free play, deeper stats, fuller history, more fair challenge tools, cosmetics, themes, and season extras. Purchases are not available yet." },
+      { title: "Can Premium affect Ranked RP?", body: "No. Premium never boosts Ranked RP, leaderboard scores, matchmaking, or duel outcomes." },
       { title: "Are there ads?", body: "Free accounts may see occasional ads at natural breaks in the future, never during an active puzzle or before a result is saved. Premium removes ads. No real ad SDK is active in this build." },
       { title: "How do I report a bug?", body: "Use Settings > Report a problem and include what you were doing, which mode you were playing, and what happened." },
       { title: "How do I request account deletion?", body: `In-app self-service account deletion is not currently available. Contact support at ${SUPPORT_EMAIL_LABEL} to request account or data deletion.` },
@@ -83,7 +84,7 @@ const CONTENT: Record<InfoPage, {
       { title: "Fair play", body: "SudoDuel is designed to be competitive but fair. Do not use cheats, automation, exploits, modified clients, or other methods that give an unfair advantage." },
       { title: "Game results, rankings, and stats", body: "Scores, RP, streaks, results, leaderboards, achievements, and stats may be recalculated or corrected if we identify bugs, duplicate results, abuse, exploits, or data integrity issues." },
       { title: "Usernames, avatars, and profile content", body: "Choose usernames, display names, avatars, and feedback content that are respectful and do not impersonate others, harass people, include hate or abuse, or violate another person's rights." },
-      { title: "Premium features", body: "Premium features are not currently available. Premium may remove ads and add richer stats, history, cosmetics, season identity, and duel tools. Premium will not provide competitive advantages in Ranked Duel, Daily Duel, Friend Challenge, or leaderboards." },
+      { title: "Premium features", body: "Premium purchases are not currently available. Premium may remove ads and add richer stats, full history, cosmetics, season identity, and fair duel tools. Premium will not provide competitive advantages in Ranked Duel, Daily Duel, Friend Challenge, or leaderboards." },
       { title: "Acceptable use", body: "Do not attack, disrupt, scrape, overload, reverse engineer, exploit, or interfere with the app, backend, matchmaking, scoring, leaderboards, feedback tools, or other users." },
       { title: "Service availability", body: "SudoDuel is in TestFlight and may have downtime, bugs, resets, balance changes, or unavailable features. Some features may change before public release." },
       { title: "Changes to the app", body: "We may update, add, remove, rebalance, or rename features during testing. We may also update these Terms as the product evolves." },
@@ -102,7 +103,7 @@ const CONTENT: Record<InfoPage, {
       { title: "How we use data", body: "We use your data to operate the app, save progress, calculate scores, run duels, maintain leaderboards, provide support, investigate bugs, prevent abuse, and improve reliability." },
       { title: "Game data and leaderboards", body: "Some profile and gameplay information can be visible to other players, such as display name, username, avatar, rank, leaderboard position, duel outcome, and public challenge or friend-related information needed for gameplay." },
       { title: "Feedback and support", body: "When you send feedback or report a problem, we store the category, message, account identifier if signed in, app version if available, and submission time so we can review and respond to issues." },
-      { title: "Premium and payments", body: "Premium payments are not currently implemented. SudoDuel does not currently process subscription payments or store payment details in this build." },
+      { title: "Premium and payments", body: "Premium payments are not currently implemented. SudoDuel does not currently process subscription payments or store payment details." },
       { title: "Data sharing", body: "SudoDuel does not currently sell personal data. We use backend service providers, such as Supabase, to operate account, profile, gameplay, and feedback features." },
       // TODO: Update privacy disclosures before enabling a real ad SDK or tracking.
       { title: "Advertising and tracking", body: "SudoDuel does not currently include a real ad SDK or third-party advertising network. Ads are planned for Free accounts at natural breaks only. Before enabling a real ad SDK, this policy and app privacy disclosures must be updated." },
@@ -168,17 +169,17 @@ export default function SettingsInfoScreen() {
               <Text style={styles.planBody}>
                 {premium.isPremium
                   ? "Premium entitlement is active for this account."
-                  : "Every account is on the Free plan. All Classic difficulties are free, including Expert and Master."}
+                  : "Current plan: Free. All Classic difficulties are free, including Expert and Master. Purchases are not available yet."}
               </Text>
               <View style={styles.disabledCta}>
-                <Text style={styles.disabledCtaText}>{premium.isPremium ? "Premium active" : "Coming soon"}</Text>
+                <Text style={styles.disabledCtaText}>{premium.isPremium ? "Premium active" : "Purchases unavailable"}</Text>
               </View>
             </View>
           ) : null}
 
           {page === "premium" ? (
             <View style={[styles.featureStrip, styles.divider]}>
-              <Text style={styles.featureStripTitle}>Premium focus</Text>
+              <Text style={styles.featureStripTitle}>Premium v1 focus</Text>
               <Text style={styles.featureStripBody}>
                 {FUTURE_PREMIUM_FEATURES.map((feature) => feature.title).join(" - ")}
               </Text>
