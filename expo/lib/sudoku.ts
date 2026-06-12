@@ -8,7 +8,7 @@ import type { Difficulty } from "@/constants/mockData";
 import { isSupabaseConfigured, supabase, type PuzzleRow, type DailyPuzzleRow } from "@/lib/supabase";
 import { parseTextToBoard, validatePuzzle } from "@/lib/puzzleValidator";
 
-const PREFERRED_PUZZLE_SOURCE = "technique_calibrated_20260607";
+const PREFERRED_PUZZLE_SOURCE = "technique_calibrated_20260613";
 
 export type Board = number[][]; // 9x9, 0 = empty
 export type NotesBoard = number[][][]; // 9x9 of arrays of pencil marks

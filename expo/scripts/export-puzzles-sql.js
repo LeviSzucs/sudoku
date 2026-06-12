@@ -64,9 +64,14 @@ function main() {
   }
 
   ensureDir(path.dirname(outPath));
+  const exportPuzzles = puzzles.map((puzzle) => ({
+    ...puzzle,
+    source: puzzle.source_name ?? puzzle.source,
+  }));
+
   fs.writeFileSync(
     outPath,
-    puzzlesToInsertSql(puzzles, `Append generated puzzle bank from ${path.basename(inputPath)}.`)
+    puzzlesToInsertSql(exportPuzzles, `Append generated puzzle bank from ${path.basename(inputPath)}.`)
   );
   console.log(`Exported ${puzzles.length} puzzles to ${path.relative(process.cwd(), outPath)}`);
 }
