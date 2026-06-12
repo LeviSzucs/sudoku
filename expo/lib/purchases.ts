@@ -50,8 +50,9 @@ type PurchasesModule = {
 
 let purchasesModule: PurchasesModule | null = null;
 let configurePromise: Promise<PurchaseResult<boolean>> | null = null;
-let configuredUserId: string | null = null;
 let hasConfigured = false;
+let configuredApiKey: string | null = null;
+let currentAppUserId: string | null = null;
 
 function unavailable(message = PURCHASES_UNAVAILABLE_MESSAGE): PurchaseResult<never> {
   return { ok: false, error: message, unavailable: true };
@@ -71,11 +72,11 @@ async function loadPurchasesModule(): Promise<PurchaseResult<PurchasesModule>> {
   }
 }
 
-export async function configurePurchases(userId?: string | null): Promise<PurchaseResult<boolean>> {
+export async function configurePurchases(): Promise<PurchaseResult<boolean>> {
   const apiKey = getRevenueCatApiKey().trim();
   if (!apiKey) return unavailable();
 
-  if (hasConfigured && configuredUserId === (userId ?? null)) {
+  if (hasConfigured && configuredApiKey === apiKey) {
     return { ok: true, data: true };
   }
 
@@ -86,12 +87,13 @@ export async function configurePurchases(userId?: string | null): Promise<Purcha
     if (!loaded.ok) return loaded;
 
     try {
-      loaded.data.configure({ apiKey, appUserID: userId ?? undefined });
-      configuredUserId = userId ?? null;
+      loaded.data.configure({ apiKey });
+      configuredApiKey = apiKey;
       hasConfigured = true;
       return { ok: true, data: true };
     } catch (error) {
-      configuredUserId = null;
+      configuredApiKey = null;
+      currentAppUserId = null;
       hasConfigured = false;
       return { ok: false, error: error instanceof Error ? error.message : "Could not configure purchases." };
     } finally {
@@ -103,15 +105,16 @@ export async function configurePurchases(userId?: string | null): Promise<Purcha
 }
 
 export async function identifyPurchasesUser(userId: string): Promise<PurchaseResult<CustomerInfoLike>> {
-  const configured = await configurePurchases(userId);
+  const configured = await configurePurchases();
   if (!configured.ok) return configured;
 
   const loaded = await loadPurchasesModule();
   if (!loaded.ok) return loaded;
 
   try {
-    if (loaded.data.logIn) {
+    if (loaded.data.logIn && currentAppUserId !== userId) {
       const result = await loaded.data.logIn(userId);
+      currentAppUserId = userId;
       return { ok: true, data: result.customerInfo };
     }
     return getCustomerInfo();
@@ -121,18 +124,20 @@ export async function identifyPurchasesUser(userId: string): Promise<PurchaseRes
 }
 
 export async function resetPurchasesUser(): Promise<PurchaseResult<CustomerInfoLike | null>> {
+  currentAppUserId = null;
+
+  if (!hasConfigured) {
+    return { ok: true, data: null };
+  }
+
   const loaded = await loadPurchasesModule();
   if (!loaded.ok) return loaded;
 
   try {
     if (!loaded.data.logOut) {
-      configuredUserId = null;
-      hasConfigured = false;
       return { ok: true, data: null };
     }
     const info = await loaded.data.logOut();
-    configuredUserId = null;
-    hasConfigured = false;
     return { ok: true, data: info };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Could not reset purchases user." };
@@ -140,7 +145,7 @@ export async function resetPurchasesUser(): Promise<PurchaseResult<CustomerInfoL
 }
 
 export async function getCustomerInfo(): Promise<PurchaseResult<CustomerInfoLike>> {
-  const configured = await configurePurchases(configuredUserId);
+  const configured = await configurePurchases();
   if (!configured.ok) return configured;
 
   const loaded = await loadPurchasesModule();
@@ -180,7 +185,7 @@ function mapOffering(offering: any): CurrentOffering | null {
 }
 
 export async function getCurrentOffering(): Promise<PurchaseResult<CurrentOffering | null>> {
-  const configured = await configurePurchases(configuredUserId);
+  const configured = await configurePurchases();
   if (!configured.ok) return configured;
 
   const loaded = await loadPurchasesModule();
@@ -196,7 +201,7 @@ export async function getCurrentOffering(): Promise<PurchaseResult<CurrentOfferi
 }
 
 export async function purchasePackage(pkg: PurchasePackage): Promise<PurchaseResult<CustomerInfoLike>> {
-  const configured = await configurePurchases(configuredUserId);
+  const configured = await configurePurchases();
   if (!configured.ok) return configured;
 
   const loaded = await loadPurchasesModule();
@@ -212,7 +217,7 @@ export async function purchasePackage(pkg: PurchasePackage): Promise<PurchaseRes
 }
 
 export async function restorePurchases(): Promise<PurchaseResult<CustomerInfoLike>> {
-  const configured = await configurePurchases(configuredUserId);
+  const configured = await configurePurchases();
   if (!configured.ok) return configured;
 
   const loaded = await loadPurchasesModule();
@@ -230,6 +235,9 @@ export function isPremiumActive(customerInfo: CustomerInfoLike | null | undefine
 }
 
 export async function subscribeToCustomerInfoUpdates(callback: (customerInfo: CustomerInfoLike) => void): Promise<() => void> {
+  const configured = await configurePurchases();
+  if (!configured.ok) return () => {};
+
   const loaded = await loadPurchasesModule();
   if (!loaded.ok || !loaded.data.addCustomerInfoUpdateListener) return () => {};
 

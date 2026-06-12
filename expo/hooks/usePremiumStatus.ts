@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   canUsePremiumFeature,
@@ -50,18 +50,31 @@ function entitlementIsActive(row: EntitlementRow | null): boolean {
 
 export function usePremiumStatus(): PremiumStatus {
   const auth = useAuth();
+  const userId = auth.user?.id ?? null;
   const [row, setRow] = useState<EntitlementRow | null>(null);
   const [customerInfo, setCustomerInfo] = useState<CustomerInfoLike | null>(null);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const refreshIdRef = useRef(0);
+  const lastUserIdRef = useRef<string | null>(null);
 
   const refresh = useCallback(async (): Promise<void> => {
-    if (!auth.user) {
+    const refreshId = refreshIdRef.current + 1;
+    refreshIdRef.current = refreshId;
+
+    if (!userId) {
       setRow(null);
       setCustomerInfo(null);
       setPurchaseError(null);
       setIsLoading(false);
       return;
+    }
+
+    if (lastUserIdRef.current !== userId) {
+      lastUserIdRef.current = userId;
+      setRow(null);
+      setCustomerInfo(null);
+      setPurchaseError(null);
     }
 
     setIsLoading(true);
@@ -70,42 +83,61 @@ export function usePremiumStatus(): PremiumStatus {
         const { data, error } = await supabase
           .from("user_entitlements")
           .select("entitlement_type,status,source,expires_at")
-          .eq("user_id", auth.user.id)
+          .eq("user_id", userId)
           .eq("entitlement_type", PREMIUM_ENTITLEMENT_TYPE)
           .in("status", ["active", "trialing"])
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
 
-        setRow(error ? null : (data as EntitlementRow | null));
+        if (refreshId === refreshIdRef.current) {
+          setRow(error ? null : (data as EntitlementRow | null));
+        }
       } else {
         setRow(null);
       }
 
-      const identified = await identifyPurchasesUser(auth.user.id);
-      if (identified.ok) {
-        setCustomerInfo(identified.data);
-        setPurchaseError(null);
-      } else {
-        setCustomerInfo(null);
-        setPurchaseError(identified.error);
+      const identified = await identifyPurchasesUser(userId);
+      if (refreshId === refreshIdRef.current) {
+        if (identified.ok) {
+          setCustomerInfo(identified.data);
+          setPurchaseError(null);
+        } else {
+          setCustomerInfo(null);
+          setPurchaseError(identified.error);
+        }
       }
     } catch {
-      setRow(null);
-      setCustomerInfo(null);
-      setPurchaseError("Could not load Premium status.");
+      if (refreshId === refreshIdRef.current) {
+        setRow(null);
+        setCustomerInfo(null);
+        setPurchaseError("Could not load Premium status.");
+      }
     } finally {
-      setIsLoading(false);
+      if (refreshId === refreshIdRef.current) {
+        setIsLoading(false);
+      }
     }
-  }, [auth.user]);
+  }, [userId]);
 
   useEffect(() => {
     let active = true;
     let unsubscribe: (() => void) | undefined;
 
     async function load(): Promise<void> {
+      if (!userId) {
+        refreshIdRef.current += 1;
+        setRow(null);
+        setCustomerInfo(null);
+        setPurchaseError(null);
+        setIsLoading(false);
+        lastUserIdRef.current = null;
+        await resetPurchasesUser();
+        return;
+      }
+
       await refresh();
-      if (!active || !auth.user) return;
+      if (!active) return;
       unsubscribe = await subscribeToCustomerInfoUpdates((nextInfo) => {
         if (active) {
           setCustomerInfo(nextInfo);
@@ -119,13 +151,8 @@ export function usePremiumStatus(): PremiumStatus {
     return () => {
       active = false;
       unsubscribe?.();
-      if (!auth.user) void resetPurchasesUser();
     };
-  }, [auth.user, refresh]);
-
-  useEffect(() => {
-    if (!auth.user) void resetPurchasesUser();
-  }, [auth.user]);
+  }, [refresh, userId]);
 
   const revenueCatPremium = isPremiumActive(customerInfo);
   const isPremium = entitlementIsActive(row) || revenueCatPremium;
@@ -133,7 +160,9 @@ export function usePremiumStatus(): PremiumStatus {
   const canUseFeature = useCallback((feature: PremiumFeatureKey) => {
     return canUsePremiumFeature(plan, feature);
   }, [plan]);
-  const purchaseStatus: PremiumStatus["purchaseStatus"] = revenueCatPremium
+  const purchaseStatus: PremiumStatus["purchaseStatus"] = !PURCHASES_ENABLED
+    ? "unavailable"
+    : revenueCatPremium
     ? "premium"
     : purchaseError
       ? "unavailable"
