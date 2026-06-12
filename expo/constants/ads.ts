@@ -55,7 +55,7 @@ export const AD_FREQUENCY_CAPS = {
   maximumInterstitialsPerDay: 4,
 };
 
-export const AD_POLICY_NOTE = "Ads are planned for Free accounts only at natural breaks. No real ad SDK is integrated yet.";
+export const AD_POLICY_NOTE = "Free accounts may see occasional ads at natural breaks in a future version. No ads will appear during active puzzles or before results are saved. No real ad SDK is active yet.";
 
 export function shouldShowInterstitialAd(input: AdDecisionInput): AdDecision {
   if (input.isPremium) return { shouldShow: false, reason: "Premium users are ad-free." };

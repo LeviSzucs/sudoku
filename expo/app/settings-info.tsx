@@ -31,12 +31,13 @@ const CONTENT: Record<InfoPage, {
     icon: "premium",
     sections: [
       { title: "Premium access", body: PREMIUM_PURCHASES_NOTE },
-      { title: "Premium v1 focus", body: "Premium is planned around ad-free play, higher Friend Challenge creation, advanced stats, full result history, head-to-head history, premium avatar items, themes, and season recaps." },
+      { title: "Premium focus", body: "Premium is planned around ad-free play, more Friend Challenge creation, advanced stats, full result history, head-to-head history, premium themes and avatar items, season recaps and rewards, and the puzzle archive." },
       { title: "All difficulties stay free", body: "Classic Easy, Medium, Hard, Expert, and Master are playable on the Free plan. Premium is not used to lock core Sudoku difficulty." },
-      { title: "Planned v1 limits", body: `Free accounts include ${PREMIUM_V1_LIMITS.freeFriendChallengesPerDay} Friend Challenge creations per day and the latest ${PREMIUM_V1_LIMITS.freeResultHistoryLimit} results once limits are enforced. Premium raises or removes those caps. These limits are defined centrally but should not interrupt active gameplay or result saving.` },
+      { title: "Plan limits", body: `Free includes ${PREMIUM_V1_LIMITS.freeFriendChallengesPerDay} Friend Challenge creations per day and the latest ${PREMIUM_V1_LIMITS.freeResultHistoryLimit} results. Premium raises or removes those limits without changing competitive outcomes.` },
+      { title: "Ads", body: "Free accounts may see occasional ads at natural breaks in a future version. Ads will not appear during active puzzles or before results are saved. Premium removes ads when ads are introduced." },
       { title: "Competitive fairness", body: PREMIUM_FAIRNESS_NOTE },
       { title: "Included for everyone", body: "Unlimited Classic Sudoku, Daily Sudoku, Daily Duel, Ranked Duel fair access, accepting Friend Challenges, leaderboards, achievements, basic stats, basic result history, and basic avatar customisation remain available without Premium." },
-      { title: "Payments", body: "StoreKit, RevenueCat, subscriptions, trials, and subscription management are not integrated yet. Any future paid features will be clearly explained before purchase." },
+      { title: "Payments", body: "Purchases are not available yet. Any future paid features will be clearly explained before purchase." },
     ],
   },
   help: {
@@ -53,7 +54,7 @@ const CONTENT: Record<InfoPage, {
       { title: "Why did my result not count?", body: "A result may be excluded from solved stats if the puzzle was failed, abandoned, duplicated, or not finalised correctly. Rankings and stats may be corrected if data integrity issues are found." },
       { title: "What is SudoDuel Premium?", body: "Premium is the planned paid plan for ad-free play, deeper stats, fuller history, more fair challenge tools, cosmetics, themes, and season extras. Purchases are not available yet." },
       { title: "Can Premium affect Ranked RP?", body: "No. Premium never boosts Ranked RP, leaderboard scores, matchmaking, or duel outcomes." },
-      { title: "Are there ads?", body: "Free accounts may see occasional ads at natural breaks in the future, never during an active puzzle or before a result is saved. Premium removes ads. No real ad SDK is active in this build." },
+      { title: "Are there ads?", body: "Free accounts may see occasional ads at natural breaks in a future version, never during an active puzzle or before a result is saved. Premium removes ads when ads are introduced. No real ad SDK is active yet." },
       { title: "How do I report a bug?", body: "Use Settings > Report a problem and include what you were doing, which mode you were playing, and what happened." },
       { title: "How do I request account deletion?", body: `In-app self-service account deletion is not currently available. Contact support at ${SUPPORT_EMAIL_LABEL} to request account or data deletion.` },
     ],
@@ -103,10 +104,10 @@ const CONTENT: Record<InfoPage, {
       { title: "How we use data", body: "We use your data to operate the app, save progress, calculate scores, run duels, maintain leaderboards, provide support, investigate bugs, prevent abuse, and improve reliability." },
       { title: "Game data and leaderboards", body: "Some profile and gameplay information can be visible to other players, such as display name, username, avatar, rank, leaderboard position, duel outcome, and public challenge or friend-related information needed for gameplay." },
       { title: "Feedback and support", body: "When you send feedback or report a problem, we store the category, message, account identifier if signed in, app version if available, and submission time so we can review and respond to issues." },
-      { title: "Premium and payments", body: "Premium payments are not currently implemented. SudoDuel does not currently process subscription payments or store payment details." },
+      { title: "Premium and payments", body: "Premium purchases are not available yet. SudoDuel does not currently process subscription payments or store payment details." },
       { title: "Data sharing", body: "SudoDuel does not currently sell personal data. We use backend service providers, such as Supabase, to operate account, profile, gameplay, and feedback features." },
       // TODO: Update privacy disclosures before enabling a real ad SDK or tracking.
-      { title: "Advertising and tracking", body: "SudoDuel does not currently include a real ad SDK or third-party advertising network. Ads are planned for Free accounts at natural breaks only. Before enabling a real ad SDK, this policy and app privacy disclosures must be updated." },
+      { title: "Advertising and tracking", body: "SudoDuel does not currently include a real ad SDK or third-party advertising network. If ads are introduced, Free accounts may see occasional ads at natural breaks only, never during active puzzles or before results are saved." },
       { title: "Data storage and security", body: "We use backend access controls and authentication to protect user-owned data. No system can be guaranteed perfectly secure, especially during beta testing." },
       { title: "Your choices", body: "You can update profile information, avatar settings, notification preferences, and privacy settings in the app. Some game results and duel records are kept to preserve competitive integrity." },
       { title: "Account deletion", body: `In-app self-service account deletion is not currently available. Contact ${SUPPORT_EMAIL_LABEL} to request account deletion or a data request.` },
@@ -179,7 +180,7 @@ export default function SettingsInfoScreen() {
 
           {page === "premium" ? (
             <View style={[styles.featureStrip, styles.divider]}>
-              <Text style={styles.featureStripTitle}>Premium v1 focus</Text>
+              <Text style={styles.featureStripTitle}>Premium focus</Text>
               <Text style={styles.featureStripBody}>
                 {FUTURE_PREMIUM_FEATURES.map((feature) => feature.title).join(" - ")}
               </Text>
