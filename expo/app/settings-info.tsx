@@ -1,7 +1,7 @@
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { ChevronLeft, Crown, HelpCircle, Shield } from "lucide-react-native";
-import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import BrandMark from "@/components/BrandMark";
@@ -10,8 +10,10 @@ import { AD_POLICY_NOTE } from "@/constants/ads";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { FREE_FEATURES, FUTURE_PREMIUM_FEATURES, PREMIUM_FAIRNESS_NOTE, PREMIUM_PURCHASES_NOTE, PREMIUM_V1_LIMITS } from "@/constants/premium";
+import { PRODUCT_MONTHLY, PRODUCT_YEARLY, PURCHASES_UNAVAILABLE_MESSAGE } from "@/constants/purchases";
 import { LEGAL_LAST_UPDATED, PRIVACY_POLICY_VERSION, SUPPORT_EMAIL_LABEL, TERMS_VERSION } from "@/constants/legal";
 import { usePremiumStatus } from "@/hooks/usePremiumStatus";
+import { getCurrentOffering, purchasePackage, restorePurchases, type CurrentOffering, type PurchasePackage } from "@/lib/purchases";
 
 type InfoPage = "premium" | "help" | "support" | "terms" | "privacy";
 
@@ -136,6 +138,81 @@ export default function SettingsInfoScreen() {
   const content = CONTENT[page];
   const premium = usePremiumStatus();
   const planLabel = premium.isLoading ? "checking..." : premium.isPremium ? "Premium" : "Free";
+  const [offering, setOffering] = useState<CurrentOffering | null>(null);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [isLoadingOffering, setIsLoadingOffering] = useState(false);
+  const [purchaseAction, setPurchaseAction] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadOffering(): Promise<void> {
+      if (page !== "premium") return;
+      setIsLoadingOffering(true);
+      const result = await getCurrentOffering();
+      if (!active) return;
+      if (result.ok) {
+        setOffering(result.data);
+        setPurchaseError(result.data?.availablePackages.length ? null : "Premium offers are not available yet.");
+      } else {
+        setOffering(null);
+        setPurchaseError(result.unavailable ? PURCHASES_UNAVAILABLE_MESSAGE : result.error);
+      }
+      setIsLoadingOffering(false);
+    }
+
+    void loadOffering();
+    return () => {
+      active = false;
+    };
+  }, [page]);
+
+  const premiumPackages = useMemo(() => {
+    const packages = offering?.availablePackages ?? [];
+    return [...packages].sort((a, b) => {
+      const order = (pkg: PurchasePackage) => {
+        if (pkg.product.identifier === PRODUCT_MONTHLY) return 0;
+        if (pkg.product.identifier === PRODUCT_YEARLY) return 1;
+        return 2;
+      };
+      return order(a) - order(b);
+    });
+  }, [offering?.availablePackages]);
+
+  const handlePurchase = useCallback(async (pkg: PurchasePackage) => {
+    setPurchaseAction(pkg.identifier);
+    const result = await purchasePackage(pkg);
+    setPurchaseAction(null);
+    if (!result.ok) {
+      Alert.alert("Purchase unavailable", result.error);
+      return;
+    }
+    await premium.refresh();
+    Alert.alert("Premium updated", "Your Premium status has been refreshed.");
+  }, [premium]);
+
+  const handleRestore = useCallback(async () => {
+    setPurchaseAction("restore");
+    const result = await restorePurchases();
+    setPurchaseAction(null);
+    if (!result.ok) {
+      Alert.alert("Restore unavailable", result.error);
+      return;
+    }
+    await premium.refresh();
+    Alert.alert("Purchases restored", "Your Premium status has been refreshed.");
+  }, [premium]);
+  const premiumSubtitle = premium.isPremium
+    ? "Current plan: Premium."
+    : premium.paymentSystemImplemented
+      ? "Current plan: Free. Choose a Premium plan below."
+      : "Current plan: Free. Purchases are not available yet.";
+  const premiumAccessBody = premium.paymentSystemImplemented
+    ? "Choose a Premium plan below. Paid features are clearly explained before purchase."
+    : PREMIUM_PURCHASES_NOTE;
+  const premiumPaymentsBody = premium.paymentSystemImplemented
+    ? "Subscription options are shown above when they are available from the store. Purchases can be restored from this screen."
+    : "Purchases are not available yet. Any future paid features will be clearly explained before purchase.";
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -149,7 +226,7 @@ export default function SettingsInfoScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.eyebrow}>{content.eyebrow}</Text>
             <Text style={styles.title}>{content.title}</Text>
-            <Text style={styles.sub}>{content.subtitle}</Text>
+            <Text style={styles.sub}>{page === "premium" ? premiumSubtitle : content.subtitle}</Text>
           </View>
         </View>
 
@@ -170,11 +247,62 @@ export default function SettingsInfoScreen() {
               <Text style={styles.planBody}>
                 {premium.isPremium
                   ? "Premium entitlement is active for this account."
-                  : "Current plan: Free. All Classic difficulties are free, including Expert and Master. Purchases are not available yet."}
+                  : premium.paymentSystemImplemented
+                    ? "Current plan: Free. All Classic difficulties are free, including Expert and Master. Premium adds convenience, cosmetics, history, and stats."
+                    : "Current plan: Free. All Classic difficulties are free, including Expert and Master. Purchases are not available yet."}
               </Text>
               <View style={styles.disabledCta}>
-                <Text style={styles.disabledCtaText}>{premium.isPremium ? "Premium active" : "Purchases unavailable"}</Text>
+                <Text style={styles.disabledCtaText}>{premium.isPremium ? "Premium active" : premium.paymentSystemImplemented ? "Choose below" : "Purchases unavailable"}</Text>
               </View>
+            </View>
+          ) : null}
+
+          {page === "premium" ? (
+            <View style={[styles.purchaseBlock, styles.divider]}>
+              <Text style={styles.featureStripTitle}>Choose a plan</Text>
+              <Text style={styles.purchaseIntro}>
+                Subscribe to unlock Premium benefits. Prices load from the App Store when purchases are available.
+              </Text>
+              {isLoadingOffering ? (
+                <View style={styles.purchaseLoading}>
+                  <ActivityIndicator color={C.gold} />
+                  <Text style={styles.purchaseMuted}>Checking purchase availability...</Text>
+                </View>
+              ) : premiumPackages.length > 0 ? (
+                <View style={styles.packageList}>
+                  {premiumPackages.map((pkg) => (
+                    <Pressable
+                      key={pkg.identifier}
+                      style={({ pressed }) => [styles.packageCard, pressed && styles.pressed]}
+                      onPress={() => void handlePurchase(pkg)}
+                      disabled={purchaseAction !== null}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.packageTitle}>
+                          {pkg.product.identifier === PRODUCT_YEARLY ? "Yearly" : pkg.product.identifier === PRODUCT_MONTHLY ? "Monthly" : pkg.product.title ?? "Premium"}
+                        </Text>
+                        <Text style={styles.packageSub}>{pkg.product.description || "SudoDuel Premium"}</Text>
+                        {pkg.product.priceString ? <Text style={styles.packagePrice}>{pkg.product.priceString}</Text> : null}
+                      </View>
+                      <View style={styles.packageButton}>
+                        {purchaseAction === pkg.identifier ? <ActivityIndicator color={C.ink} /> : <Text style={styles.packageButtonText}>Subscribe</Text>}
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.unavailableBox}>
+                  <Text style={styles.unavailableTitle}>Purchases unavailable</Text>
+                  <Text style={styles.unavailableBody}>{purchaseError ?? PURCHASES_UNAVAILABLE_MESSAGE}</Text>
+                </View>
+              )}
+              <Pressable
+                style={({ pressed }) => [styles.restoreButton, pressed && styles.pressed]}
+                onPress={() => void handleRestore()}
+                disabled={purchaseAction !== null}
+              >
+                {purchaseAction === "restore" ? <ActivityIndicator color={C.ink} /> : <Text style={styles.restoreButtonText}>Restore purchases</Text>}
+              </Pressable>
             </View>
           ) : null}
 
@@ -194,7 +322,13 @@ export default function SettingsInfoScreen() {
           {content.sections.map((section, index) => (
             <View key={section.title} style={[styles.section, index < content.sections.length - 1 && styles.divider]}>
               <Text style={styles.sectionTitle}>{section.title}</Text>
-              <Text style={styles.body}>{section.body}</Text>
+              <Text style={styles.body}>
+                {page === "premium" && section.title === "Premium access"
+                  ? premiumAccessBody
+                  : page === "premium" && section.title === "Payments"
+                    ? premiumPaymentsBody
+                    : section.body}
+              </Text>
             </View>
           ))}
         </Card>
@@ -226,6 +360,23 @@ const styles = StyleSheet.create({
   planBody: { color: C.muted, fontSize: 14, fontWeight: "700", lineHeight: 20, marginTop: 10 },
   disabledCta: { alignSelf: "flex-start", borderRadius: 14, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, paddingHorizontal: 14, paddingVertical: 10, marginTop: 12 },
   disabledCtaText: { color: C.muted, fontSize: 13, fontWeight: "900" },
+  purchaseBlock: { paddingBottom: 16, marginBottom: 6 },
+  purchaseIntro: { color: C.muted, fontSize: 13, fontWeight: "700", lineHeight: 19, marginTop: 8 },
+  purchaseLoading: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 12 },
+  purchaseMuted: { color: C.muted, fontSize: 13, fontWeight: "700" },
+  packageList: { gap: 10, marginTop: 12 },
+  packageCard: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 18, borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, padding: 12 },
+  packageTitle: { color: C.ink, fontSize: 16, fontWeight: "900" },
+  packageSub: { color: C.muted, fontSize: 12, fontWeight: "700", marginTop: 3 },
+  packagePrice: { color: C.gold, fontSize: 13, fontWeight: "900", marginTop: 6 },
+  packageButton: { minWidth: 92, borderRadius: 14, backgroundColor: C.gold, paddingHorizontal: 12, paddingVertical: 10, alignItems: "center", justifyContent: "center" },
+  packageButtonText: { color: C.ink, fontSize: 13, fontWeight: "900" },
+  unavailableBox: { borderRadius: 18, borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, padding: 14, marginTop: 12 },
+  unavailableTitle: { color: C.ink, fontSize: 15, fontWeight: "900" },
+  unavailableBody: { color: C.muted, fontSize: 13, fontWeight: "700", lineHeight: 19, marginTop: 4 },
+  restoreButton: { alignSelf: "flex-start", borderRadius: 14, borderWidth: 1, borderColor: C.border, backgroundColor: C.card, paddingHorizontal: 14, paddingVertical: 10, marginTop: 12, minHeight: 42, justifyContent: "center" },
+  restoreButtonText: { color: C.ink, fontSize: 13, fontWeight: "900" },
+  pressed: { opacity: 0.86, transform: [{ scale: 0.99 }] },
   featureStrip: { paddingBottom: 16, marginBottom: 6 },
   featureStripTitle: { color: C.gold, fontSize: 12, fontWeight: "900", letterSpacing: 1.1, textTransform: "uppercase" },
   featureStripBody: { color: C.ink, fontSize: 13, fontWeight: "800", lineHeight: 19, marginTop: 8 },

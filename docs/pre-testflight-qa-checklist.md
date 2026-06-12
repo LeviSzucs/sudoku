@@ -213,6 +213,15 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Friend Challenge creation limits are documented as Free: 3 per day and Premium: higher/unlimited.
 - [ ] Free result history limit is documented as latest 20 results.
 - [ ] Friend Challenge limits, stats limits, history limits, and ad-free behaviour must be retested once payments are integrated.
+- [ ] RevenueCat public iOS API key is configured for purchase-enabled builds.
+- [ ] RevenueCat entitlement `premium` exists.
+- [ ] RevenueCat offering `default` exists.
+- [ ] App Store Connect products `sudoduel_premium_monthly` and `sudoduel_premium_yearly` exist.
+- [ ] Premium screen loads monthly/yearly offerings and prices from the store in sandbox/TestFlight.
+- [ ] Subscribe flow works in sandbox/TestFlight.
+- [ ] Restore purchases refreshes Premium status.
+- [ ] Logout/login preserves active Premium entitlement.
+- [ ] Purchase-unavailable preview state is graceful and does not show fake prices.
 
 ## M. Results / History / Stats
 
