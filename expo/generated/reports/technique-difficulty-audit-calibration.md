@@ -1,6 +1,6 @@
 # Technique Difficulty Calibration
 
-Generated: 2026-06-07T18:31:03.081Z
+Generated: 2026-06-12T23:23:35.667Z
 
 ## Scope
 
@@ -16,7 +16,7 @@ This is an audit and calibration artifact only. It does not relabel production p
 
 ## Mismatch Summary
 
-- Total mismatches: 304/555
+- Total mismatches: 304/1555
 - Mismatch count by current difficulty: {"Easy":2,"Medium":2,"Hard":102,"Expert":105,"Master":93}
 - Easy suggested Medium or harder: 2
 - Medium suggested Easy: 0
@@ -25,15 +25,15 @@ This is an audit and calibration artifact only. It does not relabel production p
 - Hard suggested Expert/Master: 12
 - Expert suggested easier: 90
 - Master suggested easier: 93
-- Expert/Master requiring advanced/search: 56
+- Expert/Master requiring advanced/search: 456
 
 | current difficulty | count | mismatches | suggested distribution | hardest technique distribution |
 |---|---:|---:|---|---|
-| Easy | 111 | 2 | {"Easy":109,"Medium":2,"Hard":0,"Expert":0,"Master":0} | {"naked_single":109,"hidden_single":2} |
-| Medium | 111 | 2 | {"Easy":0,"Medium":109,"Hard":0,"Expert":2,"Master":0} | {"naked_single":69,"hidden_single":40,"pointing_pair_triple":2} |
-| Hard | 111 | 102 | {"Easy":0,"Medium":90,"Hard":9,"Expert":2,"Master":10} | {"hidden_single":48,"naked_single":45,"search":10,"pointing_pair_triple":6,"x_wing":2} |
-| Expert | 111 | 105 | {"Easy":0,"Medium":77,"Hard":13,"Expert":6,"Master":15} | {"hidden_single":70,"pointing_pair_triple":5,"naked_single":17,"search":15,"box_line_reduction":2,"naked_pair":2} |
-| Master | 111 | 93 | {"Easy":0,"Medium":57,"Hard":27,"Expert":9,"Master":18} | {"hidden_single":74,"naked_single":5,"box_line_reduction":2,"search":18,"pointing_pair_triple":8,"x_wing":4} |
+| Easy | 311 | 2 | {"Easy":309,"Medium":2,"Hard":0,"Expert":0,"Master":0} | {"naked_single":309,"hidden_single":2} |
+| Medium | 311 | 2 | {"Easy":0,"Medium":309,"Hard":0,"Expert":2,"Master":0} | {"naked_single":217,"hidden_single":92,"pointing_pair_triple":2} |
+| Hard | 311 | 102 | {"Easy":0,"Medium":90,"Hard":209,"Expert":2,"Master":10} | {"hidden_single":48,"naked_single":45,"search":10,"pointing_pair_triple":185,"x_wing":2,"naked_pair":5,"box_line_reduction":16} |
+| Expert | 311 | 105 | {"Easy":0,"Medium":77,"Hard":13,"Expert":206,"Master":15} | {"hidden_single":70,"pointing_pair_triple":65,"naked_single":17,"search":15,"box_line_reduction":28,"naked_pair":76,"hidden_pair":9,"naked_triple":26,"x_wing":5} |
+| Master | 311 | 93 | {"Easy":0,"Medium":57,"Hard":27,"Expert":9,"Master":218} | {"hidden_single":74,"naked_single":5,"box_line_reduction":2,"search":218,"pointing_pair_triple":8,"x_wing":4} |
 
 ## Five High-Signal Mismatch Examples Per Difficulty
 
