@@ -547,6 +547,7 @@ function achievementFromBackend(row: AchievementRow, progress?: UserAchievementR
     description: row.description,
     category: row.category as BadgeCategory,
     icon: row.icon,
+    rarity: (row.rarity ?? "common") as AchievementBadge["rarity"],
     progress_target: row.progress_target,
     unlocked: progress?.unlocked ?? false,
     progress_current: progress?.progress_current ?? 0,

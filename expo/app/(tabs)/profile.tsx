@@ -17,6 +17,10 @@ function pct(current: number, target: number): number {
   return target <= 0 ? 0 : Math.max(0, Math.min(1, current / target));
 }
 
+function rarityLabel(value: AchievementBadge["rarity"]): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 function modeLabel(mode: string): string {
   if (mode === "classic") return "Classic";
   if (mode === "daily") return "Daily";
@@ -214,7 +218,7 @@ function BadgeModal({ badge, onClose }: { badge: AchievementBadge | null; onClos
           </View>
           <Text style={styles.modalTitle}>{badge.name}</Text>
           <Text style={styles.modalDesc}>{badge.description}</Text>
-          <Text style={styles.modalState}>{badge.category} / {badge.unlocked ? "Unlocked" : "Locked"}</Text>
+          <Text style={styles.modalState}>{rarityLabel(badge.rarity)} / {badge.category} / {badge.unlocked ? "Unlocked" : "Locked"}</Text>
           <View style={styles.barTrack}><View style={[styles.xpBar, { width: `${pct(badge.progress_current, badge.progress_target) * 100}%` }]} /></View>
           <Text style={styles.progressSub}>{badge.progress_current}/{badge.progress_target} progress</Text>
           <Text style={styles.modalDesc}>{badge.unlocked && badge.unlocked_at ? `Unlocked ${new Date(badge.unlocked_at).toLocaleDateString()}` : `How to unlock: ${badge.description}`}</Text>
