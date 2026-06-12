@@ -316,7 +316,7 @@ export default function HomeScreen() {
                     <Crown size={14} color={C.gold} fill={C.gold} />
                     <Text style={styles.premiumKicker}>{PREMIUM_NAME.toUpperCase()}</Text>
                   </View>
-                  <Text style={styles.premiumTitle}>Premium is coming soon</Text>
+                  <Text style={styles.premiumTitle}>Premium for launch</Text>
                   <Text style={styles.premiumSub}>
                     Ad-free play, advanced stats, deeper history, themes, and cosmetics
                   </Text>

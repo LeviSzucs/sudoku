@@ -149,7 +149,7 @@ export default function SettingsScreen() {
         </Section>
 
         <Section title="Premium">
-          <Row icon={<Crown size={18} color={C.gold} />} title={PREMIUM_NAME} detail="Coming soon" onPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })} last />
+          <Row icon={<Crown size={18} color={C.gold} />} title={PREMIUM_NAME} detail="Current plan: Free" onPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })} last />
         </Section>
 
         <Section title="Support">
