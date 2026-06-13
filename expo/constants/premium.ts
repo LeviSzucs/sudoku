@@ -57,7 +57,7 @@ export const FREE_FEATURES: PremiumFeature[] = [
   { key: "basic_achievements", title: "Basic achievements", description: "Launch achievements remain available without Premium.", category: "stats", status: "free" },
   { key: "basic_avatar_customisation", title: "Basic profile and avatar customisation", description: "Core character avatar and profile options remain free.", category: "cosmetics", status: "free" },
   { key: "basic_result_history", title: "Basic result history", description: `Free accounts include access to the latest ${PREMIUM_V1_LIMITS.freeResultHistoryLimit} results.`, category: "stats", status: "free" },
-  { title: "Natural-break ads", description: "Free accounts may see occasional ads at natural breaks in a future version. No real ad SDK is active yet.", category: "experience", status: "free" },
+  { title: "Future ads at natural breaks", description: "Free accounts may see occasional ads at natural breaks in a future version.", category: "experience", status: "free" },
 ];
 
 export const FUTURE_PREMIUM_FEATURES: PremiumFeature[] = [
@@ -76,7 +76,7 @@ export const FUTURE_PREMIUM_FEATURES: PremiumFeature[] = [
 export const PREMIUM_ENTITLEMENT_TYPE = "sudoduel_premium";
 export const PAYMENT_SYSTEM_IMPLEMENTED = false;
 export const PREMIUM_FAIRNESS_NOTE = "Premium never boosts Ranked RP, leaderboard scores, matchmaking, or duel outcomes.";
-export const PREMIUM_PURCHASES_NOTE = "Purchases are not available yet. Paid features will be clearly explained before they are offered.";
+export const PREMIUM_PURCHASES_NOTE = "Premium purchases are not available right now. Paid features will be clearly explained before they are offered.";
 export const PREMIUM_DEV_NOTE = "All Classic difficulties are free. Premium focuses on ad-free play, stats, history, cosmetics, and fair duel tools.";
 
 export function planFromPremium(isPremium: boolean): PremiumPlan {

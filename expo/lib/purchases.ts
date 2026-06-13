@@ -54,6 +54,10 @@ let hasConfigured = false;
 let configuredApiKey: string | null = null;
 let currentAppUserId: string | null = null;
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : typeof error === "string" ? error : fallback;
+}
+
 function unavailable(message = PURCHASES_UNAVAILABLE_MESSAGE): PurchaseResult<never> {
   return { ok: false, error: message, unavailable: true };
 }
@@ -92,10 +96,17 @@ export async function configurePurchases(): Promise<PurchaseResult<boolean>> {
       hasConfigured = true;
       return { ok: true, data: true };
     } catch (error) {
+      console.warn("[Purchases] RevenueCat configuration failed.", {
+        message: getErrorMessage(error, "Could not configure purchases."),
+        platform: Platform.OS,
+        purchasesEnabled: PURCHASES_ENABLED,
+        entitlementId: REVENUECAT_ENTITLEMENT_ID,
+        offeringId: REVENUECAT_OFFERING_ID,
+      });
       configuredApiKey = null;
       currentAppUserId = null;
       hasConfigured = false;
-      return { ok: false, error: error instanceof Error ? error.message : "Could not configure purchases." };
+      return { ok: false, error: PURCHASES_UNAVAILABLE_MESSAGE };
     } finally {
       configurePromise = null;
     }
@@ -196,7 +207,14 @@ export async function getCurrentOffering(): Promise<PurchaseResult<CurrentOfferi
     const offering = (offerings.all?.[REVENUECAT_OFFERING_ID] ?? offerings.current) as unknown;
     return { ok: true, data: mapOffering(offering) };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Could not load Premium offers." };
+    console.warn("[Purchases] RevenueCat offering fetch failed.", {
+      message: getErrorMessage(error, "Could not load Premium offers."),
+      platform: Platform.OS,
+      purchasesEnabled: PURCHASES_ENABLED,
+      entitlementId: REVENUECAT_ENTITLEMENT_ID,
+      offeringId: REVENUECAT_OFFERING_ID,
+    });
+    return { ok: false, error: "Premium purchases are not available right now. Please try again later." };
   }
 }
 
@@ -212,7 +230,12 @@ export async function purchasePackage(pkg: PurchasePackage): Promise<PurchaseRes
     return { ok: true, data: result.customerInfo };
   } catch (error: any) {
     if (error?.userCancelled) return { ok: false, error: "Purchase cancelled." };
-    return { ok: false, error: error instanceof Error ? error.message : "Purchase could not be completed." };
+    console.warn("[Purchases] RevenueCat purchase failed.", {
+      message: getErrorMessage(error, "Purchase could not be completed."),
+      platform: Platform.OS,
+      productId: pkg.product.identifier,
+    });
+    return { ok: false, error: "Purchase could not be completed right now. Please try again later." };
   }
 }
 
@@ -226,7 +249,12 @@ export async function restorePurchases(): Promise<PurchaseResult<CustomerInfoLik
   try {
     return { ok: true, data: await loaded.data.restorePurchases() };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Purchases could not be restored." };
+    console.warn("[Purchases] RevenueCat restore failed.", {
+      message: getErrorMessage(error, "Purchases could not be restored."),
+      platform: Platform.OS,
+      entitlementId: REVENUECAT_ENTITLEMENT_ID,
+    });
+    return { ok: false, error: "Purchases could not be restored right now. Please try again later." };
   }
 }
 

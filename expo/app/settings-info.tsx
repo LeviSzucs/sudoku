@@ -6,11 +6,10 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import BrandMark from "@/components/BrandMark";
 import Card from "@/components/Card";
-import { AD_POLICY_NOTE } from "@/constants/ads";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
-import { FREE_FEATURES, FUTURE_PREMIUM_FEATURES, PREMIUM_FAIRNESS_NOTE, PREMIUM_PURCHASES_NOTE, PREMIUM_V1_LIMITS } from "@/constants/premium";
-import { PRODUCT_MONTHLY, PRODUCT_YEARLY, PURCHASES_UNAVAILABLE_MESSAGE } from "@/constants/purchases";
+import { PREMIUM_FAIRNESS_NOTE } from "@/constants/premium";
+import { PRODUCT_MONTHLY, PRODUCT_YEARLY } from "@/constants/purchases";
 import { LEGAL_LAST_UPDATED, PRIVACY_POLICY_VERSION, SUPPORT_EMAIL_LABEL, TERMS_VERSION } from "@/constants/legal";
 import { usePremiumStatus } from "@/hooks/usePremiumStatus";
 import { getCurrentOffering, purchasePackage, restorePurchases, type CurrentOffering, type PurchasePackage } from "@/lib/purchases";
@@ -18,6 +17,10 @@ import { getCurrentOffering, purchasePackage, restorePurchases, type CurrentOffe
 type InfoPage = "premium" | "help" | "support" | "terms" | "privacy";
 
 const CONTACT = `Contact us at ${SUPPORT_EMAIL_LABEL}.`;
+const PURCHASES_UNAVAILABLE_TITLE = "Purchases temporarily unavailable";
+const PURCHASES_UNAVAILABLE_BODY = "Premium purchases are not available right now. Please try again later.";
+const PURCHASES_UNAVAILABLE_HELP = "Your Free plan is still active. All Classic difficulties, Daily Sudoku, Daily Duel, Ranked Duel, achievements, and basic stats remain available.";
+const RESTORE_UNAVAILABLE_BODY = "Purchases cannot be restored right now. Please try again later.";
 
 const CONTENT: Record<InfoPage, {
   eyebrow: string;
@@ -29,17 +32,14 @@ const CONTENT: Record<InfoPage, {
   premium: {
     eyebrow: "PREMIUM",
     title: PREMIUM_NAME,
-    subtitle: "Current plan: Free. Purchases are not available yet.",
+    subtitle: "Current plan: Free.",
     icon: "premium",
     sections: [
-      { title: "Premium access", body: PREMIUM_PURCHASES_NOTE },
-      { title: "Premium focus", body: "Premium is planned around ad-free play, more Friend Challenge creation, advanced stats, full result history, head-to-head history, premium themes and avatar items, season recaps and rewards, and the puzzle archive." },
-      { title: "All difficulties stay free", body: "Classic Easy, Medium, Hard, Expert, and Master are playable on the Free plan. Premium is not used to lock core Sudoku difficulty." },
-      { title: "Plan limits", body: `Free includes ${PREMIUM_V1_LIMITS.freeFriendChallengesPerDay} Friend Challenge creations per day and the latest ${PREMIUM_V1_LIMITS.freeResultHistoryLimit} results. Premium raises or removes those limits without changing competitive outcomes.` },
-      { title: "Ads", body: "Free accounts may see occasional ads at natural breaks in a future version. Ads will not appear during active puzzles or before results are saved. Premium removes ads when ads are introduced." },
-      { title: "Competitive fairness", body: PREMIUM_FAIRNESS_NOTE },
-      { title: "Included for everyone", body: "Unlimited Classic Sudoku, Daily Sudoku, Daily Duel, Ranked Duel fair access, accepting Friend Challenges, leaderboards, achievements, basic stats, basic result history, and basic avatar customisation remain available without Premium." },
-      { title: "Payments", body: "Purchases are not available yet. Any future paid features will be clearly explained before purchase." },
+      { title: "Premium includes", body: "Ad-free play when ads are introduced, more Friend Challenge creation, advanced stats, full result history, head-to-head history, Premium themes, avatar items and frames, season recaps and rewards, and the puzzle archive." },
+      { title: "Free for everyone", body: "Unlimited Classic Sudoku, Easy, Medium, Hard, Expert, and Master difficulties, Daily Sudoku, Daily Duel, Ranked Duel fair access, accepting Friend Challenges, basic stats, achievements, basic profile and avatar customisation, and basic result history." },
+      { title: "Fair play promise", body: PREMIUM_FAIRNESS_NOTE },
+      { title: "Ads", body: "Free accounts may see occasional ads at natural breaks in a future version. Ads will never appear during active puzzles or before results are saved." },
+      { title: "Payments", body: "Purchases are handled securely through the App Store. You can restore purchases at any time." },
     ],
   },
   help: {
@@ -54,9 +54,9 @@ const CONTENT: Record<InfoPage, {
       { title: "How does RP work?", body: "RP changes after completed Ranked Duel matches. Wins, losses, draws, opponent strength, and the final match result can affect RP. Ranked queue cancellation does not award or remove RP." },
       { title: "What are streaks?", body: "Streaks track successfully solved Daily Sudoku puzzles. Failed or abandoned attempts may be saved as final attempts, but they do not extend solved streaks." },
       { title: "Why did my result not count?", body: "A result may be excluded from solved stats if the puzzle was failed, abandoned, duplicated, or not finalised correctly. Rankings and stats may be corrected if data integrity issues are found." },
-      { title: "What is SudoDuel Premium?", body: "Premium is the planned paid plan for ad-free play, deeper stats, fuller history, more fair challenge tools, cosmetics, themes, and season extras. Purchases are not available yet." },
+      { title: "What is SudoDuel Premium?", body: "Premium is the paid plan for ad-free play when ads are introduced, deeper stats, fuller history, fair challenge tools, cosmetics, themes, season extras, and the puzzle archive." },
       { title: "Can Premium affect Ranked RP?", body: "No. Premium never boosts Ranked RP, leaderboard scores, matchmaking, or duel outcomes." },
-      { title: "Are there ads?", body: "Free accounts may see occasional ads at natural breaks in a future version, never during an active puzzle or before a result is saved. Premium removes ads when ads are introduced. No real ad SDK is active yet." },
+      { title: "Are there ads?", body: "A future version may show Free accounts occasional ads at natural breaks, never during an active puzzle or before a result is saved. Premium removes ads when ads are introduced." },
       { title: "How do I report a bug?", body: "Use Settings > Report a problem and include what you were doing, which mode you were playing, and what happened." },
       { title: "How do I request account deletion?", body: `In-app self-service account deletion is not currently available. Contact support at ${SUPPORT_EMAIL_LABEL} to request account or data deletion.` },
     ],
@@ -87,7 +87,7 @@ const CONTENT: Record<InfoPage, {
       { title: "Fair play", body: "SudoDuel is designed to be competitive but fair. Do not use cheats, automation, exploits, modified clients, or other methods that give an unfair advantage." },
       { title: "Game results, rankings, and stats", body: "Scores, RP, streaks, results, leaderboards, achievements, and stats may be recalculated or corrected if we identify bugs, duplicate results, abuse, exploits, or data integrity issues." },
       { title: "Usernames, avatars, and profile content", body: "Choose usernames, display names, avatars, and feedback content that are respectful and do not impersonate others, harass people, include hate or abuse, or violate another person's rights." },
-      { title: "Premium features", body: "Premium purchases are not currently available. Premium may remove ads and add richer stats, full history, cosmetics, season identity, and fair duel tools. Premium will not provide competitive advantages in Ranked Duel, Daily Duel, Friend Challenge, or leaderboards." },
+      { title: "Premium features", body: "Premium may remove ads and add richer stats, full history, cosmetics, season identity, and fair duel tools. Premium will not provide competitive advantages in Ranked Duel, Daily Duel, Friend Challenge, or leaderboards." },
       { title: "Acceptable use", body: "Do not attack, disrupt, scrape, overload, reverse engineer, exploit, or interfere with the app, backend, matchmaking, scoring, leaderboards, feedback tools, or other users." },
       { title: "Service availability", body: "SudoDuel is in TestFlight and may have downtime, bugs, resets, balance changes, or unavailable features. Some features may change before public release." },
       { title: "Changes to the app", body: "We may update, add, remove, rebalance, or rename features during testing. We may also update these Terms as the product evolves." },
@@ -106,10 +106,10 @@ const CONTENT: Record<InfoPage, {
       { title: "How we use data", body: "We use your data to operate the app, save progress, calculate scores, run duels, maintain leaderboards, provide support, investigate bugs, prevent abuse, and improve reliability." },
       { title: "Game data and leaderboards", body: "Some profile and gameplay information can be visible to other players, such as display name, username, avatar, rank, leaderboard position, duel outcome, and public challenge or friend-related information needed for gameplay." },
       { title: "Feedback and support", body: "When you send feedback or report a problem, we store the category, message, account identifier if signed in, app version if available, and submission time so we can review and respond to issues." },
-      { title: "Premium and payments", body: "Premium purchases are not available yet. SudoDuel does not currently process subscription payments or store payment details." },
+      { title: "Premium and payments", body: "Premium purchases are handled through the App Store when available. SudoDuel does not store payment card details." },
       { title: "Data sharing", body: "SudoDuel does not currently sell personal data. We use backend service providers, such as Supabase, to operate account, profile, gameplay, and feedback features." },
       // TODO: Update privacy disclosures before enabling a real ad SDK or tracking.
-      { title: "Advertising and tracking", body: "SudoDuel does not currently include a real ad SDK or third-party advertising network. If ads are introduced, Free accounts may see occasional ads at natural breaks only, never during active puzzles or before results are saved." },
+      { title: "Advertising and tracking", body: "SudoDuel does not currently show ads. If ads are introduced, Free accounts may see occasional ads at natural breaks only, never during active puzzles or before results are saved." },
       { title: "Data storage and security", body: "We use backend access controls and authentication to protect user-owned data. No system can be guaranteed perfectly secure, especially during beta testing." },
       { title: "Your choices", body: "You can update profile information, avatar settings, notification preferences, and privacy settings in the app. Some game results and duel records are kept to preserve competitive integrity." },
       { title: "Account deletion", body: `In-app self-service account deletion is not currently available. Contact ${SUPPORT_EMAIL_LABEL} to request account deletion or a data request.` },
@@ -153,10 +153,16 @@ export default function SettingsInfoScreen() {
       if (!active) return;
       if (result.ok) {
         setOffering(result.data);
-        setPurchaseError(result.data?.availablePackages.length ? null : "Premium offers are not available yet.");
+        if (result.data?.availablePackages.length) {
+          setPurchaseError(null);
+        } else {
+          console.warn("[Premium] RevenueCat offering returned no packages.");
+          setPurchaseError(PURCHASES_UNAVAILABLE_BODY);
+        }
       } else {
+        console.warn("[Premium] RevenueCat offering unavailable.", result.error);
         setOffering(null);
-        setPurchaseError(result.unavailable ? PURCHASES_UNAVAILABLE_MESSAGE : result.error);
+        setPurchaseError(PURCHASES_UNAVAILABLE_BODY);
       }
       setIsLoadingOffering(false);
     }
@@ -184,7 +190,9 @@ export default function SettingsInfoScreen() {
     const result = await purchasePackage(pkg);
     setPurchaseAction(null);
     if (!result.ok) {
-      Alert.alert("Purchase unavailable", result.error);
+      if (result.error === "Purchase cancelled.") return;
+      console.warn("[Premium] Purchase failed.", result.error);
+      Alert.alert("Purchase unavailable", PURCHASES_UNAVAILABLE_BODY);
       return;
     }
     await premium.refresh();
@@ -196,7 +204,8 @@ export default function SettingsInfoScreen() {
     const result = await restorePurchases();
     setPurchaseAction(null);
     if (!result.ok) {
-      Alert.alert("Restore unavailable", result.error);
+      console.warn("[Premium] Restore purchases failed.", result.error);
+      Alert.alert("Restore unavailable", RESTORE_UNAVAILABLE_BODY);
       return;
     }
     await premium.refresh();
@@ -205,14 +214,10 @@ export default function SettingsInfoScreen() {
   const premiumSubtitle = premium.isPremium
     ? "Current plan: Premium."
     : premium.paymentSystemImplemented
-      ? "Current plan: Free. Choose a Premium plan below."
-      : "Current plan: Free. Purchases are not available yet.";
-  const premiumAccessBody = premium.paymentSystemImplemented
-    ? "Choose a Premium plan below. Paid features are clearly explained before purchase."
-    : PREMIUM_PURCHASES_NOTE;
-  const premiumPaymentsBody = premium.paymentSystemImplemented
-    ? "Subscription options are shown above when they are available from the store. Purchases can be restored from this screen."
-    : "Purchases are not available yet. Any future paid features will be clearly explained before purchase.";
+      ? "Current plan: Free."
+      : "Current plan: Free.";
+  const hasMonthlyAndYearly = premiumPackages.some((pkg) => pkg.product.identifier === PRODUCT_MONTHLY)
+    && premiumPackages.some((pkg) => pkg.product.identifier === PRODUCT_YEARLY);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -246,13 +251,13 @@ export default function SettingsInfoScreen() {
               </View>
               <Text style={styles.planBody}>
                 {premium.isPremium
-                  ? "Premium entitlement is active for this account."
+                  ? "Premium is active for this account."
                   : premium.paymentSystemImplemented
-                    ? "Current plan: Free. All Classic difficulties are free, including Expert and Master. Premium adds convenience, cosmetics, history, and stats."
-                    : "Current plan: Free. All Classic difficulties are free, including Expert and Master. Purchases are not available yet."}
+                    ? "All Classic difficulties are free, including Expert and Master. Premium adds extra convenience, deeper stats, history, and cosmetic options."
+                    : "All Classic difficulties are free, including Expert and Master. Premium adds extra convenience, deeper stats, history, and cosmetic options."}
               </Text>
               <View style={styles.disabledCta}>
-                <Text style={styles.disabledCtaText}>{premium.isPremium ? "Premium active" : premium.paymentSystemImplemented ? "Choose below" : "Purchases unavailable"}</Text>
+                <Text style={styles.disabledCtaText}>{premium.isPremium ? "Premium active" : "Free plan active"}</Text>
               </View>
             </View>
           ) : null}
@@ -261,7 +266,7 @@ export default function SettingsInfoScreen() {
             <View style={[styles.purchaseBlock, styles.divider]}>
               <Text style={styles.featureStripTitle}>Choose a plan</Text>
               <Text style={styles.purchaseIntro}>
-                Subscribe to unlock Premium benefits. Prices load from the App Store when purchases are available.
+                Subscribe to unlock Premium benefits. Prices are loaded securely from the App Store.
               </Text>
               {isLoadingOffering ? (
                 <View style={styles.purchaseLoading}>
@@ -279,9 +284,11 @@ export default function SettingsInfoScreen() {
                     >
                       <View style={{ flex: 1 }}>
                         <Text style={styles.packageTitle}>
-                          {pkg.product.identifier === PRODUCT_YEARLY ? "Yearly" : pkg.product.identifier === PRODUCT_MONTHLY ? "Monthly" : pkg.product.title ?? "Premium"}
+                          {pkg.product.identifier === PRODUCT_YEARLY ? "Yearly plan" : pkg.product.identifier === PRODUCT_MONTHLY ? "Monthly plan" : pkg.product.title ?? "Premium"}
                         </Text>
-                        <Text style={styles.packageSub}>{pkg.product.description || "SudoDuel Premium"}</Text>
+                        <Text style={styles.packageSub}>
+                          {pkg.product.identifier === PRODUCT_YEARLY && hasMonthlyAndYearly ? "Better value for regular players" : pkg.product.description || "SudoDuel Premium"}
+                        </Text>
                         {pkg.product.priceString ? <Text style={styles.packagePrice}>{pkg.product.priceString}</Text> : null}
                       </View>
                       <View style={styles.packageButton}>
@@ -292,8 +299,9 @@ export default function SettingsInfoScreen() {
                 </View>
               ) : (
                 <View style={styles.unavailableBox}>
-                  <Text style={styles.unavailableTitle}>Purchases unavailable</Text>
-                  <Text style={styles.unavailableBody}>{purchaseError ?? PURCHASES_UNAVAILABLE_MESSAGE}</Text>
+                  <Text style={styles.unavailableTitle}>{PURCHASES_UNAVAILABLE_TITLE}</Text>
+                  <Text style={styles.unavailableBody}>{purchaseError ?? PURCHASES_UNAVAILABLE_BODY}</Text>
+                  <Text style={styles.unavailableHelp}>{PURCHASES_UNAVAILABLE_HELP}</Text>
                 </View>
               )}
               <Pressable
@@ -306,29 +314,10 @@ export default function SettingsInfoScreen() {
             </View>
           ) : null}
 
-          {page === "premium" ? (
-            <View style={[styles.featureStrip, styles.divider]}>
-              <Text style={styles.featureStripTitle}>Premium focus</Text>
-              <Text style={styles.featureStripBody}>
-                {FUTURE_PREMIUM_FEATURES.map((feature) => feature.title).join(" - ")}
-              </Text>
-              <Text style={styles.adPolicyNote}>{AD_POLICY_NOTE}</Text>
-              <Text style={[styles.featureStripTitle, { marginTop: 14 }]}>Free for everyone</Text>
-              <Text style={styles.featureStripBody}>
-                {FREE_FEATURES.map((feature) => feature.title).join(" - ")}
-              </Text>
-            </View>
-          ) : null}
           {content.sections.map((section, index) => (
             <View key={section.title} style={[styles.section, index < content.sections.length - 1 && styles.divider]}>
               <Text style={styles.sectionTitle}>{section.title}</Text>
-              <Text style={styles.body}>
-                {page === "premium" && section.title === "Premium access"
-                  ? premiumAccessBody
-                  : page === "premium" && section.title === "Payments"
-                    ? premiumPaymentsBody
-                    : section.body}
-              </Text>
+              <Text style={styles.body}>{section.body}</Text>
             </View>
           ))}
         </Card>
@@ -374,11 +363,9 @@ const styles = StyleSheet.create({
   unavailableBox: { borderRadius: 18, borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, padding: 14, marginTop: 12 },
   unavailableTitle: { color: C.ink, fontSize: 15, fontWeight: "900" },
   unavailableBody: { color: C.muted, fontSize: 13, fontWeight: "700", lineHeight: 19, marginTop: 4 },
+  unavailableHelp: { color: C.muted, fontSize: 12, fontWeight: "700", lineHeight: 18, marginTop: 10 },
   restoreButton: { alignSelf: "flex-start", borderRadius: 14, borderWidth: 1, borderColor: C.border, backgroundColor: C.card, paddingHorizontal: 14, paddingVertical: 10, marginTop: 12, minHeight: 42, justifyContent: "center" },
   restoreButtonText: { color: C.ink, fontSize: 13, fontWeight: "900" },
   pressed: { opacity: 0.86, transform: [{ scale: 0.99 }] },
-  featureStrip: { paddingBottom: 16, marginBottom: 6 },
   featureStripTitle: { color: C.gold, fontSize: 12, fontWeight: "900", letterSpacing: 1.1, textTransform: "uppercase" },
-  featureStripBody: { color: C.ink, fontSize: 13, fontWeight: "800", lineHeight: 19, marginTop: 8 },
-  adPolicyNote: { color: C.muted, fontSize: 12, fontWeight: "700", lineHeight: 18, marginTop: 10 },
 });
