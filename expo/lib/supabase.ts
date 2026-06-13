@@ -114,6 +114,33 @@ export interface UserSettingsRow {
   updated_at?: string;
 }
 
+export interface NotificationPreferencesRow {
+  user_id: string;
+  push_enabled: boolean;
+  friend_requests: boolean;
+  friend_challenges: boolean;
+  challenge_results: boolean;
+  daily_duel_matches: boolean;
+  ranked_duel_matches: boolean;
+  reminders: boolean;
+  marketing: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AppNotificationRow {
+  notification_id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  body: string;
+  related_entity_type?: string | null;
+  related_entity_id?: string | null;
+  deep_link?: string | null;
+  read_at?: string | null;
+  created_at: string;
+}
+
 export interface GameResultRow {
   result_id: string;
   user_id: string;

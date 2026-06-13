@@ -8,6 +8,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { PlayerProfileProvider, usePlayerProfile } from "@/hooks/usePlayerProfile";
+import { syncPushTokenOnLogin } from "@/lib/notifications";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -21,6 +22,12 @@ function RootLayoutNav() {
   const showAuth = auth.mode === "signed_out";
   const showSetup = auth.mode === "signed_in" && isLoaded && profileSetupRequired;
   const showApp = auth.mode === "signed_in" && isLoaded && !profileSetupRequired;
+
+  useEffect(() => {
+    if (!auth.user?.id || !showApp) return;
+    void syncPushTokenOnLogin(auth.user.id);
+  }, [auth.user?.id, showApp]);
+
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
       <Stack.Protected guard={showLoading}>
@@ -42,6 +49,7 @@ function RootLayoutNav() {
         <Stack.Screen name="settings" options={{ headerShown: false, presentation: "card" }} />
         <Stack.Screen name="settings-feedback" options={{ headerShown: false, presentation: "card" }} />
         <Stack.Screen name="settings-info" options={{ headerShown: false, presentation: "card" }} />
+        <Stack.Screen name="settings-notifications" options={{ headerShown: false, presentation: "card" }} />
       </Stack.Protected>
     </Stack>
   );

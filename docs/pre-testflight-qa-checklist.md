@@ -188,6 +188,30 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Privacy Policy opens.
 - [ ] Logout works.
 
+## K2. Notifications
+
+- [ ] Notifications opens from Settings.
+- [ ] Notification permission prompt appears only after tapping the enable action.
+- [ ] Denying push notifications does not break the app.
+- [ ] The denied-permission message explains that SudoDuel still works normally.
+- [ ] Push token registers after permission is granted.
+- [ ] Push token upsert does not create duplicate active token rows for the same user/token.
+- [ ] Notification preferences save and reload.
+- [ ] Marketing/news/offers defaults off.
+- [ ] Friend request received creates an in-app notification for the recipient.
+- [ ] Friend request accepted creates an in-app notification for the sender.
+- [ ] Friend Challenge created creates an in-app notification for the challenged player.
+- [ ] Friend Challenge accepted creates an in-app notification for the challenger.
+- [ ] Friend Challenge completed creates result-ready notifications for both players.
+- [ ] Daily Duel matched creates match-ready notifications for both players.
+- [ ] Ranked Duel matched creates match-ready notifications for both players.
+- [ ] Disabled preferences suppress matching in-app notification types.
+- [ ] No duplicate spam notifications appear for the same event.
+- [ ] In-app notification read state works.
+- [ ] Notification deep links open the relevant Friends/Duel screen where safe.
+- [ ] App still works without push permission.
+- [ ] Secure server-side push delivery is configured before relying on external push notifications; client code must not send push notifications to other users.
+
 ## L. Premium Foundation
 
 - [ ] Premium screen shows Current plan: Free.
@@ -368,6 +392,46 @@ from information_schema.role_table_grants
 where table_schema = 'public'
   and table_name = 'user_entitlements'
 order by grantee, privilege_type;
+```
+
+### Notification Preferences
+
+```sql
+select user_id, push_enabled, friend_requests, friend_challenges, challenge_results,
+       daily_duel_matches, ranked_duel_matches, reminders, marketing, updated_at
+from public.notification_preferences
+where user_id = '6c90ea5a-ac2b-4660-accd-b03c2a35ebf0';
+```
+
+### Active Push Tokens For Current User
+
+```sql
+select token_id, user_id, left(expo_push_token, 24) as token_preview,
+       platform, app_version, is_active, last_seen_at, created_at
+from public.push_tokens
+where user_id = '6c90ea5a-ac2b-4660-accd-b03c2a35ebf0'
+order by last_seen_at desc;
+```
+
+### Latest In-App Notifications
+
+```sql
+select notification_id, user_id, type, title, related_entity_type,
+       related_entity_id, read_at, created_at
+from public.app_notifications
+where user_id = '6c90ea5a-ac2b-4660-accd-b03c2a35ebf0'
+order by created_at desc
+limit 30;
+```
+
+### Notification RLS Enabled
+
+```sql
+select schemaname, tablename, rowsecurity
+from pg_tables
+where schemaname = 'public'
+  and tablename in ('notification_preferences', 'push_tokens', 'app_notifications')
+order by tablename;
 ```
 
 ### Active Puzzle Bank Counts By Difficulty/Source

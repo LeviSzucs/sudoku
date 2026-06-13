@@ -23,8 +23,8 @@ type AvatarDraft = CharacterAvatarConfig & { initials: string; avatar_color: str
 function avatarDraftFromProfile(profile: PlayerProfile): AvatarDraft {
   const config = normalizeAvatarConfig(profile, { initials: profile.initials, color: profile.avatar_color, symbol: profile.avatar_symbol });
   return {
-    initials: config.avatar_initials,
-    avatar_color: config.avatar_bg_color,
+    initials: config.avatar_initials ?? profile.initials,
+    avatar_color: config.avatar_bg_color ?? profile.avatar_color,
     avatar_symbol: profile.avatar_symbol ?? null,
     ...config,
   };
@@ -137,7 +137,7 @@ export default function SettingsScreen() {
         <Section title="Account">
           <Row icon={<UserRound size={18} color={C.inkSoft} />} title="Profile" detail={profile.display_name ?? profile.username} onPress={() => setPanel("display")} />
           <Row icon={<Palette size={18} color={C.inkSoft} />} title="Avatar" detail="Character, colours and frame" onPress={() => setPanel("avatar")} />
-          <Row icon={<Bell size={18} color={C.inkSoft} />} title="Notifications" detail="Daily puzzle, streaks, duels" onPress={() => setPanel("notifications")} />
+          <Row icon={<Bell size={18} color={C.inkSoft} />} title="Notifications" detail="Push, duels and social updates" onPress={() => router.push("/settings-notifications")} />
           <Row icon={<Shield size={18} color={C.inkSoft} />} title="Privacy" detail={privacy.publicProfile ? "Public profile" : "Private profile"} onPress={() => setPanel("privacy")} />
           <Row icon={<LogOut size={18} color={C.inkSoft} />} title="Sign out" detail="Return to the welcome screen" onPress={() => Alert.alert("Sign out?", "You will return to the welcome screen.", [{ text: "Cancel", style: "cancel" }, { text: "Sign out", style: "destructive", onPress: () => { void auth.signOut(); } }])} last />
         </Section>
