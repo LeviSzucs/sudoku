@@ -211,6 +211,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Notification deep links open the relevant Friends/Duel screen where safe.
 - [ ] App still works without push permission.
 - [ ] `send-push-notifications` Edge Function is deployed and invoked by a secure schedule or backend webhook.
+- [ ] Push deployment setup follows `docs/deploy-push-notifications.md`.
 - [ ] Edge Function uses `SUPABASE_SERVICE_ROLE_KEY` only in the server runtime.
 - [ ] `PUSH_DELIVERY_SECRET` is configured if invoking the function over HTTP.
 - [ ] Creating a Friend Challenge sends a phone push to the challenged player when push is enabled.
