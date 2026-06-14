@@ -71,6 +71,10 @@ function safeErrorMessage(error: unknown): string {
   return "Unknown error";
 }
 
+function nonEmptyString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+}
+
 function normalisePermission(status: { status?: string; granted?: boolean } | null | undefined): NotificationPermissionStatus {
   if (!status) return "unsupported";
   if (status.granted || status.status === "granted") return "granted";
@@ -92,13 +96,26 @@ async function loadNotificationsModule(): Promise<Result<ExpoNotificationsModule
   }
 }
 
-function expoProjectId(): string | undefined {
+function expoProjectIdState(): { projectId?: string; diagnostics: Record<string, boolean> } {
   const extra = Constants.expoConfig?.extra as Record<string, unknown> | undefined;
   const eas = extra?.eas as Record<string, unknown> | undefined;
   const easConfig = Constants as unknown as { easConfig?: { projectId?: string } };
-  const envProjectId = typeof process !== "undefined" ? process.env?.EXPO_PUBLIC_EAS_PROJECT_ID : undefined;
-  const projectId = eas?.projectId ?? easConfig.easConfig?.projectId ?? envProjectId;
-  return typeof projectId === "string" && projectId.trim().length > 0 ? projectId : undefined;
+  const env = typeof process !== "undefined" ? process.env : undefined;
+  const extraProjectId = nonEmptyString(eas?.projectId);
+  const easConfigProjectId = nonEmptyString(easConfig.easConfig?.projectId);
+  const envEasProjectId = nonEmptyString(env?.EXPO_PUBLIC_EAS_PROJECT_ID);
+  const envRorkProjectId = nonEmptyString(env?.EXPO_PUBLIC_PROJECT_ID);
+  const projectId = extraProjectId ?? easConfigProjectId ?? envEasProjectId ?? envRorkProjectId;
+
+  return {
+    projectId,
+    diagnostics: {
+      hasExtraEasProjectId: Boolean(extraProjectId),
+      hasConstantsEasConfigProjectId: Boolean(easConfigProjectId),
+      hasExpoPublicEasProjectId: Boolean(envEasProjectId),
+      hasExpoPublicProjectId: Boolean(envRorkProjectId),
+    },
+  };
 }
 
 export function defaultNotificationPreferences(userId: string): NotificationPreferenceRow {
@@ -156,12 +173,14 @@ export async function saveNotificationPreferences(preferences: NotificationPrefe
 }
 
 export async function registerPushToken(userId: string): Promise<Result<string | null>> {
-  const projectId = expoProjectId();
+  const projectIdInfo = expoProjectIdState();
+  const projectId = projectIdInfo.projectId;
   logNotificationDiagnostic("Push token registration started.", {
     hasUserId: Boolean(userId),
     platform: Platform.OS,
     supabaseConfigured: isSupabaseConfigured,
     hasProjectId: Boolean(projectId),
+    ...projectIdInfo.diagnostics,
   });
 
   if (!userId) return { ok: false, error: "Sign in is required before registering this device for push notifications." };
@@ -183,6 +202,7 @@ export async function registerPushToken(userId: string): Promise<Result<string |
       category: "missing_project_id",
       permission,
       platform: Platform.OS,
+      ...projectIdInfo.diagnostics,
     });
     return { ok: false, error: "Push project ID missing." };
   }
