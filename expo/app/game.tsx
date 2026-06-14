@@ -15,6 +15,7 @@ import { C } from "@/constants/colors";
 import type { Difficulty } from "@/constants/mockData";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
+import { playSoundEffect, triggerHaptic } from "@/lib/appPreferences";
 import useSudokuGame, { type GameMode, type PuzzleResult, type SessionSnapshot } from "@/hooks/useSudokuGame";
 import { getDailyDateKey } from "@/lib/daily";
 import { logDevDiagnostic, measureAsync } from "@/lib/performanceDiagnostics";
@@ -183,6 +184,9 @@ export default function GameScreen() {
   const [isSubmittingFailedResult, setIsSubmittingFailedResult] = useState<boolean>(false);
   const [leaveOpen, setLeaveOpen] = useState<boolean>(false);
   const [rankedHintMessage, setRankedHintMessage] = useState<boolean>(false);
+  const previousMistakesRef = useRef<number>(0);
+  const completedFeedbackPlayedRef = useRef<boolean>(false);
+  const gameOverFeedbackPlayedRef = useRef<boolean>(false);
   const navIsFocused = useIsFocused();
   const [isFocused, setIsFocused] = useState<boolean>(true);
   const renderCountRef = useRef<number>(0);
@@ -225,10 +229,38 @@ export default function GameScreen() {
   });
 
   useEffect(() => {
+    if (game.mistakes > previousMistakesRef.current) {
+      void triggerHaptic("error");
+      void playSoundEffect("error");
+    }
+    previousMistakesRef.current = game.mistakes;
+  }, [game.mistakes]);
+
+  useEffect(() => {
+    if (!game.completed || completedFeedbackPlayedRef.current) return;
+    completedFeedbackPlayedRef.current = true;
+    void triggerHaptic("success");
+    void playSoundEffect("complete");
+  }, [game.completed]);
+
+  useEffect(() => {
+    if (!game.gameOver || game.completed || gameOverFeedbackPlayedRef.current) return;
+    gameOverFeedbackPlayedRef.current = true;
+    void triggerHaptic("warning");
+    void playSoundEffect("result");
+  }, [game.completed, game.gameOver]);
+
+  useEffect(() => {
     logDevDiagnostic("route params changed", {
       routeParams: paramsSignature,
     });
   }, [paramsSignature]);
+
+  useEffect(() => {
+    previousMistakesRef.current = game.mistakes;
+    completedFeedbackPlayedRef.current = false;
+    gameOverFeedbackPlayedRef.current = false;
+  }, [game.puzzleId]);
 
   useEffect(() => {
     if (!puzzleLoadError) return;
@@ -815,7 +847,10 @@ export default function GameScreen() {
             selected={game.selected}
             errors={game.errors}
             boardSize={boardSize}
-            onSelect={game.select}
+            onSelect={(r, c) => {
+              void triggerHaptic("selection");
+              game.select(r, c);
+            }}
           />
           {game.paused && !game.gameOver ? (
             <View style={[styles.pauseOverlay, { width: boardSize, height: boardSize }]}>
@@ -854,7 +889,10 @@ export default function GameScreen() {
         }}
       >
         <NumberPad
-          onPressNumber={game.enterNumber}
+          onPressNumber={(n) => {
+            void triggerHaptic("selection");
+            game.enterNumber(n);
+          }}
           counts={game.counts}
           disabled={game.paused || game.completed || game.gameOver}
           highlighted={selectedValue !== 0 ? selectedValue : undefined}

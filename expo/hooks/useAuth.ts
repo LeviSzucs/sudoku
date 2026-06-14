@@ -1,4 +1,5 @@
 import createContextHook from "@nkzw/create-context-hook";
+import * as Linking from "expo-linking";
 import type { Session, User } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -68,9 +69,33 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     setMode("signed_out");
   }, []);
 
+  const resetPassword = useCallback(async (email: string): Promise<{ ok: boolean; error?: string }> => {
+    setAuthError(null);
+    if (!isSupabaseConfigured) return { ok: false, error: supabaseConfigurationError ?? "Supabase is not configured yet." };
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: Linking.createURL("/auth", { queryParams: { step: "reset_update" } }),
+    });
+    if (error) {
+      setAuthError(error.message);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  }, []);
+
+  const updatePassword = useCallback(async (password: string): Promise<{ ok: boolean; error?: string }> => {
+    setAuthError(null);
+    if (!isSupabaseConfigured) return { ok: false, error: supabaseConfigurationError ?? "Supabase is not configured yet." };
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      setAuthError(error.message);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  }, []);
+
   const user: User | null = session?.user ?? null;
   const isGuest = mode === "guest";
   const isSignedIn = mode === "signed_in";
 
-  return useMemo(() => ({ session, user, mode, isGuest, isSignedIn, authError, signUp, signIn, signOut }), [authError, isGuest, isSignedIn, mode, session, signIn, signOut, signUp, user]);
+  return useMemo(() => ({ session, user, mode, isGuest, isSignedIn, authError, signUp, signIn, signOut, resetPassword, updatePassword }), [authError, isGuest, isSignedIn, mode, resetPassword, session, signIn, signOut, signUp, updatePassword, user]);
 });

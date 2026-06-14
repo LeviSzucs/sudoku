@@ -8,6 +8,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { PlayerProfileProvider, usePlayerProfile } from "@/hooks/usePlayerProfile";
+import { loadAppPreferences } from "@/lib/appPreferences";
 import { syncPushTokenOnLogin } from "@/lib/notifications";
 
 SplashScreen.preventAutoHideAsync();
@@ -26,6 +27,7 @@ function RootLayoutNav() {
   useEffect(() => {
     if (!auth.user?.id || !showApp) return;
     void syncPushTokenOnLogin(auth.user.id);
+    void loadAppPreferences(auth.user.id);
   }, [auth.user?.id, showApp]);
 
   return (

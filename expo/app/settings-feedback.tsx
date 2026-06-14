@@ -11,7 +11,7 @@ import { SUPPORT_EMAIL_LABEL } from "@/constants/legal";
 import { useAuth } from "@/hooks/useAuth";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
-type FeedbackCategory = "general_feedback" | "bug_report" | "account_issue" | "gameplay_issue" | "ranked_duel_issue" | "privacy_data_request" | "other";
+type FeedbackCategory = "general_feedback" | "bug_report" | "account_issue" | "gameplay_issue" | "ranked_duel_issue" | "privacy_data_request" | "account_deletion" | "other";
 
 const CATEGORY_OPTIONS: { value: FeedbackCategory; label: string }[] = [
   { value: "general_feedback", label: "General feedback" },
@@ -20,25 +20,31 @@ const CATEGORY_OPTIONS: { value: FeedbackCategory; label: string }[] = [
   { value: "gameplay_issue", label: "Gameplay issue" },
   { value: "ranked_duel_issue", label: "Ranked Duel issue" },
   { value: "privacy_data_request", label: "Privacy/data request" },
+  { value: "account_deletion", label: "Delete account request" },
   { value: "other", label: "Other" },
 ];
 
 function getCategory(value: string | string[] | undefined): FeedbackCategory {
   const category = Array.isArray(value) ? value[0] : value;
-  return category === "problem" ? "bug_report" : "general_feedback";
+  if (category === "problem") return "bug_report";
+  if (CATEGORY_OPTIONS.some((option) => option.value === category)) return category as FeedbackCategory;
+  return "general_feedback";
 }
 
 export default function SettingsFeedbackScreen() {
   const insets = useSafeAreaInsets();
   const auth = useAuth();
-  const params = useLocalSearchParams<{ category?: string }>();
+  const params = useLocalSearchParams<{ category?: string; message?: string }>();
   const isProblemReport = params.category === "problem";
-  const [message, setMessage] = useState<string>("");
+  const [message, setMessage] = useState<string>(() => typeof params.message === "string" ? params.message : "");
   const [selectedCategory, setSelectedCategory] = useState<FeedbackCategory>(() => getCategory(params.category));
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [sent, setSent] = useState<boolean>(false);
-  const title = isProblemReport ? "Report a problem" : "Send feedback";
-  const helper = isProblemReport ? "Describe what went wrong and what you were doing." : "Tell us what would make SudoDuel better.";
+  const isDeletionRequest = selectedCategory === "account_deletion";
+  const title = isDeletionRequest ? "Delete account" : isProblemReport ? "Report a problem" : "Send feedback";
+  const helper = isDeletionRequest
+    ? "Send a deletion request so we can verify the account owner before removing data."
+    : isProblemReport ? "Describe what went wrong and what you were doing." : "Tell us what would make SudoDuel better.";
   const Icon = isProblemReport ? LifeBuoy : MessageSquare;
   const canSubmit = message.trim().length >= 3 && !isSubmitting;
 
