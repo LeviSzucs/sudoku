@@ -53,6 +53,18 @@ const DEFAULT_NOTIFICATION_PREFERENCES: Omit<NotificationPreferenceRow, "user_id
 
 let notificationsModule: ExpoNotificationsModule | null = null;
 
+function logNotificationDiagnostic(message: string, details?: Record<string, unknown>) {
+  if (details) {
+    console.info(`[Notifications] ${message}`, details);
+    return;
+  }
+  console.info(`[Notifications] ${message}`);
+}
+
+function tokenDiagnostic(token: string): Record<string, unknown> {
+  return { hasToken: Boolean(token), tokenLength: token.length };
+}
+
 function normalisePermission(status: { status?: string; granted?: boolean } | null | undefined): NotificationPermissionStatus {
   if (!status) return "unsupported";
   if (status.granted || status.status === "granted") return "granted";
@@ -78,7 +90,8 @@ function expoProjectId(): string | undefined {
   const extra = Constants.expoConfig?.extra as Record<string, unknown> | undefined;
   const eas = extra?.eas as Record<string, unknown> | undefined;
   const easConfig = Constants as unknown as { easConfig?: { projectId?: string } };
-  const projectId = eas?.projectId ?? easConfig.easConfig?.projectId;
+  const envProjectId = typeof process !== "undefined" ? process.env?.EXPO_PUBLIC_EAS_PROJECT_ID : undefined;
+  const projectId = eas?.projectId ?? easConfig.easConfig?.projectId ?? envProjectId;
   return typeof projectId === "string" && projectId.trim().length > 0 ? projectId : undefined;
 }
 
@@ -91,7 +104,9 @@ export async function getNotificationPermissionStatus(): Promise<NotificationPer
   if (!loaded.ok) return "unsupported";
 
   try {
-    return normalisePermission(await loaded.data.getPermissionsAsync());
+    const status = normalisePermission(await loaded.data.getPermissionsAsync());
+    logNotificationDiagnostic("Permission status checked.", { status });
+    return status;
   } catch (error) {
     console.warn("[Notifications] Could not read permission status.", error);
     return "unsupported";
@@ -103,7 +118,9 @@ export async function requestNotificationPermissions(): Promise<NotificationPerm
   if (!loaded.ok) return "unsupported";
 
   try {
-    return normalisePermission(await loaded.data.requestPermissionsAsync());
+    const status = normalisePermission(await loaded.data.requestPermissionsAsync());
+    logNotificationDiagnostic("Permission request finished.", { status });
+    return status;
   } catch (error) {
     console.warn("[Notifications] Could not request notification permissions.", error);
     return "unsupported";
@@ -133,19 +150,35 @@ export async function saveNotificationPreferences(preferences: NotificationPrefe
 }
 
 export async function registerPushToken(userId: string): Promise<Result<string | null>> {
+  logNotificationDiagnostic("Push token registration started.", {
+    hasUserId: Boolean(userId),
+    platform: Platform.OS,
+    supabaseConfigured: isSupabaseConfigured,
+  });
+
+  if (!userId) return { ok: false, error: "Sign in is required before registering this device for push notifications." };
+
   const loaded = await loadNotificationsModule();
-  if (!loaded.ok) return { ok: false, error: loaded.error };
+  if (!loaded.ok) {
+    logNotificationDiagnostic("Push token registration skipped.", { reason: loaded.error });
+    return { ok: false, error: loaded.error };
+  }
 
   const permission = await getNotificationPermissionStatus();
-  if (permission !== "granted") return { ok: true, data: null };
+  if (permission !== "granted") {
+    logNotificationDiagnostic("Push token registration skipped.", { permission });
+    return { ok: true, data: null };
+  }
 
   try {
     const projectId = expoProjectId();
+    logNotificationDiagnostic("Requesting Expo push token.", { hasProjectId: Boolean(projectId), platform: Platform.OS });
     const tokenResult = projectId
       ? await loaded.data.getExpoPushTokenAsync({ projectId })
       : await loaded.data.getExpoPushTokenAsync();
     const token = typeof tokenResult === "string" ? tokenResult : tokenResult.data;
     if (!token) return { ok: false, error: "Could not register this device for push notifications." };
+    logNotificationDiagnostic("Expo push token obtained.", tokenDiagnostic(token));
 
     if (isSupabaseConfigured) {
       const { error } = await supabase.from("push_tokens").upsert({
@@ -157,7 +190,11 @@ export async function registerPushToken(userId: string): Promise<Result<string |
         is_active: true,
         last_seen_at: new Date().toISOString(),
       }, { onConflict: "user_id,expo_push_token" });
-      if (error) return { ok: false, error: error.message };
+      if (error) {
+        console.warn("[Notifications] Push token upsert failed.", { message: error.message, code: error.code });
+        return { ok: false, error: error.message };
+      }
+      logNotificationDiagnostic("Push token upsert succeeded.", { platform: Platform.OS });
     }
 
     return { ok: true, data: token };
@@ -168,9 +205,14 @@ export async function registerPushToken(userId: string): Promise<Result<string |
 }
 
 export async function syncPushTokenOnLogin(userId: string): Promise<void> {
+  logNotificationDiagnostic("Login push sync started.", { hasUserId: Boolean(userId) });
   const permission = await getNotificationPermissionStatus();
-  if (permission !== "granted") return;
-  await registerPushToken(userId);
+  if (permission !== "granted") {
+    logNotificationDiagnostic("Login push sync skipped.", { permission });
+    return;
+  }
+  const result = await registerPushToken(userId);
+  if (!result.ok) console.warn("[Notifications] Login push sync failed.", result.error);
 }
 
 export async function unregisterPushToken(userId: string, token: string): Promise<Result<boolean>> {
@@ -192,6 +234,7 @@ export async function fetchNotifications(limit = 50): Promise<Result<AppNotifica
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) return { ok: false, error: error.message };
+  logNotificationDiagnostic("Fetched in-app notifications.", { count: data?.length ?? 0 });
   return { ok: true, data: (data ?? []) as AppNotification[] };
 }
 
