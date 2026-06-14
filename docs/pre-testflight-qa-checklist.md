@@ -210,7 +210,17 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] In-app notification read state works.
 - [ ] Notification deep links open the relevant Friends/Duel screen where safe.
 - [ ] App still works without push permission.
-- [ ] Secure server-side push delivery is configured before relying on external push notifications; client code must not send push notifications to other users.
+- [ ] `send-push-notifications` Edge Function is deployed and invoked by a secure schedule or backend webhook.
+- [ ] Edge Function uses `SUPABASE_SERVICE_ROLE_KEY` only in the server runtime.
+- [ ] `PUSH_DELIVERY_SECRET` is configured if invoking the function over HTTP.
+- [ ] Creating a Friend Challenge sends a phone push to the challenged player when push is enabled.
+- [ ] Accepting a Friend Challenge sends a phone push to the challenger when push is enabled.
+- [ ] Friend request send/accept sends phone pushes when push is enabled.
+- [ ] Daily Duel and Ranked Duel match-found events send phone pushes when push is enabled.
+- [ ] Disabled preferences suppress matching phone pushes.
+- [ ] Invalid/dead Expo tokens are marked inactive.
+- [ ] Push delivery failures do not remove in-app notifications.
+- [ ] Client code does not send push notifications to other users.
 
 ## L. Premium Foundation
 
@@ -422,6 +432,36 @@ from public.app_notifications
 where user_id = '6c90ea5a-ac2b-4660-accd-b03c2a35ebf0'
 order by created_at desc
 limit 30;
+```
+
+### Push Delivery Log
+
+```sql
+select pnd.delivery_id, pnd.notification_id, pnd.token_id, pnd.user_id,
+       pnd.status, pnd.provider_message_id, left(pnd.error_message, 160) as error_preview,
+       pnd.attempted_at, pnd.created_at
+from public.push_notification_deliveries pnd
+where pnd.user_id = '6c90ea5a-ac2b-4660-accd-b03c2a35ebf0'
+order by pnd.attempted_at desc
+limit 50;
+```
+
+### Push Delivery Counts By Status
+
+```sql
+select status, count(*) as delivery_count, max(attempted_at) as latest_attempt
+from public.push_notification_deliveries
+group by status
+order by status;
+```
+
+### Pending Push Delivery Reservation Check
+
+Run only from a trusted SQL/admin context. This reserves rows for delivery, so do not run it repeatedly during normal QA unless you intend to invoke the Edge Function afterwards.
+
+```sql
+select *
+from public.reserve_pending_push_notification_deliveries(20);
 ```
 
 ### Notification Counts By Type
