@@ -22,10 +22,18 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Logout works.
 - [ ] Login works after logout.
 - [ ] Create account works.
+- [ ] Sign-up validates email format.
+- [ ] Sign-up validates minimum password length.
+- [ ] Sign-up validates matching confirm password.
+- [ ] Duplicate-account and bad-login errors are friendly.
+- [ ] Forgot password sends a reset email.
+- [ ] Password reset link returns to the app or safe reset screen.
+- [ ] New password can be saved from the reset flow.
 - [ ] Username/profile setup works for a new user.
 - [ ] Returning user lands in the right state.
 - [ ] Incomplete profile user is routed to setup.
 - [ ] Completed profile user does not briefly see setup.
+- [ ] Session restore works after closing and reopening the app.
 
 ## B. Home
 
@@ -178,6 +186,12 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Notification toggles do not error.
 - [ ] Privacy toggles do not error.
 - [ ] App settings/toggles persist as expected.
+- [ ] Sound setting is hidden until bundled sound effects ship.
+- [ ] Haptics setting persists and controls number-entry, mistake, completion, and result haptics.
+- [ ] Appearance is not shown as fake placeholder functionality.
+- [ ] Delete account entry is present.
+- [ ] Delete account flow requires destructive confirmation.
+- [ ] Delete account flow opens a clear deletion/support request.
 - [ ] Feedback opens.
 - [ ] Report a problem opens.
 - [ ] Submitting feedback creates a Supabase row.

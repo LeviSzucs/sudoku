@@ -1,5 +1,5 @@
 import { Stack, router, useLocalSearchParams } from "expo-router";
-import { Bell, Brush, ChevronLeft, Crown, Database, FlaskConical, HelpCircle, LifeBuoy, LogOut, MessageSquare, Moon, Palette, Shield, UserRound, Volume2 } from "lucide-react-native";
+import { Bell, Brush, ChevronLeft, Crown, Database, FlaskConical, HelpCircle, LifeBuoy, LogOut, MessageSquare, Palette, Shield, Trash2, UserRound } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,6 +14,7 @@ import { SHOW_DEVELOPER_TOOLS } from "@/constants/developer";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { printActionAuditReport } from "@/lib/actionAudit";
+import { loadAppPreferences, saveAppPreferences, triggerHaptic, type AppPreferences } from "@/lib/appPreferences";
 import { normalizeAvatarConfig, type CharacterAvatarConfig } from "@/lib/avatar";
 import type { PlayerProfile, ProfileSettings } from "@/lib/playerProfile";
 import { supabaseConfigDiagnostics } from "@/lib/supabase";
@@ -50,12 +51,18 @@ export default function SettingsScreen() {
   const [privacy, setPrivacy] = useState<ProfileSettings["privacy"]>(profile.settings.privacy);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsSaving, setSettingsSaving] = useState<boolean>(false);
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
-  const [hapticsEnabled, setHapticsEnabled] = useState<boolean>(true);
+  const [appPreferences, setAppPreferences] = useState<AppPreferences>({ soundEnabled: true, hapticsEnabled: true });
   const dailyDiagnostics = diagnostics.daily;
   const developerToolsEnabled = SHOW_DEVELOPER_TOOLS && profile.settings.devMode;
 
   useEffect(() => { if (params.panel) setPanel(params.panel); }, [params.panel]);
+  useEffect(() => {
+    let active = true;
+    void loadAppPreferences(auth.user?.id ?? null).then((next) => {
+      if (active) setAppPreferences(next);
+    });
+    return () => { active = false; };
+  }, [auth.user?.id]);
   useEffect(() => {
     setName(profile.username);
     setAvatarDraft(avatarDraftFromProfile(profile));
@@ -66,6 +73,32 @@ export default function SettingsScreen() {
   const showResult = async (label: string, action: () => Promise<{ ok: boolean; error?: string }>) => {
     const result = await action();
     Alert.alert(label, result.ok ? "Success." : result.error ?? "Something went wrong.");
+  };
+
+  const updateAppPreference = (next: AppPreferences) => {
+    setAppPreferences(next);
+    void saveAppPreferences(next, auth.user?.id ?? null);
+  };
+
+  const requestAccountDeletion = () => {
+    Alert.alert(
+      "Request account deletion?",
+      "We will send you to Support to request account deletion. This helps prevent accidental deletion while we verify the account owner.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Continue",
+          style: "destructive",
+          onPress: () => router.push({
+            pathname: "/settings-feedback",
+            params: {
+              category: "account_deletion",
+              message: "I would like to request deletion of my SudoDuel account and associated personal data.",
+            },
+          }),
+        },
+      ],
+    );
   };
 
   const saveName = () => {
@@ -139,13 +172,16 @@ export default function SettingsScreen() {
           <Row icon={<Palette size={18} color={C.inkSoft} />} title="Avatar" detail="Character, colours and frame" onPress={() => setPanel("avatar")} />
           <Row icon={<Bell size={18} color={C.inkSoft} />} title="Notifications" detail="Push, duels and social updates" onPress={() => router.push("/settings-notifications")} />
           <Row icon={<Shield size={18} color={C.inkSoft} />} title="Privacy" detail={privacy.publicProfile ? "Public profile" : "Private profile"} onPress={() => setPanel("privacy")} />
+          <Row icon={<Trash2 size={18} color={C.danger} />} title="Delete account" detail="Request permanent account deletion" onPress={requestAccountDeletion} />
           <Row icon={<LogOut size={18} color={C.inkSoft} />} title="Sign out" detail="Return to the welcome screen" onPress={() => Alert.alert("Sign out?", "You will return to the welcome screen.", [{ text: "Cancel", style: "cancel" }, { text: "Sign out", style: "destructive", onPress: () => { void auth.signOut(); } }])} last />
         </Section>
 
         <Section title="App">
-          <Row icon={<Moon size={18} color={C.inkSoft} />} title="Appearance" detail="Theme options coming soon" onPress={() => Alert.alert("Appearance", "Theme options are coming soon.")} />
-          <Row icon={<Volume2 size={18} color={C.inkSoft} />} title="Sound" detail={soundEnabled ? "On" : "Off"} onPress={() => setSoundEnabled((value) => !value)} />
-          <Row icon={<Brush size={18} color={C.inkSoft} />} title="Haptics" detail={hapticsEnabled ? "On" : "Off"} onPress={() => setHapticsEnabled((value) => !value)} last />
+          <Row icon={<Brush size={18} color={C.inkSoft} />} title="Haptics" detail={appPreferences.hapticsEnabled ? "On" : "Off"} onPress={() => {
+            const next = { ...appPreferences, hapticsEnabled: !appPreferences.hapticsEnabled };
+            updateAppPreference(next);
+            if (next.hapticsEnabled) void triggerHaptic("selection");
+          }} last />
         </Section>
 
         <Section title="Premium">
