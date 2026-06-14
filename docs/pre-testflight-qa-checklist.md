@@ -424,6 +424,82 @@ order by created_at desc
 limit 30;
 ```
 
+### Notification Counts By Type
+
+```sql
+select type, count(*) as notification_count, max(created_at) as latest_created_at
+from public.app_notifications
+group by type
+order by type;
+```
+
+### Latest Friend Challenges Joined To Notifications
+
+```sql
+select fc.challenge_id, fc.status, fc.challenger_id, fc.challenged_id,
+       fc.created_at, fc.accepted_at, fc.completed_at,
+       an.notification_id, an.user_id as notified_user_id,
+       an.type as notification_type, an.created_at as notification_created_at
+from public.friend_challenges fc
+left join public.app_notifications an
+  on an.related_entity_type = 'friend_challenge'
+ and an.related_entity_id = fc.challenge_id::text
+where fc.challenger_id = '6c90ea5a-ac2b-4660-accd-b03c2a35ebf0'
+   or fc.challenged_id = '6c90ea5a-ac2b-4660-accd-b03c2a35ebf0'
+order by fc.created_at desc, an.created_at desc
+limit 50;
+```
+
+### Latest Friend Requests Joined To Notifications
+
+```sql
+select fr.request_id, fr.status, fr.sender_id, fr.receiver_id,
+       fr.created_at, fr.updated_at,
+       an.notification_id, an.user_id as notified_user_id,
+       an.type as notification_type, an.created_at as notification_created_at
+from public.friend_requests fr
+left join public.app_notifications an
+  on an.related_entity_type = 'friend_request'
+ and an.related_entity_id = fr.request_id::text
+where fr.sender_id = '6c90ea5a-ac2b-4660-accd-b03c2a35ebf0'
+   or fr.receiver_id = '6c90ea5a-ac2b-4660-accd-b03c2a35ebf0'
+order by fr.created_at desc, an.created_at desc
+limit 50;
+```
+
+### Push Token Rows By User And Platform
+
+```sql
+select user_id, platform, is_active, count(*) as token_count,
+       max(last_seen_at) as latest_seen_at
+from public.push_tokens
+group by user_id, platform, is_active
+order by latest_seen_at desc nulls last;
+```
+
+### Notification Trigger Existence
+
+```sql
+select trigger_schema, trigger_name, event_manipulation, event_object_table, action_timing
+from information_schema.triggers
+where trigger_schema = 'public'
+  and trigger_name in (
+    'notify_friend_request_events',
+    'notify_friend_challenge_events',
+    'notify_daily_duel_events',
+    'notify_ranked_duel_events'
+  )
+order by event_object_table, trigger_name, event_manipulation;
+```
+
+### Repair Real Missed Notification Rows
+
+Run only from the Supabase SQL editor if trigger setup was deployed after real friend/social events already happened:
+
+```sql
+select public.repair_notification_events(now() - interval '30 days');
+```
+
 ### Notification RLS Enabled
 
 ```sql

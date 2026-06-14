@@ -1,6 +1,6 @@
 import { Stack, router } from "expo-router";
 import { Bell, BellOff, ChevronLeft, CheckCircle2 } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -56,6 +56,7 @@ export default function SettingsNotificationsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const tokenSyncAttemptRef = useRef<string | null>(null);
 
   const unreadCount = useMemo(() => notifications.filter((item) => !item.read_at).length, [notifications]);
   const permission = permissionCopy(permissionStatus);
@@ -88,6 +89,16 @@ export default function SettingsNotificationsScreen() {
     if (!userId) return undefined;
     return subscribeToInAppNotifications(userId, () => { void load(); });
   }, [load, userId]);
+
+  useEffect(() => {
+    if (!userId || permissionStatus !== "granted") return;
+    const attemptKey = `${userId}:${permissionStatus}`;
+    if (tokenSyncAttemptRef.current === attemptKey) return;
+    tokenSyncAttemptRef.current = attemptKey;
+    void registerPushToken(userId).then((result) => {
+      if (!result.ok) setError((current) => current ?? result.error);
+    });
+  }, [permissionStatus, userId]);
 
   const updatePreference = async (key: keyof NotificationPreferenceRow, value: boolean) => {
     if (!preferences || !userId) return;
