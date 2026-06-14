@@ -1,5 +1,5 @@
 import { Stack, router, useLocalSearchParams } from "expo-router";
-import { Bell, Brush, ChevronLeft, Crown, Database, FlaskConical, HelpCircle, LifeBuoy, LogOut, MessageSquare, Palette, Shield, Trash2, UserRound, Volume2 } from "lucide-react-native";
+import { Bell, Brush, ChevronLeft, Crown, Database, FlaskConical, HelpCircle, LifeBuoy, LogOut, MessageSquare, Palette, Shield, Trash2, UserRound } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,7 +14,7 @@ import { SHOW_DEVELOPER_TOOLS } from "@/constants/developer";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { printActionAuditReport } from "@/lib/actionAudit";
-import { loadAppPreferences, playSoundEffect, saveAppPreferences, triggerHaptic, type AppPreferences } from "@/lib/appPreferences";
+import { loadAppPreferences, saveAppPreferences, triggerHaptic, type AppPreferences } from "@/lib/appPreferences";
 import { normalizeAvatarConfig, type CharacterAvatarConfig } from "@/lib/avatar";
 import type { PlayerProfile, ProfileSettings } from "@/lib/playerProfile";
 import { supabaseConfigDiagnostics } from "@/lib/supabase";
@@ -177,11 +177,6 @@ export default function SettingsScreen() {
         </Section>
 
         <Section title="App">
-          <Row icon={<Volume2 size={18} color={C.inkSoft} />} title="Sound" detail={appPreferences.soundEnabled ? "On" : "Off"} onPress={() => {
-            const next = { ...appPreferences, soundEnabled: !appPreferences.soundEnabled };
-            updateAppPreference(next);
-            void playSoundEffect("button");
-          }} />
           <Row icon={<Brush size={18} color={C.inkSoft} />} title="Haptics" detail={appPreferences.hapticsEnabled ? "On" : "Off"} onPress={() => {
             const next = { ...appPreferences, hapticsEnabled: !appPreferences.hapticsEnabled };
             updateAppPreference(next);

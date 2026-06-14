@@ -186,7 +186,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Notification toggles do not error.
 - [ ] Privacy toggles do not error.
 - [ ] App settings/toggles persist as expected.
-- [ ] Sound setting persists and controls app/game sound behaviour.
+- [ ] Sound setting is hidden until bundled sound effects ship.
 - [ ] Haptics setting persists and controls number-entry, mistake, completion, and result haptics.
 - [ ] Appearance is not shown as fake placeholder functionality.
 - [ ] Delete account entry is present.
