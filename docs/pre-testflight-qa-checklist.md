@@ -208,8 +208,11 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Notification permission prompt appears only after tapping the enable action.
 - [ ] Denying push notifications does not break the app.
 - [ ] The denied-permission message explains that SudoDuel still works normally.
+- [ ] EAS/Expo project ID is present through `extra.eas.projectId`, `Constants.easConfig.projectId`, or `EXPO_PUBLIC_EAS_PROJECT_ID`.
 - [ ] Push token registers after permission is granted.
+- [ ] TestFlight device creates an active `push_tokens` row after opening Notifications with permission granted.
 - [ ] Push token upsert does not create duplicate active token rows for the same user/token.
+- [ ] Push diagnostics show project ID/permission/token/upsert status without logging raw push tokens.
 - [ ] Notification preferences save and reload.
 - [ ] Marketing/news/offers defaults off.
 - [ ] Friend request received creates an in-app notification for the recipient.

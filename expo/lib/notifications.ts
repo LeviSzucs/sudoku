@@ -65,6 +65,12 @@ function tokenDiagnostic(token: string): Record<string, unknown> {
   return { hasToken: Boolean(token), tokenLength: token.length };
 }
 
+function safeErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string") return error;
+  return "Unknown error";
+}
+
 function normalisePermission(status: { status?: string; granted?: boolean } | null | undefined): NotificationPermissionStatus {
   if (!status) return "unsupported";
   if (status.granted || status.status === "granted") return "granted";
@@ -150,10 +156,12 @@ export async function saveNotificationPreferences(preferences: NotificationPrefe
 }
 
 export async function registerPushToken(userId: string): Promise<Result<string | null>> {
+  const projectId = expoProjectId();
   logNotificationDiagnostic("Push token registration started.", {
     hasUserId: Boolean(userId),
     platform: Platform.OS,
     supabaseConfigured: isSupabaseConfigured,
+    hasProjectId: Boolean(projectId),
   });
 
   if (!userId) return { ok: false, error: "Sign in is required before registering this device for push notifications." };
@@ -170,14 +178,23 @@ export async function registerPushToken(userId: string): Promise<Result<string |
     return { ok: true, data: null };
   }
 
+  if (!projectId) {
+    logNotificationDiagnostic("Push token registration failed.", {
+      category: "missing_project_id",
+      permission,
+      platform: Platform.OS,
+    });
+    return { ok: false, error: "Push project ID missing." };
+  }
+
   try {
-    const projectId = expoProjectId();
-    logNotificationDiagnostic("Requesting Expo push token.", { hasProjectId: Boolean(projectId), platform: Platform.OS });
-    const tokenResult = projectId
-      ? await loaded.data.getExpoPushTokenAsync({ projectId })
-      : await loaded.data.getExpoPushTokenAsync();
+    logNotificationDiagnostic("Requesting Expo push token.", { hasProjectId: true, platform: Platform.OS });
+    const tokenResult = await loaded.data.getExpoPushTokenAsync({ projectId });
     const token = typeof tokenResult === "string" ? tokenResult : tokenResult.data;
-    if (!token) return { ok: false, error: "Could not register this device for push notifications." };
+    if (!token) {
+      logNotificationDiagnostic("Expo push token request failed.", { category: "empty_token", permission, platform: Platform.OS });
+      return { ok: false, error: "Could not get Expo push token." };
+    }
     logNotificationDiagnostic("Expo push token obtained.", tokenDiagnostic(token));
 
     if (isSupabaseConfigured) {
@@ -192,15 +209,23 @@ export async function registerPushToken(userId: string): Promise<Result<string |
       }, { onConflict: "user_id,expo_push_token" });
       if (error) {
         console.warn("[Notifications] Push token upsert failed.", { message: error.message, code: error.code });
-        return { ok: false, error: error.message };
+        logNotificationDiagnostic("Push token upsert failed.", { category: "supabase_upsert_failed", code: error.code, platform: Platform.OS });
+        return { ok: false, error: "Could not save push token." };
       }
       logNotificationDiagnostic("Push token upsert succeeded.", { platform: Platform.OS });
     }
 
     return { ok: true, data: token };
   } catch (error) {
-    console.warn("[Notifications] Could not register push token.", error);
-    return { ok: false, error: "Could not register this device for push notifications." };
+    console.warn("[Notifications] Could not get Expo push token.", { message: safeErrorMessage(error) });
+    logNotificationDiagnostic("Expo push token request failed.", {
+      category: "expo_token_failed",
+      message: safeErrorMessage(error),
+      permission,
+      platform: Platform.OS,
+      hasProjectId: true,
+    });
+    return { ok: false, error: "Could not get Expo push token." };
   }
 }
 
