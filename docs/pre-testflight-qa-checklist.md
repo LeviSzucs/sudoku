@@ -66,8 +66,13 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Pause/resume works if present.
 - [ ] Completion saves an official result.
 - [ ] Failed/abandoned result behavior is correct.
-- [ ] Continue Puzzle works after leaving mid-puzzle.
-- [ ] Completed puzzle clears continue state.
+- [ ] Start Classic puzzle, enter a few numbers, leave and return: Continue appears and resumes the exact puzzle/session.
+- [ ] Complete Classic puzzle: Continue disappears.
+- [ ] Fail Classic puzzle/game over: Continue disappears.
+- [ ] Complete Classic puzzle, force close and reopen: Continue remains absent.
+- [ ] Fail Classic puzzle, force close and reopen: Continue remains absent.
+- [ ] Missing or corrupt continue state is cleared and does not open a fallback puzzle.
+- [ ] Starting a new Classic puzzle starts fresh, not as a continuation.
 
 ## D. Daily Sudoku
 
