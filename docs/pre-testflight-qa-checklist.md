@@ -208,8 +208,10 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Notification permission prompt appears only after tapping the enable action.
 - [ ] Denying push notifications does not break the app.
 - [ ] The denied-permission message explains that SudoDuel still works normally.
-- [ ] EAS/Expo project ID is present through `extra.eas.projectId`, `Constants.easConfig.projectId`, `EXPO_PUBLIC_EAS_PROJECT_ID`, or Rork's `EXPO_PUBLIC_PROJECT_ID`.
-- [ ] TestFlight no longer shows `Push project ID missing` when either project ID env var is provided.
+- [ ] EAS/Expo project ID is present through `extra.eas.projectId`, `Constants.easConfig.projectId`, or UUID-shaped `EXPO_PUBLIC_EAS_PROJECT_ID`.
+- [ ] `EXPO_PUBLIC_PROJECT_ID` may be a Rork slug and must not be treated as a valid EAS UUID unless UUID-shaped.
+- [ ] Phone push requires `EXPO_PUBLIC_EAS_PROJECT_ID` or another real UUID-shaped project ID source.
+- [ ] TestFlight shows a graceful unavailable message, not raw Expo errors, when only an invalid Rork slug is present.
 - [ ] Long-press Settings > Legal > App version to open Push Diagnostics in TestFlight; confirm the selected project ID source and UUID-shaped value.
 - [ ] Push token registers after permission is granted.
 - [ ] TestFlight device creates an active `push_tokens` row after opening Notifications with permission granted.
