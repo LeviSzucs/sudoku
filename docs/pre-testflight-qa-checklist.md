@@ -68,11 +68,15 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Failed/abandoned result behavior is correct.
 - [ ] Start Classic puzzle, enter a few numbers, leave and return: Continue appears and resumes the exact puzzle/session.
 - [ ] Complete Classic puzzle: Continue disappears.
+- [ ] Complete an Easy Classic puzzle, then check Medium: Medium must not show an older Continue puzzle.
+- [ ] Start Medium Classic, make progress, leave and return: exactly one Continue appears for that Medium puzzle.
+- [ ] Start Easy Classic while Medium is unfinished: the Medium continue is closed/abandoned and only Easy can be continued.
 - [ ] Fail Classic puzzle/game over: Continue disappears.
 - [ ] Complete Classic puzzle, force close and reopen: Continue remains absent.
 - [ ] Fail Classic puzzle, force close and reopen: Continue remains absent.
 - [ ] Missing or corrupt continue state is cleared and does not open a fallback puzzle.
 - [ ] Starting a new Classic puzzle starts fresh, not as a continuation.
+- [ ] There is never more than one Continue Puzzle across all Classic difficulties.
 
 ## D. Daily Sudoku
 

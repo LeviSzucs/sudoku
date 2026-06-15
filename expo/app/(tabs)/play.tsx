@@ -56,7 +56,7 @@ export default function PlayHubScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const auth = useAuth();
-  const { profile, activeSessions, closeSessionForPuzzle, getInProgressClassicSession, startPuzzleSession, getInProgressDailySession, getCompletedDailyResult } = usePlayerProfile();
+  const { profile, activeSessions, classicContinueSession, closeSessionForPuzzle, getInProgressClassicSession, startPuzzleSession, getInProgressDailySession, getCompletedDailyResult } = usePlayerProfile();
   const [pendingClassicDifficulty, setPendingClassicDifficulty] = useState<Difficulty | null>(null);
   const [pendingClassicSession, setPendingClassicSession] = useState<PuzzleSessionRow | null>(null);
   const [isCheckingClassicSession, setIsCheckingClassicSession] = useState(false);
@@ -220,8 +220,8 @@ export default function PlayHubScreen() {
   };
 
   const inProgressSessions = activeSessions.filter((session) => session.status === "in_progress" && isContinueSessionMode(session.mode));
-  const hasActiveSession = inProgressSessions.length > 0;
-  const activeSession = hasActiveSession ? inProgressSessions[0] : null;
+  const activeSession = classicContinueSession;
+  const hasActiveSession = Boolean(activeSession);
   const startDaily = () => {
     if (auth.isSignedIn) {
       void startSignedInDailyPuzzle("daily");
