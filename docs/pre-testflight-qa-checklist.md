@@ -210,6 +210,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] The denied-permission message explains that SudoDuel still works normally.
 - [ ] EAS/Expo project ID is present through `extra.eas.projectId`, `Constants.easConfig.projectId`, `EXPO_PUBLIC_EAS_PROJECT_ID`, or Rork's `EXPO_PUBLIC_PROJECT_ID`.
 - [ ] TestFlight no longer shows `Push project ID missing` when either project ID env var is provided.
+- [ ] Developer-only Push Diagnostics in TestFlight shows the selected project ID source and confirms the selected value is UUID-shaped.
 - [ ] Push token registers after permission is granted.
 - [ ] TestFlight device creates an active `push_tokens` row after opening Notifications with permission granted.
 - [ ] Push token upsert does not create duplicate active token rows for the same user/token.
