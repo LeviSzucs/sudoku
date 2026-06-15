@@ -86,7 +86,22 @@ export default function FriendHeadToHeadScreen() {
           <>
             <Card>
               <View style={styles.friendHeader}>
-                <Avatar initials={summary.friend_initials} color={summary.friend_avatar_color} size={58} />
+                <Avatar
+                  initials={summary.friend_initials}
+                  color={summary.friend_avatar_color}
+                  symbol={summary.friend_avatar_symbol}
+                  avatar_style_version={summary.friend_avatar_style_version}
+                  avatar_bg_color={summary.friend_avatar_bg_color}
+                  avatar_initials={summary.friend_avatar_initials}
+                  avatar_skin_tone={summary.friend_avatar_skin_tone}
+                  avatar_hair_style={summary.friend_avatar_hair_style}
+                  avatar_hair_color={summary.friend_avatar_hair_color}
+                  avatar_top_style={summary.friend_avatar_top_style}
+                  avatar_top_color={summary.friend_avatar_top_color}
+                  avatar_accessory={summary.friend_avatar_accessory}
+                  avatar_frame={summary.friend_avatar_frame}
+                  size={58}
+                />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.friendName}>{summary.friend_display_name}</Text>
                   <Text style={styles.friendHandle}>@{summary.friend_username_handle}</Text>

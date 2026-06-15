@@ -100,6 +100,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 
 - [ ] Friend list loads in challenge mode.
 - [ ] Challenge creation works.
+- [ ] User A customises avatar and User B sees User A's saved avatar in Friend Challenge.
+- [ ] User B customises avatar and User A sees User B's saved avatar in Friend Challenge.
 - [ ] Duplicate active challenge is blocked only for same friend plus same difficulty.
 - [ ] Different-difficulty active challenges against the same friend are allowed.
 - [ ] Challenge invite/share flow works if present.
@@ -107,6 +109,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Challenge completion works.
 - [ ] Failed attempt is final.
 - [ ] Result links to both players correctly.
+- [ ] Result screens and completed challenge cards show the correct player avatars.
+- [ ] Missing/deleted profile fallback avatar still renders without errors.
 - [ ] Completed challenge moves out of Active Challenges.
 - [ ] Completed challenge card shows correct winner/draw.
 - [ ] Both failed shows Draw.
@@ -175,6 +179,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Preview updates immediately.
 - [ ] Save persists after restart.
 - [ ] Avatar renders across Profile, Ranks, Friends, Duels, and Results.
+- [ ] Opponent avatars use saved character customisation in Daily Duel, Ranked Duel, Friend Challenge, H2H, and leaderboards.
 - [ ] Legacy initials fallback still works.
 - [ ] Chip rows do not clip at screen edges.
 

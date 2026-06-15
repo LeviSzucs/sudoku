@@ -7,7 +7,7 @@ import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
 import { C } from "@/constants/colors";
 import { useAuth } from "@/hooks/useAuth";
-import { usePlayerProfile } from "@/hooks/usePlayerProfile";
+import { usePlayerProfile, type PublicAvatarConfig } from "@/hooks/usePlayerProfile";
 import { getDailyDateKey } from "@/lib/daily";
 
 type Tab = "daily" | "weekly" | "friends" | "ranked";
@@ -15,7 +15,7 @@ type Tab = "daily" | "weekly" | "friends" | "ranked";
 interface LeaderboardEntry {
   id: string;
   rank: number;
-  user: { id: string; username: string; initials: string; avatarColor: string };
+  user: PublicAvatarConfig & { id: string; username: string; initials: string; avatarColor: string };
   score: number;
   time: string;
   mistakes?: number;
@@ -71,7 +71,7 @@ export default function LeaderboardsScreen() {
         setDailyData(rows.map((row, index) => ({
           id: row.result_id,
           rank: index + 1,
-          user: { id: row.user_id, username: row.username, initials: row.initials, avatarColor: row.avatar_color },
+          user: { ...row, id: row.user_id, username: row.username, initials: row.initials, avatarColor: row.avatar_color },
           score: row.final_score,
           time: secondsToTime(row.elapsed_seconds),
           mistakes: row.mistakes,
@@ -97,7 +97,7 @@ export default function LeaderboardsScreen() {
         setWeeklyData(rows.map((row) => ({
           id: row.user_id,
           rank: row.rank,
-          user: { id: row.user_id, username: row.username, initials: row.initials, avatarColor: row.avatar_color },
+          user: { ...row, id: row.user_id, username: row.username, initials: row.initials, avatarColor: row.avatar_color },
           score: row.total_score,
           time: secondsToTime(row.total_time),
           puzzlesCompleted: row.puzzles_completed,
@@ -123,7 +123,7 @@ export default function LeaderboardsScreen() {
         setFriendsData(rows.map((row) => ({
           id: row.user_id,
           rank: row.rank,
-          user: { id: row.user_id, username: row.username, initials: row.initials, avatarColor: row.avatar_color },
+          user: { ...row, id: row.user_id, username: row.username, initials: row.initials, avatarColor: row.avatar_color },
           score: row.total_score,
           time: secondsToTime(row.total_time),
           puzzlesCompleted: row.puzzles_completed,
@@ -148,7 +148,7 @@ export default function LeaderboardsScreen() {
         setRankedData(rows.map((row) => ({
           id: row.user_id,
           rank: row.rank,
-          user: { id: row.user_id, username: row.username, initials: row.initials, avatarColor: row.avatar_color },
+          user: { ...row, id: row.user_id, username: row.username, initials: row.initials, avatarColor: row.avatar_color },
           score: row.rp,
           time: "",
           tier: row.current_tier,
@@ -282,8 +282,10 @@ export default function LeaderboardsScreen() {
                   <View key={entry.id} style={styles.podiumCol}>
                     <View style={styles.podiumInfo}>
                       <Avatar
+                        {...entry.user}
                         initials={entry.user.initials}
                         color={entry.user.avatarColor}
+                        symbol={entry.user.avatar_symbol}
                         size={place === 1 ? 56 : 46}
                       />
                       <Text style={styles.podiumName} numberOfLines={1}>
@@ -340,8 +342,10 @@ export default function LeaderboardsScreen() {
                     {entry.rank}
                   </Text>
                   <Avatar
+                    {...entry.user}
                     initials={entry.user.initials}
                     color={entry.user.avatarColor}
+                    symbol={entry.user.avatar_symbol}
                     size={36}
                   />
                   <View style={{ flex: 1, marginLeft: 12 }}>
