@@ -31,6 +31,70 @@ type DailySessionMode = "daily" | "daily_duel";
 type UsernameAvailabilityStatus = "available" | "unavailable" | "invalid" | "error";
 
 const RESERVED_USERNAMES = new Set(["player", "admin", "support", "sudoku", "ranked", "daily", "guest"]);
+const PUBLIC_PROFILE_AVATAR_SELECT = "id,username,display_name,username_handle,initials,avatar_color,avatar_symbol,avatar_style_version,avatar_bg_color,avatar_initials,avatar_skin_tone,avatar_hair_style,avatar_hair_color,avatar_top_style,avatar_top_color,avatar_accessory,avatar_frame";
+
+export interface PublicAvatarConfig extends CharacterAvatarConfig {
+  avatar_symbol?: string | null;
+}
+
+type PublicAvatarRow = PublicAvatarConfig & {
+  initials?: string | null;
+  avatar_color?: string | null;
+  username?: string | null;
+  display_name?: string | null;
+  username_handle?: string | null;
+};
+
+function publicAvatarFields(value: unknown): PublicAvatarConfig {
+  const row = value as PublicAvatarRow | null | undefined;
+  return {
+    avatar_symbol: row?.avatar_symbol ?? null,
+    avatar_style_version: row?.avatar_style_version ?? null,
+    avatar_bg_color: row?.avatar_bg_color ?? null,
+    avatar_initials: row?.avatar_initials ?? null,
+    avatar_skin_tone: row?.avatar_skin_tone ?? null,
+    avatar_hair_style: row?.avatar_hair_style ?? null,
+    avatar_hair_color: row?.avatar_hair_color ?? null,
+    avatar_top_style: row?.avatar_top_style ?? null,
+    avatar_top_color: row?.avatar_top_color ?? null,
+    avatar_accessory: row?.avatar_accessory ?? null,
+    avatar_frame: row?.avatar_frame ?? null,
+  };
+}
+
+function prefixedFriendAvatarFields(row: unknown) {
+  const fields = publicAvatarFields(row);
+  return {
+    friend_avatar_symbol: fields.avatar_symbol,
+    friend_avatar_style_version: fields.avatar_style_version,
+    friend_avatar_bg_color: fields.avatar_bg_color,
+    friend_avatar_initials: fields.avatar_initials,
+    friend_avatar_skin_tone: fields.avatar_skin_tone,
+    friend_avatar_hair_style: fields.avatar_hair_style,
+    friend_avatar_hair_color: fields.avatar_hair_color,
+    friend_avatar_top_style: fields.avatar_top_style,
+    friend_avatar_top_color: fields.avatar_top_color,
+    friend_avatar_accessory: fields.avatar_accessory,
+    friend_avatar_frame: fields.avatar_frame,
+  };
+}
+
+function prefixedOpponentAvatarFields(row: unknown) {
+  const fields = publicAvatarFields(row);
+  return {
+    opponent_avatar_symbol: fields.avatar_symbol,
+    opponent_avatar_style_version: fields.avatar_style_version,
+    opponent_avatar_bg_color: fields.avatar_bg_color,
+    opponent_avatar_initials: fields.avatar_initials,
+    opponent_avatar_skin_tone: fields.avatar_skin_tone,
+    opponent_avatar_hair_style: fields.avatar_hair_style,
+    opponent_avatar_hair_color: fields.avatar_hair_color,
+    opponent_avatar_top_style: fields.avatar_top_style,
+    opponent_avatar_top_color: fields.avatar_top_color,
+    opponent_avatar_accessory: fields.avatar_accessory,
+    opponent_avatar_frame: fields.avatar_frame,
+  };
+}
 
 export interface UsernameAvailability {
   username: string;
@@ -64,7 +128,7 @@ export interface OfficialResultPayload {
   won?: boolean | null;
 }
 
-export interface DailyLeaderboardEntry {
+export interface DailyLeaderboardEntry extends PublicAvatarConfig {
   result_id: string;
   user_id: string;
   username: string;
@@ -78,7 +142,7 @@ export interface DailyLeaderboardEntry {
   completed_at: string;
 }
 
-export interface WeeklyLeaderboardEntry {
+export interface WeeklyLeaderboardEntry extends PublicAvatarConfig {
   rank: number;
   user_id: string;
   username: string;
@@ -96,7 +160,7 @@ export interface FriendsWeeklyLeaderboardEntry extends WeeklyLeaderboardEntry {
   is_current_user: boolean;
 }
 
-export interface FriendUser {
+export interface FriendUser extends PublicAvatarConfig {
   user_id: string;
   display_name: string;
   username_handle: string;
@@ -106,7 +170,7 @@ export interface FriendUser {
   relationship_status?: "none" | "friends" | "request_sent" | "request_received";
 }
 
-export interface FriendRequestEntry {
+export interface FriendRequestEntry extends PublicAvatarConfig {
   request_id: string;
   user_id: string;
   display_name: string;
@@ -129,6 +193,17 @@ export interface FriendChallengeEntry {
   friend_username_handle: string;
   friend_initials: string;
   friend_avatar_color: string;
+  friend_avatar_symbol?: string | null;
+  friend_avatar_style_version?: string | null;
+  friend_avatar_bg_color?: string | null;
+  friend_avatar_initials?: string | null;
+  friend_avatar_skin_tone?: string | null;
+  friend_avatar_hair_style?: string | null;
+  friend_avatar_hair_color?: string | null;
+  friend_avatar_top_style?: string | null;
+  friend_avatar_top_color?: string | null;
+  friend_avatar_accessory?: string | null;
+  friend_avatar_frame?: string | null;
   challenger_session_id: string | null;
   challenged_session_id: string | null;
   current_user_session_id: string | null;
@@ -173,6 +248,17 @@ export interface DailyDuelEntry {
   opponent_username_handle: string | null;
   opponent_initials: string | null;
   opponent_avatar_color: string | null;
+  opponent_avatar_symbol?: string | null;
+  opponent_avatar_style_version?: string | null;
+  opponent_avatar_bg_color?: string | null;
+  opponent_avatar_initials?: string | null;
+  opponent_avatar_skin_tone?: string | null;
+  opponent_avatar_hair_style?: string | null;
+  opponent_avatar_hair_color?: string | null;
+  opponent_avatar_top_style?: string | null;
+  opponent_avatar_top_color?: string | null;
+  opponent_avatar_accessory?: string | null;
+  opponent_avatar_frame?: string | null;
   opponent_rank_tier: string | null;
   your_score: number | null;
   your_elapsed_seconds: number | null;
@@ -201,6 +287,17 @@ export interface RankedDuelEntry {
   opponent_username_handle: string | null;
   opponent_initials: string | null;
   opponent_avatar_color: string | null;
+  opponent_avatar_symbol?: string | null;
+  opponent_avatar_style_version?: string | null;
+  opponent_avatar_bg_color?: string | null;
+  opponent_avatar_initials?: string | null;
+  opponent_avatar_skin_tone?: string | null;
+  opponent_avatar_hair_style?: string | null;
+  opponent_avatar_hair_color?: string | null;
+  opponent_avatar_top_style?: string | null;
+  opponent_avatar_top_color?: string | null;
+  opponent_avatar_accessory?: string | null;
+  opponent_avatar_frame?: string | null;
   opponent_tier: string | null;
   your_score: number | null;
   your_elapsed_seconds: number | null;
@@ -245,6 +342,17 @@ export interface FriendHeadToHeadSummary {
   friend_username_handle: string;
   friend_initials: string;
   friend_avatar_color: string;
+  friend_avatar_symbol?: string | null;
+  friend_avatar_style_version?: string | null;
+  friend_avatar_bg_color?: string | null;
+  friend_avatar_initials?: string | null;
+  friend_avatar_skin_tone?: string | null;
+  friend_avatar_hair_style?: string | null;
+  friend_avatar_hair_color?: string | null;
+  friend_avatar_top_style?: string | null;
+  friend_avatar_top_color?: string | null;
+  friend_avatar_accessory?: string | null;
+  friend_avatar_frame?: string | null;
   total_completed: number;
   current_user_wins: number;
   friend_wins: number;
@@ -302,7 +410,7 @@ interface FriendsWeeklyLeaderboardRpcRow {
   is_current_user: boolean | null;
 }
 
-export interface RankedLeaderboardEntry {
+export interface RankedLeaderboardEntry extends PublicAvatarConfig {
   rank: number;
   user_id: string;
   username: string;
@@ -1669,6 +1777,25 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     return summary;
   }, [auth.isSignedIn, auth.user, loadBackendProfile, profile, recordPuzzleResult, summaryFromOfficialPayload, updateDiagnostics, verifyOwnedInProgressSession]);
 
+  const fetchPublicProfileMap = useCallback(async (userIds: Array<string | null | undefined>): Promise<Map<string, ProfileRow>> => {
+    const ids = Array.from(new Set(userIds.filter((id): id is string => typeof id === "string" && id.length > 0)));
+    const profilesById = new Map<string, ProfileRow>();
+    if (!isSupabaseConfigured || ids.length === 0) return profilesById;
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(PUBLIC_PROFILE_AVATAR_SELECT)
+      .in("id", ids);
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return profilesById;
+    }
+    for (const row of (data ?? []) as ProfileRow[]) {
+      profilesById.set(row.id, row);
+    }
+    return profilesById;
+  }, [updateDiagnostics]);
+
   const fetchDailyLeaderboard = useCallback(async (dateStr: string): Promise<DailyLeaderboardEntry[]> => {
     if (!isSupabaseConfigured) return [];
 
@@ -1718,12 +1845,14 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       supabaseError: rpcError?.message ?? null,
     });
     if (!rpcError) {
+      const profilesById = await fetchPublicProfileMap(rpcRows.map((row) => row.user_id));
       const entries = rpcRows.map((row) => ({
         result_id: row.result_id,
         user_id: row.user_id,
-        username: row.username ?? "Player",
-        initials: row.initials ?? "PL",
-        avatar_color: row.avatar_color ?? "#A8A294",
+        username: profilesById.get(row.user_id)?.display_name ?? profilesById.get(row.user_id)?.username ?? row.username ?? "Player",
+        initials: profilesById.get(row.user_id)?.initials ?? row.initials ?? "PL",
+        avatar_color: profilesById.get(row.user_id)?.avatar_color ?? row.avatar_color ?? "#A8A294",
+        ...publicAvatarFields(profilesById.get(row.user_id) ?? row),
         final_score: row.final_score,
         elapsed_seconds: row.elapsed_seconds,
         mistakes: row.mistakes,
@@ -1808,7 +1937,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     if (userIds.length > 0) {
       const { data: profileRows, error: profileError } = await supabase
         .from("profiles")
-        .select("id,username,initials,avatar_color")
+        .select(PUBLIC_PROFILE_AVATAR_SELECT)
         .in("id", userIds);
       if (profileError) updateDiagnostics({ lastError: profileError.message });
       for (const profileRow of (profileRows ?? []) as ProfileRow[]) {
@@ -1825,6 +1954,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
           username: profileRow?.username ?? (row.user_id === profile.user_id ? profile.username : "Player"),
           initials: profileRow?.initials ?? (row.user_id === profile.user_id ? profile.initials : "PL"),
           avatar_color: profileRow?.avatar_color ?? (row.user_id === profile.user_id ? profile.avatar_color : "#A8A294"),
+          ...publicAvatarFields(profileRow ?? (row.user_id === profile.user_id ? profile : null)),
           final_score: row.final_score,
           elapsed_seconds: row.elapsed_seconds,
           mistakes: row.mistakes,
@@ -1843,7 +1973,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       errors: [],
     });
     return entries;
-  }, [auth.user?.id, profile.avatar_color, profile.initials, profile.user_id, profile.username, updateDailyDiagnostics, updateDiagnostics]);
+  }, [auth.user?.id, fetchPublicProfileMap, profile, profile.avatar_color, profile.initials, profile.user_id, profile.username, updateDailyDiagnostics, updateDiagnostics]);
 
   const fetchWeeklyLeaderboard = useCallback(async (dateStr: string): Promise<WeeklyLeaderboardEntry[]> => {
     if (!isSupabaseConfigured) return [];
@@ -1870,19 +2000,21 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       rows,
       supabaseError: null,
     });
+    const profilesById = await fetchPublicProfileMap(rows.map((row) => row.user_id));
     return rows.map((row, index) => ({
       rank: row.rank ?? index + 1,
       user_id: row.user_id,
-      username: row.username ?? "Player",
-      initials: row.initials ?? "PL",
-      avatar_color: row.avatar_color ?? "#A8A294",
+      username: profilesById.get(row.user_id)?.display_name ?? profilesById.get(row.user_id)?.username ?? row.username ?? "Player",
+      initials: profilesById.get(row.user_id)?.initials ?? row.initials ?? "PL",
+      avatar_color: profilesById.get(row.user_id)?.avatar_color ?? row.avatar_color ?? "#A8A294",
+      ...publicAvatarFields(profilesById.get(row.user_id) ?? row),
       total_score: row.total_score,
       puzzles_completed: row.puzzles_completed,
       best_score: row.best_score,
       total_time: row.total_time,
       latest_completed_at: row.latest_completed_at,
     }));
-  }, [auth.user?.id, updateDiagnostics]);
+  }, [auth.user?.id, fetchPublicProfileMap, updateDiagnostics]);
 
   const fetchFriendsWeeklyLeaderboard = useCallback(async (dateStr: string): Promise<FriendsWeeklyLeaderboardEntry[]> => {
     if (!auth.user || !isSupabaseConfigured) return [];
@@ -1914,13 +2046,15 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       rows,
       supabaseError: null,
     });
+    const profilesById = await fetchPublicProfileMap(rows.map((row) => row.user_id));
     return rows.map((row, index) => ({
       rank: row.rank ?? index + 1,
       user_id: row.user_id,
-      username: row.display_name ?? row.username_handle ?? "Player",
-      username_handle: row.username_handle,
-      initials: row.initials ?? "PL",
-      avatar_color: row.avatar_color ?? "#A8A294",
+      username: profilesById.get(row.user_id)?.display_name ?? row.display_name ?? row.username_handle ?? "Player",
+      username_handle: profilesById.get(row.user_id)?.username_handle ?? row.username_handle,
+      initials: profilesById.get(row.user_id)?.initials ?? row.initials ?? "PL",
+      avatar_color: profilesById.get(row.user_id)?.avatar_color ?? row.avatar_color ?? "#A8A294",
+      ...publicAvatarFields(profilesById.get(row.user_id) ?? row),
       total_score: row.total_score,
       puzzles_completed: row.puzzles_completed,
       best_score: row.best_score,
@@ -1928,7 +2062,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       latest_completed_at: row.latest_completed_at,
       is_current_user: row.is_current_user === true,
     }));
-  }, [auth.user, updateDiagnostics]);
+  }, [auth.user, fetchPublicProfileMap, updateDiagnostics]);
 
   const fetchRankedLeaderboard = useCallback(async (): Promise<RankedLeaderboardEntry[]> => {
     if (!isSupabaseConfigured) return [];
@@ -1937,12 +2071,15 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       updateDiagnostics({ lastError: error.message });
       return [];
     }
-    return ((data ?? []) as Array<Partial<RankedLeaderboardEntry> & { display_name?: string | null }>).map((row, index) => ({
+    const rows = (data ?? []) as Array<Partial<RankedLeaderboardEntry> & { display_name?: string | null }>;
+    const profilesById = await fetchPublicProfileMap(rows.map((row) => row.user_id));
+    return rows.map((row, index) => ({
       rank: Number(row.rank ?? index + 1),
       user_id: row.user_id ?? "",
-      username: row.display_name ?? row.username ?? "Player",
-      initials: row.initials ?? "PL",
-      avatar_color: row.avatar_color ?? "#A8A294",
+      username: profilesById.get(row.user_id ?? "")?.display_name ?? row.display_name ?? row.username ?? "Player",
+      initials: profilesById.get(row.user_id ?? "")?.initials ?? row.initials ?? "PL",
+      avatar_color: profilesById.get(row.user_id ?? "")?.avatar_color ?? row.avatar_color ?? "#A8A294",
+      ...publicAvatarFields(profilesById.get(row.user_id ?? "") ?? row),
       current_tier: row.current_tier ?? "Bronze III",
       rp: Number(row.rp ?? 0),
       matches_played: Number(row.matches_played ?? 0),
@@ -1951,7 +2088,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       draws: Number(row.draws ?? 0),
       updated_at: row.updated_at ?? new Date().toISOString(),
     }));
-  }, [updateDiagnostics]);
+  }, [fetchPublicProfileMap, updateDiagnostics]);
 
   const checkUsernameAvailable = useCallback(async (usernameInput: string): Promise<UsernameAvailability> => {
     const invalid = validateUsernameHandle(usernameInput);
@@ -2019,16 +2156,19 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       updateDiagnostics({ lastError: error.message });
       return [];
     }
-    return ((data ?? []) as FriendUser[]).map((row) => ({
+    const rows = (data ?? []) as FriendUser[];
+    const profilesById = await fetchPublicProfileMap(rows.map((row) => row.user_id));
+    return rows.map((row) => ({
       user_id: row.user_id,
-      display_name: row.display_name ?? "Player",
-      username_handle: row.username_handle ?? "",
-      initials: row.initials ?? "PL",
-      avatar_color: row.avatar_color ?? "#A8A294",
+      display_name: profilesById.get(row.user_id)?.display_name ?? row.display_name ?? "Player",
+      username_handle: profilesById.get(row.user_id)?.username_handle ?? row.username_handle ?? "",
+      initials: profilesById.get(row.user_id)?.initials ?? row.initials ?? "PL",
+      avatar_color: profilesById.get(row.user_id)?.avatar_color ?? row.avatar_color ?? "#A8A294",
+      ...publicAvatarFields(profilesById.get(row.user_id) ?? row),
       created_at: row.created_at,
       relationship_status: "friends",
     }));
-  }, [auth.user, updateDiagnostics]);
+  }, [auth.user, fetchPublicProfileMap, updateDiagnostics]);
 
   const fetchPendingFriendRequests = useCallback(async (): Promise<FriendRequestEntry[]> => {
     if (!auth.user || !isSupabaseConfigured) return [];
@@ -2037,16 +2177,19 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       updateDiagnostics({ lastError: error.message });
       return [];
     }
-    return ((data ?? []) as FriendRequestEntry[]).map((row) => ({
+    const rows = (data ?? []) as FriendRequestEntry[];
+    const profilesById = await fetchPublicProfileMap(rows.map((row) => row.user_id));
+    return rows.map((row) => ({
       request_id: row.request_id,
       user_id: row.user_id,
-      display_name: row.display_name ?? "Player",
-      username_handle: row.username_handle ?? "",
-      initials: row.initials ?? "PL",
-      avatar_color: row.avatar_color ?? "#A8A294",
+      display_name: profilesById.get(row.user_id)?.display_name ?? row.display_name ?? "Player",
+      username_handle: profilesById.get(row.user_id)?.username_handle ?? row.username_handle ?? "",
+      initials: profilesById.get(row.user_id)?.initials ?? row.initials ?? "PL",
+      avatar_color: profilesById.get(row.user_id)?.avatar_color ?? row.avatar_color ?? "#A8A294",
+      ...publicAvatarFields(profilesById.get(row.user_id) ?? row),
       created_at: row.created_at,
     }));
-  }, [auth.user, updateDiagnostics]);
+  }, [auth.user, fetchPublicProfileMap, updateDiagnostics]);
 
   const searchUsersByUsername = useCallback(async (query: string): Promise<FriendUser[]> => {
     if (!auth.user || !isSupabaseConfigured) return [];
@@ -2057,15 +2200,18 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       updateDiagnostics({ lastError: error.message });
       return [];
     }
-    return ((data ?? []) as FriendUser[]).map((row) => ({
+    const rows = (data ?? []) as FriendUser[];
+    const profilesById = await fetchPublicProfileMap(rows.map((row) => row.user_id));
+    return rows.map((row) => ({
       user_id: row.user_id,
-      display_name: row.display_name ?? "Player",
-      username_handle: row.username_handle ?? "",
-      initials: row.initials ?? "PL",
-      avatar_color: row.avatar_color ?? "#A8A294",
+      display_name: profilesById.get(row.user_id)?.display_name ?? row.display_name ?? "Player",
+      username_handle: profilesById.get(row.user_id)?.username_handle ?? row.username_handle ?? "",
+      initials: profilesById.get(row.user_id)?.initials ?? row.initials ?? "PL",
+      avatar_color: profilesById.get(row.user_id)?.avatar_color ?? row.avatar_color ?? "#A8A294",
+      ...publicAvatarFields(profilesById.get(row.user_id) ?? row),
       relationship_status: row.relationship_status ?? "none",
     }));
-  }, [auth.user, updateDiagnostics]);
+  }, [auth.user, fetchPublicProfileMap, updateDiagnostics]);
 
   const sendFriendRequest = useCallback(async (receiverUsername: string): Promise<SaveResult> => {
     if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before adding friends." };
@@ -2095,14 +2241,17 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       updateDiagnostics({ lastError: error.message });
       return [];
     }
-    return ((data ?? []) as FriendChallengeEntry[]).map((row) => ({
+    const rows = (data ?? []) as FriendChallengeEntry[];
+    const profilesById = await fetchPublicProfileMap(rows.map((row) => row.friend_user_id));
+    return rows.map((row) => ({
       ...row,
-      friend_display_name: row.friend_display_name ?? "Player",
-      friend_username_handle: row.friend_username_handle ?? "",
-      friend_initials: row.friend_initials ?? "PL",
-      friend_avatar_color: row.friend_avatar_color ?? "#A8A294",
+      friend_display_name: profilesById.get(row.friend_user_id)?.display_name ?? row.friend_display_name ?? "Player",
+      friend_username_handle: profilesById.get(row.friend_user_id)?.username_handle ?? row.friend_username_handle ?? "",
+      friend_initials: profilesById.get(row.friend_user_id)?.initials ?? row.friend_initials ?? "PL",
+      friend_avatar_color: profilesById.get(row.friend_user_id)?.avatar_color ?? row.friend_avatar_color ?? "#A8A294",
+      ...prefixedFriendAvatarFields(profilesById.get(row.friend_user_id) ?? row),
     }));
-  }, [auth.user, updateDiagnostics]);
+  }, [auth.user, fetchPublicProfileMap, updateDiagnostics]);
 
   const createFriendChallenge = useCallback(async (friendUsername: string, difficulty: PuzzleResult["difficulty"]): Promise<{ ok: boolean; error?: string; challenge?: FriendChallengeStart }> => {
     if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before challenging friends." };
@@ -2201,6 +2350,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       opponent_username_handle: row.opponent_username_handle ?? null,
       opponent_initials: row.opponent_initials ?? null,
       opponent_avatar_color: row.opponent_avatar_color ?? null,
+      ...prefixedOpponentAvatarFields(row),
       opponent_rank_tier: row.opponent_rank_tier ?? null,
       your_score: row.your_score ?? null,
       your_elapsed_seconds: row.your_elapsed_seconds ?? null,
@@ -2223,18 +2373,32 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       return null;
     }
     const row = Array.isArray(data) ? data[0] : null;
-    const duel = mapDailyDuel(row as Partial<DailyDuelEntry> | null);
+    let duel = mapDailyDuel(row as Partial<DailyDuelEntry> | null);
     if (!duel?.opponent_user_id) return duel;
 
-    const { data: statsRow, error: statsError } = await supabase
-      .from("player_stats")
-      .select("rank_tier")
-      .eq("user_id", duel.opponent_user_id)
-      .maybeSingle();
+    const [profilesById, { data: statsRow, error: statsError }] = await Promise.all([
+      fetchPublicProfileMap([duel.opponent_user_id]),
+      supabase
+        .from("player_stats")
+        .select("rank_tier")
+        .eq("user_id", duel.opponent_user_id)
+        .maybeSingle(),
+    ]);
     if (statsError) return duel;
+    const opponentProfile = profilesById.get(duel.opponent_user_id);
+    if (opponentProfile) {
+      duel = {
+        ...duel,
+        opponent_display_name: opponentProfile.display_name ?? opponentProfile.username ?? duel.opponent_display_name,
+        opponent_username_handle: opponentProfile.username_handle ?? duel.opponent_username_handle,
+        opponent_initials: opponentProfile.initials ?? duel.opponent_initials,
+        opponent_avatar_color: opponentProfile.avatar_color ?? duel.opponent_avatar_color,
+        ...prefixedOpponentAvatarFields(opponentProfile),
+      };
+    }
 
     return { ...duel, opponent_rank_tier: statsRow?.rank_tier ?? null };
-  }, [auth.user, mapDailyDuel, updateDiagnostics]);
+  }, [auth.user, fetchPublicProfileMap, mapDailyDuel, updateDiagnostics]);
 
   const enterDailyDuel = useCallback(async (dateStr: string = getDailyDateKey()): Promise<{ ok: boolean; error?: string; duel?: DailyDuelEntry }> => {
     if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before entering Daily Duel." };
@@ -2248,12 +2412,26 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     if (!duel) return { ok: false, error: "Daily Duel did not return a match." };
 
     if (duel.opponent_user_id) {
-      const { data: statsRow } = await supabase
-        .from("player_stats")
-        .select("rank_tier")
-        .eq("user_id", duel.opponent_user_id)
-        .maybeSingle();
+      const [profilesById, { data: statsRow }] = await Promise.all([
+        fetchPublicProfileMap([duel.opponent_user_id]),
+        supabase
+          .from("player_stats")
+          .select("rank_tier")
+          .eq("user_id", duel.opponent_user_id)
+          .maybeSingle(),
+      ]);
+      const opponentProfile = profilesById.get(duel.opponent_user_id);
       duel = { ...duel, opponent_rank_tier: statsRow?.rank_tier ?? null };
+      if (opponentProfile) {
+        duel = {
+          ...duel,
+          opponent_display_name: opponentProfile.display_name ?? opponentProfile.username ?? duel.opponent_display_name,
+          opponent_username_handle: opponentProfile.username_handle ?? duel.opponent_username_handle,
+          opponent_initials: opponentProfile.initials ?? duel.opponent_initials,
+          opponent_avatar_color: opponentProfile.avatar_color ?? duel.opponent_avatar_color,
+          ...prefixedOpponentAvatarFields(opponentProfile),
+        };
+      }
     }
 
     if (duel.session_id && !duel.current_user_result_id) {
@@ -2270,7 +2448,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }
 
     return { ok: true, duel };
-  }, [auth.user, mapDailyDuel, updateDiagnostics]);
+  }, [auth.user, fetchPublicProfileMap, mapDailyDuel, updateDiagnostics]);
 
   const mapRankedDuel = useCallback((row: Partial<RankedDuelEntry> | null | undefined): RankedDuelEntry | null => {
     if (!row?.ranked_duel_id) return null;
@@ -2289,6 +2467,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       opponent_username_handle: row.opponent_username_handle ?? null,
       opponent_initials: row.opponent_initials ?? null,
       opponent_avatar_color: row.opponent_avatar_color ?? null,
+      ...prefixedOpponentAvatarFields(row),
       opponent_tier: row.opponent_tier ?? null,
       your_score: row.your_score ?? null,
       your_elapsed_seconds: row.your_elapsed_seconds ?? null,
@@ -2316,11 +2495,25 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       return null;
     }
     const row = Array.isArray(data) ? data[0] : null;
-    const duel = mapRankedDuel(row as Partial<RankedDuelEntry> | null);
+    let duel = mapRankedDuel(row as Partial<RankedDuelEntry> | null);
     if (!duel) return null;
+    if (duel.opponent_user_id) {
+      const profilesById = await fetchPublicProfileMap([duel.opponent_user_id]);
+      const opponentProfile = profilesById.get(duel.opponent_user_id);
+      if (opponentProfile) {
+        duel = {
+          ...duel,
+          opponent_display_name: opponentProfile.display_name ?? opponentProfile.username ?? duel.opponent_display_name,
+          opponent_username_handle: opponentProfile.username_handle ?? duel.opponent_username_handle,
+          opponent_initials: opponentProfile.initials ?? duel.opponent_initials,
+          opponent_avatar_color: opponentProfile.avatar_color ?? duel.opponent_avatar_color,
+          ...prefixedOpponentAvatarFields(opponentProfile),
+        };
+      }
+    }
     if (includeCompleted) return duel;
     return ["waiting_for_opponent", "matched", "player_a_completed", "player_b_completed"].includes(duel.status) ? duel : null;
-  }, [auth.user, mapRankedDuel, updateDiagnostics]);
+  }, [auth.user, fetchPublicProfileMap, mapRankedDuel, updateDiagnostics]);
 
   const enterRankedDuel = useCallback(async (): Promise<{ ok: boolean; error?: string; duel?: RankedDuelEntry }> => {
     if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before entering Ranked Duel." };
@@ -2330,8 +2523,22 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       return { ok: false, error: error.message };
     }
     const row = Array.isArray(data) ? data[0] : null;
-    const duel = mapRankedDuel(row as Partial<RankedDuelEntry> | null);
+    let duel = mapRankedDuel(row as Partial<RankedDuelEntry> | null);
     if (!duel) return { ok: false, error: "Ranked Duel did not return a match." };
+    if (duel.opponent_user_id) {
+      const profilesById = await fetchPublicProfileMap([duel.opponent_user_id]);
+      const opponentProfile = profilesById.get(duel.opponent_user_id);
+      if (opponentProfile) {
+        duel = {
+          ...duel,
+          opponent_display_name: opponentProfile.display_name ?? opponentProfile.username ?? duel.opponent_display_name,
+          opponent_username_handle: opponentProfile.username_handle ?? duel.opponent_username_handle,
+          opponent_initials: opponentProfile.initials ?? duel.opponent_initials,
+          opponent_avatar_color: opponentProfile.avatar_color ?? duel.opponent_avatar_color,
+          ...prefixedOpponentAvatarFields(opponentProfile),
+        };
+      }
+    }
 
     if (duel.session_id && !duel.current_user_result_id) {
       const { data: sessionData, error: sessionError } = await supabase
@@ -2347,7 +2554,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }
 
     return { ok: true, duel };
-  }, [auth.user, mapRankedDuel, updateDiagnostics]);
+  }, [auth.user, fetchPublicProfileMap, mapRankedDuel, updateDiagnostics]);
 
   const cancelRankedDuel = useCallback(async (rankedDuelId: string): Promise<{ ok: boolean; error?: string; duel?: RankedDuelEntry | null }> => {
     if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before cancelling Ranked Duel search." };
@@ -2373,12 +2580,15 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }
     const row = Array.isArray(data) ? data[0] : null;
     if (!row) return null;
+    const profilesById = await fetchPublicProfileMap([row.friend_user_id]);
+    const friendProfile = profilesById.get(row.friend_user_id);
     return {
       friend_user_id: row.friend_user_id,
-      friend_display_name: row.friend_display_name ?? "Player",
-      friend_username_handle: row.friend_username_handle ?? "",
-      friend_initials: row.friend_initials ?? "PL",
-      friend_avatar_color: row.friend_avatar_color ?? "#A8A294",
+      friend_display_name: friendProfile?.display_name ?? row.friend_display_name ?? "Player",
+      friend_username_handle: friendProfile?.username_handle ?? row.friend_username_handle ?? "",
+      friend_initials: friendProfile?.initials ?? row.friend_initials ?? "PL",
+      friend_avatar_color: friendProfile?.avatar_color ?? row.friend_avatar_color ?? "#A8A294",
+      ...prefixedFriendAvatarFields(friendProfile ?? row),
       total_completed: Number(row.total_completed ?? 0),
       current_user_wins: Number(row.current_user_wins ?? 0),
       friend_wins: Number(row.friend_wins ?? 0),
@@ -2391,7 +2601,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       friend_fastest_win: row.friend_fastest_win ?? null,
       recent_completed_challenges: parseHeadToHeadMatches(row.recent_completed_challenges),
     };
-  }, [auth.user, updateDiagnostics]);
+  }, [auth.user, fetchPublicProfileMap, updateDiagnostics]);
 
   const updateDisplayName = useCallback((username: string): SaveResult => {
     const trimmed = username.trim();

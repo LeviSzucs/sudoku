@@ -416,7 +416,7 @@ function EmptyRow({ text }: { text: string }) {
 function UserRow({ user, last, action, working, challengeWorking, onPress, onChallenge, onHistory }: { user: FriendUser; last: boolean; action?: string | null; working?: boolean; challengeWorking?: boolean; onPress?: () => void; onChallenge?: () => void; onHistory?: () => void }) {
   return (
     <View style={[styles.userRow, !last && styles.rowBorder]}>
-      <Avatar initials={user.initials} color={user.avatar_color} size={44} />
+      <Avatar {...user} initials={user.initials} color={user.avatar_color} symbol={user.avatar_symbol} size={44} />
       <View style={styles.userInfo}>
         <Text style={styles.rowTitle}>{user.display_name}</Text>
         <Text style={styles.rowSub}>@{user.username_handle}</Text>
@@ -447,7 +447,7 @@ function UserRow({ user, last, action, working, challengeWorking, onPress, onCha
 function RequestRow({ request, last, working, onAccept, onDecline }: { request: FriendRequestEntry; last: boolean; working: boolean; onAccept: () => void; onDecline: () => void }) {
   return (
     <View style={[styles.userRow, !last && styles.rowBorder]}>
-      <Avatar initials={request.initials} color={request.avatar_color} size={44} />
+      <Avatar {...request} initials={request.initials} color={request.avatar_color} symbol={request.avatar_symbol} size={44} />
       <View style={{ flex: 1 }}>
         <Text style={styles.rowTitle}>{request.display_name}</Text>
         <Text style={styles.rowSub}>@{request.username_handle}</Text>
@@ -505,7 +505,22 @@ function ChallengeRow({ challenge, currentUserId, last, working, onAccept, onDec
   return (
     <View style={[styles.challengeRow, !last && styles.rowBorder]}>
       <View style={styles.challengeHeader}>
-        <Avatar initials={challenge.friend_initials} color={challenge.friend_avatar_color} size={42} />
+        <Avatar
+          initials={challenge.friend_initials}
+          color={challenge.friend_avatar_color}
+          symbol={challenge.friend_avatar_symbol}
+          avatar_style_version={challenge.friend_avatar_style_version}
+          avatar_bg_color={challenge.friend_avatar_bg_color}
+          avatar_initials={challenge.friend_avatar_initials}
+          avatar_skin_tone={challenge.friend_avatar_skin_tone}
+          avatar_hair_style={challenge.friend_avatar_hair_style}
+          avatar_hair_color={challenge.friend_avatar_hair_color}
+          avatar_top_style={challenge.friend_avatar_top_style}
+          avatar_top_color={challenge.friend_avatar_top_color}
+          avatar_accessory={challenge.friend_avatar_accessory}
+          avatar_frame={challenge.friend_avatar_frame}
+          size={42}
+        />
         <View style={{ flex: 1 }}>
           <Text style={styles.rowTitle}>{challenge.friend_display_name}</Text>
           <Text style={styles.rowSub}>@{challenge.friend_username_handle} / {challenge.difficulty}</Text>

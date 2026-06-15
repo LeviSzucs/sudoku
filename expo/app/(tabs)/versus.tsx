@@ -459,6 +459,17 @@ export default function VersusScreen() {
                   <Avatar
                     initials={dailyDuel?.opponent_initials ?? "?"}
                     color={dailyDuel?.opponent_avatar_color ?? "#3F7D58"}
+                    symbol={dailyDuel?.opponent_avatar_symbol}
+                    avatar_style_version={dailyDuel?.opponent_avatar_style_version}
+                    avatar_bg_color={dailyDuel?.opponent_avatar_bg_color}
+                    avatar_initials={dailyDuel?.opponent_avatar_initials}
+                    avatar_skin_tone={dailyDuel?.opponent_avatar_skin_tone}
+                    avatar_hair_style={dailyDuel?.opponent_avatar_hair_style}
+                    avatar_hair_color={dailyDuel?.opponent_avatar_hair_color}
+                    avatar_top_style={dailyDuel?.opponent_avatar_top_style}
+                    avatar_top_color={dailyDuel?.opponent_avatar_top_color}
+                    avatar_accessory={dailyDuel?.opponent_avatar_accessory}
+                    avatar_frame={dailyDuel?.opponent_avatar_frame}
                     size={56}
                   />
                   <Text style={styles.vsName}>{dailyDuel?.opponent_display_name ?? "Opponent"}</Text>
