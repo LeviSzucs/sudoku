@@ -40,6 +40,20 @@ type ExpoNotificationsModule = {
   getExpoPushTokenAsync: (options?: { projectId?: string }) => Promise<{ data: string } | string>;
 };
 
+export type PushProjectDiagnostics = {
+  extraEasProjectId: string | null;
+  constantsEasConfigProjectId: string | null;
+  expoPublicEasProjectId: string | null;
+  expoPublicProjectId: string | null;
+  selectedProjectIdSource: string;
+  selectedProjectId: string | null;
+  selectedProjectIdLength: number;
+  selectedProjectIdIsUuidShaped: boolean;
+  permissionStatus: NotificationPermissionStatus;
+  lastTokenErrorCategory: string | null;
+  lastTokenErrorMessage: string | null;
+};
+
 const DEFAULT_NOTIFICATION_PREFERENCES: Omit<NotificationPreferenceRow, "user_id"> = {
   push_enabled: true,
   friend_requests: true,
@@ -52,6 +66,7 @@ const DEFAULT_NOTIFICATION_PREFERENCES: Omit<NotificationPreferenceRow, "user_id
 };
 
 let notificationsModule: ExpoNotificationsModule | null = null;
+let lastPushTokenError: { category: string; message: string } | null = null;
 
 function logNotificationDiagnostic(message: string, details?: Record<string, unknown>) {
   if (details) {
@@ -75,6 +90,18 @@ function nonEmptyString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value : undefined;
 }
 
+function setLastPushTokenError(category: string, message: string) {
+  lastPushTokenError = { category, message };
+}
+
+function clearLastPushTokenError() {
+  lastPushTokenError = null;
+}
+
+function isUuidShaped(value: string | undefined): boolean {
+  return Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
+}
+
 function normalisePermission(status: { status?: string; granted?: boolean } | null | undefined): NotificationPermissionStatus {
   if (!status) return "unsupported";
   if (status.granted || status.status === "granted") return "granted";
@@ -96,7 +123,17 @@ async function loadNotificationsModule(): Promise<Result<ExpoNotificationsModule
   }
 }
 
-function expoProjectIdState(): { projectId?: string; diagnostics: Record<string, boolean> } {
+function expoProjectIdState(): {
+  projectId?: string;
+  selectedSource: string;
+  values: {
+    extraEasProjectId?: string;
+    constantsEasConfigProjectId?: string;
+    expoPublicEasProjectId?: string;
+    expoPublicProjectId?: string;
+  };
+  diagnostics: Record<string, boolean>;
+} {
   const extra = Constants.expoConfig?.extra as Record<string, unknown> | undefined;
   const eas = extra?.eas as Record<string, unknown> | undefined;
   const easConfig = Constants as unknown as { easConfig?: { projectId?: string } };
@@ -105,10 +142,23 @@ function expoProjectIdState(): { projectId?: string; diagnostics: Record<string,
   const easConfigProjectId = nonEmptyString(easConfig.easConfig?.projectId);
   const envEasProjectId = nonEmptyString(env?.EXPO_PUBLIC_EAS_PROJECT_ID);
   const envRorkProjectId = nonEmptyString(env?.EXPO_PUBLIC_PROJECT_ID);
-  const projectId = extraProjectId ?? easConfigProjectId ?? envEasProjectId ?? envRorkProjectId;
+  const candidates = [
+    { source: "Constants.expoConfig.extra.eas.projectId", value: extraProjectId },
+    { source: "Constants.easConfig.projectId", value: easConfigProjectId },
+    { source: "EXPO_PUBLIC_EAS_PROJECT_ID", value: envEasProjectId },
+    { source: "EXPO_PUBLIC_PROJECT_ID", value: envRorkProjectId },
+  ];
+  const selected = candidates.find((candidate) => Boolean(candidate.value));
 
   return {
-    projectId,
+    projectId: selected?.value,
+    selectedSource: selected?.source ?? "None",
+    values: {
+      extraEasProjectId: extraProjectId,
+      constantsEasConfigProjectId: easConfigProjectId,
+      expoPublicEasProjectId: envEasProjectId,
+      expoPublicProjectId: envRorkProjectId,
+    },
     diagnostics: {
       hasExtraEasProjectId: Boolean(extraProjectId),
       hasConstantsEasConfigProjectId: Boolean(easConfigProjectId),
@@ -134,6 +184,26 @@ export async function getNotificationPermissionStatus(): Promise<NotificationPer
     console.warn("[Notifications] Could not read permission status.", error);
     return "unsupported";
   }
+}
+
+export async function getPushProjectDiagnostics(): Promise<PushProjectDiagnostics> {
+  const projectIdInfo = expoProjectIdState();
+  const permissionStatus = await getNotificationPermissionStatus();
+  const selectedProjectId = projectIdInfo.projectId ?? null;
+
+  return {
+    extraEasProjectId: projectIdInfo.values.extraEasProjectId ?? null,
+    constantsEasConfigProjectId: projectIdInfo.values.constantsEasConfigProjectId ?? null,
+    expoPublicEasProjectId: projectIdInfo.values.expoPublicEasProjectId ?? null,
+    expoPublicProjectId: projectIdInfo.values.expoPublicProjectId ?? null,
+    selectedProjectIdSource: projectIdInfo.selectedSource,
+    selectedProjectId,
+    selectedProjectIdLength: selectedProjectId?.length ?? 0,
+    selectedProjectIdIsUuidShaped: isUuidShaped(projectIdInfo.projectId),
+    permissionStatus,
+    lastTokenErrorCategory: lastPushTokenError?.category ?? null,
+    lastTokenErrorMessage: lastPushTokenError?.message ?? null,
+  };
 }
 
 export async function requestNotificationPermissions(): Promise<NotificationPermissionStatus> {
@@ -188,6 +258,7 @@ export async function registerPushToken(userId: string): Promise<Result<string |
   const loaded = await loadNotificationsModule();
   if (!loaded.ok) {
     logNotificationDiagnostic("Push token registration skipped.", { reason: loaded.error });
+    setLastPushTokenError("notifications_unavailable", loaded.error);
     return { ok: false, error: loaded.error };
   }
 
@@ -204,15 +275,18 @@ export async function registerPushToken(userId: string): Promise<Result<string |
       platform: Platform.OS,
       ...projectIdInfo.diagnostics,
     });
+    setLastPushTokenError("missing_project_id", "Push project ID missing.");
     return { ok: false, error: "Push project ID missing." };
   }
 
   try {
+    clearLastPushTokenError();
     logNotificationDiagnostic("Requesting Expo push token.", { hasProjectId: true, platform: Platform.OS });
     const tokenResult = await loaded.data.getExpoPushTokenAsync({ projectId });
     const token = typeof tokenResult === "string" ? tokenResult : tokenResult.data;
     if (!token) {
       logNotificationDiagnostic("Expo push token request failed.", { category: "empty_token", permission, platform: Platform.OS });
+      setLastPushTokenError("empty_token", "Could not get Expo push token.");
       return { ok: false, error: "Could not get Expo push token." };
     }
     logNotificationDiagnostic("Expo push token obtained.", tokenDiagnostic(token));
@@ -230,6 +304,7 @@ export async function registerPushToken(userId: string): Promise<Result<string |
       if (error) {
         console.warn("[Notifications] Push token upsert failed.", { message: error.message, code: error.code });
         logNotificationDiagnostic("Push token upsert failed.", { category: "supabase_upsert_failed", code: error.code, platform: Platform.OS });
+        setLastPushTokenError("supabase_upsert_failed", "Could not save push token.");
         return { ok: false, error: "Could not save push token." };
       }
       logNotificationDiagnostic("Push token upsert succeeded.", { platform: Platform.OS });
@@ -238,13 +313,15 @@ export async function registerPushToken(userId: string): Promise<Result<string |
     return { ok: true, data: token };
   } catch (error) {
     console.warn("[Notifications] Could not get Expo push token.", { message: safeErrorMessage(error) });
+    const message = safeErrorMessage(error);
     logNotificationDiagnostic("Expo push token request failed.", {
       category: "expo_token_failed",
-      message: safeErrorMessage(error),
+      message,
       permission,
       platform: Platform.OS,
       hasProjectId: true,
     });
+    setLastPushTokenError("expo_token_failed", message);
     return { ok: false, error: "Could not get Expo push token." };
   }
 }
