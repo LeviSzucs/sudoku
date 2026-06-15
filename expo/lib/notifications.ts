@@ -126,6 +126,7 @@ async function loadNotificationsModule(): Promise<Result<ExpoNotificationsModule
 function expoProjectIdState(): {
   projectId?: string;
   selectedSource: string;
+  selectedValue?: string;
   values: {
     extraEasProjectId?: string;
     constantsEasConfigProjectId?: string;
@@ -149,10 +150,12 @@ function expoProjectIdState(): {
     { source: "EXPO_PUBLIC_PROJECT_ID", value: envRorkProjectId },
   ];
   const selected = candidates.find((candidate) => Boolean(candidate.value));
+  const usable = candidates.find((candidate) => isUuidShaped(candidate.value));
 
   return {
-    projectId: selected?.value,
+    projectId: usable?.value,
     selectedSource: selected?.source ?? "None",
+    selectedValue: selected?.value,
     values: {
       extraEasProjectId: extraProjectId,
       constantsEasConfigProjectId: easConfigProjectId,
@@ -189,7 +192,7 @@ export async function getNotificationPermissionStatus(): Promise<NotificationPer
 export async function getPushProjectDiagnostics(): Promise<PushProjectDiagnostics> {
   const projectIdInfo = expoProjectIdState();
   const permissionStatus = await getNotificationPermissionStatus();
-  const selectedProjectId = projectIdInfo.projectId ?? null;
+  const selectedProjectId = projectIdInfo.selectedValue ?? null;
 
   return {
     extraEasProjectId: projectIdInfo.values.extraEasProjectId ?? null,
@@ -199,7 +202,7 @@ export async function getPushProjectDiagnostics(): Promise<PushProjectDiagnostic
     selectedProjectIdSource: projectIdInfo.selectedSource,
     selectedProjectId,
     selectedProjectIdLength: selectedProjectId?.length ?? 0,
-    selectedProjectIdIsUuidShaped: isUuidShaped(projectIdInfo.projectId),
+    selectedProjectIdIsUuidShaped: isUuidShaped(projectIdInfo.selectedValue),
     permissionStatus,
     lastTokenErrorCategory: lastPushTokenError?.category ?? null,
     lastTokenErrorMessage: lastPushTokenError?.message ?? null,
@@ -269,14 +272,22 @@ export async function registerPushToken(userId: string): Promise<Result<string |
   }
 
   if (!projectId) {
+    const hasRawProjectId = Boolean(projectIdInfo.selectedValue);
+    const category = hasRawProjectId ? "invalid_project_id" : "missing_project_id";
+    const message = hasRawProjectId
+      ? "Phone push notifications are not available in this build. Inbox notifications still work."
+      : "Push project ID missing.";
     logNotificationDiagnostic("Push token registration failed.", {
-      category: "missing_project_id",
+      category,
       permission,
       platform: Platform.OS,
+      selectedProjectIdSource: projectIdInfo.selectedSource,
+      selectedProjectIdLength: projectIdInfo.selectedValue?.length ?? 0,
+      selectedProjectIdIsUuidShaped: isUuidShaped(projectIdInfo.selectedValue),
       ...projectIdInfo.diagnostics,
     });
-    setLastPushTokenError("missing_project_id", "Push project ID missing.");
-    return { ok: false, error: "Push project ID missing." };
+    setLastPushTokenError(category, message);
+    return { ok: false, error: message };
   }
 
   try {
