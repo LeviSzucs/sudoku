@@ -39,7 +39,7 @@ function isContinueSessionMode(mode: string): boolean {
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { profile, activeSessions, startPuzzleSession, getInProgressDailySession, getCompletedDailyResult } = usePlayerProfile();
+  const { profile, activeSessions, classicContinueSession, startPuzzleSession, getInProgressDailySession, getCompletedDailyResult } = usePlayerProfile();
   const auth = useAuth();
 
   const today = new Date();
@@ -47,8 +47,8 @@ export default function HomeScreen() {
   const dayOfWeek = today.toLocaleDateString("en-US", { weekday: "long" }).toUpperCase();
 
   const inProgressSessions = activeSessions.filter((session) => session.status === "in_progress" && isContinueSessionMode(session.mode));
-  const hasActiveSession = inProgressSessions.length > 0;
-  const activeSession = hasActiveSession ? inProgressSessions[0] : null;
+  const activeSession = classicContinueSession;
+  const hasActiveSession = Boolean(activeSession);
   const isGuest = auth.isGuest;
 
   const openSignedInDailyMode = async (mode: "daily" | "daily_duel") => {

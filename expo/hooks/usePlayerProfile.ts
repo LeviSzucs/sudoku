@@ -692,6 +692,20 @@ function isResumableGuestSession(entry: GuestSessionEntry, completedPuzzleIds: S
   return true;
 }
 
+function sessionSortTime(session: Pick<PuzzleSessionRow, "updated_at" | "created_at">): number {
+  const raw = session.updated_at ?? session.created_at ?? "";
+  const time = Date.parse(raw);
+  return Number.isFinite(time) ? time : 0;
+}
+
+function sortSessionsNewestFirst<T extends Pick<PuzzleSessionRow, "updated_at" | "created_at">>(sessions: T[]): T[] {
+  return [...sessions].sort((a, b) => sessionSortTime(b) - sessionSortTime(a));
+}
+
+function isClassicSession(session: Pick<PuzzleSessionRow, "mode">): boolean {
+  return session.mode === "classic";
+}
+
 export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() => {
   const auth = useAuth();
   const [profile, setProfile] = useState<PlayerProfile>(() => createInitialPlayerProfile(false));
@@ -765,11 +779,16 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       const completed = completedRaw ? JSON.parse(completedRaw) as Record<string, unknown> : {};
       const completedPuzzleIds = new Set(Object.keys(completed));
       const resumableEntries = entries.filter((entry) => isResumableGuestSession(entry, completedPuzzleIds));
-      if (resumableEntries.length !== entries.length) {
-        await AsyncStorage.setItem(GUEST_SESSIONS_KEY, JSON.stringify(resumableEntries)).catch(() => {});
+      const classicEntries = resumableEntries.filter((entry) => entry.snapshot.mode === "classic");
+      const newestClassic = classicEntries[0] ?? null;
+      const prunedClassicEntries = newestClassic ? [newestClassic] : [];
+      const resumableNonClassicEntries = resumableEntries.filter((entry) => entry.snapshot.mode !== "classic");
+      const prunedEntries = [...prunedClassicEntries, ...resumableNonClassicEntries];
+      if (prunedEntries.length !== entries.length) {
+        await AsyncStorage.setItem(GUEST_SESSIONS_KEY, JSON.stringify(prunedEntries)).catch(() => {});
       }
-      setActiveGuestSessions(resumableEntries);
-      return resumableEntries;
+      setActiveGuestSessions(prunedEntries);
+      return prunedEntries;
     } catch {
       await AsyncStorage.removeItem(GUEST_SESSIONS_KEY).catch(() => {});
       setActiveGuestSessions([]);
@@ -820,7 +839,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     const repair = await repairMissingProfileRows();
     if (!repair.ok) return;
     const empty = createInitialPlayerProfile(false);
-    const [{ data: p, error: pError }, { data: s, error: sError }, { data: settings, error: settingsError }, { data: results, error: resultsError }, { data: achievements, error: achievementsError }, { data: userAchievements, error: userAchievementsError }, { data: sessions, error: sessionsError }] = await Promise.all([
+    const [{ data: p, error: pError }, { data: s, error: sError }, { data: settings, error: settingsError }, { data: results, error: resultsError }, { data: achievements, error: achievementsError }, { data: userAchievements, error: userAchievementsError }, { data: sessions, error: sessionsError }, { data: latestClassicSessions, error: latestClassicSessionsError }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", auth.user.id).maybeSingle(),
       supabase.from("player_stats").select("*").eq("user_id", auth.user.id).maybeSingle(),
       supabase.from("user_settings").select("*").eq("user_id", auth.user.id).maybeSingle(),
@@ -828,8 +847,9 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       supabase.from("achievements").select("*").order("badge_id", { ascending: true }),
       supabase.from("user_achievements").select("*").eq("user_id", auth.user.id),
       supabase.from("puzzle_sessions").select("*").eq("user_id", auth.user.id).eq("status", "in_progress").order("updated_at", { ascending: false }),
+      supabase.from("puzzle_sessions").select("*").eq("user_id", auth.user.id).eq("mode", "classic").order("updated_at", { ascending: false }).limit(25),
     ]);
-    const error = pError ?? sError ?? settingsError ?? resultsError ?? achievementsError ?? userAchievementsError ?? sessionsError;
+    const error = pError ?? sError ?? settingsError ?? resultsError ?? achievementsError ?? userAchievementsError ?? sessionsError ?? latestClassicSessionsError;
     if (error) {
       setLoadError(error.message);
       updateDiagnostics({ profileLoaded: !!p, statsLoaded: !!s, settingsLoaded: !!settings, lastError: error.message });
@@ -1032,7 +1052,9 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     const progressByBadgeId = new Map(((userAchievements ?? []) as UserAchievementRow[]).map((row) => [row.badge_id, row]));
     next.badges_unlocked = ((achievements ?? []) as AchievementRow[]).map((achievement) => achievementFromBackend(achievement, progressByBadgeId.get(achievement.badge_id)));
     const finalSessionIds = new Set(resultRows.map((result) => result.session_id).filter((sessionId): sessionId is string => Boolean(sessionId)));
-    const loadedSessionIds = ((sessions ?? []) as PuzzleSessionRow[]).map((session) => session.session_id).filter(Boolean);
+    const sessionRows = (sessions ?? []) as PuzzleSessionRow[];
+    const latestClassicRows = sortSessionsNewestFirst((latestClassicSessions ?? []) as PuzzleSessionRow[]);
+    const loadedSessionIds = [...sessionRows, ...latestClassicRows].map((session) => session.session_id).filter(Boolean);
     if (loadedSessionIds.length > 0) {
       const { data: sessionResults, error: sessionResultsError } = await supabase
         .from("game_results")
@@ -1049,7 +1071,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       }
     }
     const existingPuzzleIds = new Set<string>();
-    const sessionPuzzleIds = ((sessions ?? []) as PuzzleSessionRow[])
+    const sessionPuzzleIds = [...sessionRows, ...latestClassicRows]
       .map((session) => session.puzzle_id)
       .filter((puzzleId): puzzleId is string => Boolean(puzzleId));
     if (sessionPuzzleIds.length > 0) {
@@ -1066,14 +1088,32 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       }
     }
     const completedKeys = new Set(next.recent_results.map((result) => `${result.puzzle_id}:${result.mode}:${result.difficulty}`));
-    const activeRows = ((sessions ?? []) as PuzzleSessionRow[]).filter((session) => {
+    let activeRows = sessionRows.filter((session) => {
       if (session.status !== "in_progress") return false;
       if (finalSessionIds.has(session.session_id)) return false;
       if (!session.puzzle_id || !existingPuzzleIds.has(session.puzzle_id)) return false;
       const key = `${session.puzzle_id ?? ""}:${session.mode}:${session.difficulty}`;
       return !completedKeys.has(key);
     });
-    const staleSessionIds = ((sessions ?? []) as PuzzleSessionRow[])
+    const newestClassicSession = latestClassicRows[0] ?? null;
+    const newestClassicIsResumable = newestClassicSession
+      ? activeRows.some((session) => session.session_id === newestClassicSession.session_id)
+      : false;
+    const activeRowIds = new Set(activeRows.map((session) => session.session_id));
+    const activeClassicRows = activeRows.filter(isClassicSession);
+    const classicSessionIdsToAbandon = new Set(
+      [
+        ...activeClassicRows
+          .filter((session) => !newestClassicIsResumable || session.session_id !== newestClassicSession?.session_id)
+          .map((session) => session.session_id),
+        ...sessionRows
+          .filter((session) => isClassicSession(session) && session.status === "in_progress" && !activeRowIds.has(session.session_id) && !finalSessionIds.has(session.session_id))
+          .map((session) => session.session_id),
+      ]
+    );
+    activeRows = activeRows.filter((session) => !isClassicSession(session) || (newestClassicIsResumable && session.session_id === newestClassicSession?.session_id));
+
+    const staleSessionIds = sessionRows
       .filter((session) => session.status === "in_progress" && finalSessionIds.has(session.session_id))
       .map((session) => session.session_id);
     if (staleSessionIds.length > 0) {
@@ -1084,6 +1124,18 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
         .in("session_id", staleSessionIds)
         .then(({ error: staleUpdateError }) => {
           if (staleUpdateError) updateDiagnostics({ lastError: staleUpdateError.message });
+        });
+    }
+    if (classicSessionIdsToAbandon.size > 0) {
+      void supabase
+        .from("puzzle_sessions")
+        .update({ status: "abandoned", updated_at: new Date().toISOString() })
+        .eq("user_id", auth.user.id)
+        .eq("mode", "classic")
+        .eq("status", "in_progress")
+        .in("session_id", [...classicSessionIdsToAbandon])
+        .then(({ error: classicCleanupError }) => {
+          if (classicCleanupError) updateDiagnostics({ lastError: classicCleanupError.message });
         });
     }
     setProfile(normalizeProfile(next));
@@ -1174,8 +1226,18 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
         }
 
         const sessionRow = data as PuzzleSessionRow;
+        if (snapshot.mode === "classic") {
+          const { error: cleanupError } = await supabase
+            .from("puzzle_sessions")
+            .update({ status: "abandoned", updated_at: new Date().toISOString() })
+            .eq("user_id", auth.user.id)
+            .eq("mode", "classic")
+            .eq("status", "in_progress")
+            .neq("session_id", sessionRow.session_id);
+          if (cleanupError) updateDiagnostics({ lastError: cleanupError.message });
+        }
         setActiveSessions((prev) => {
-          const filtered = prev.filter((s) => s.session_id !== sessionRow.session_id && s.status === "in_progress");
+          const filtered = prev.filter((s) => s.session_id !== sessionRow.session_id && s.status === "in_progress" && (snapshot.mode !== "classic" || s.mode !== "classic"));
           return [sessionRow, ...filtered];
         });
         updateDiagnostics({ lastSessionSaveSucceeded: true, lastSessionSaveError: null });
@@ -1192,12 +1254,12 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     const entry: GuestSessionEntry = { sessionId, snapshot };
     // Update local guest sessions
     setActiveGuestSessions((prev) => {
-      const filtered = prev.filter((s) => s.sessionId !== sessionId);
+      const filtered = prev.filter((s) => s.sessionId !== sessionId && (snapshot.mode !== "classic" || s.snapshot.mode !== "classic"));
       return [entry, ...filtered];
     });
     try {
       const prev = await loadGuestSessions();
-      const filtered = prev.filter((s) => s.sessionId !== sessionId);
+      const filtered = prev.filter((s) => s.sessionId !== sessionId && (snapshot.mode !== "classic" || s.snapshot.mode !== "classic"));
       await persistGuestSessions([entry, ...filtered]);
       updateDiagnostics({ lastSessionSaveSucceeded: true, lastSessionSaveError: null });
     } catch (err: unknown) {
@@ -1215,9 +1277,22 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       throw new Error(message);
     }
 
+    if (input.mode === "classic") {
+      const { error: cleanupError } = await supabase
+        .from("puzzle_sessions")
+        .update({ status: "abandoned", updated_at: new Date().toISOString() })
+        .eq("user_id", auth.user.id)
+        .eq("mode", "classic")
+        .eq("status", "in_progress");
+      if (cleanupError) {
+        updateDiagnostics({ lastError: cleanupError.message, lastSessionSaveSucceeded: false, lastSessionSaveError: cleanupError.message });
+        throw new Error(cleanupError.message);
+      }
+    }
+
     const session = await insertPuzzleSession({ userId: auth.user.id, ...input });
     setActiveSessions((prev) => {
-      const filtered = prev.filter((entry) => entry.session_id !== session.session_id && entry.status === "in_progress");
+      const filtered = prev.filter((entry) => entry.session_id !== session.session_id && entry.status === "in_progress" && (input.mode !== "classic" || entry.mode !== "classic"));
       return [session, ...filtered];
     });
     updateDiagnostics({
@@ -1355,7 +1430,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
   }, [auth.isSignedIn, auth.user, loadGuestSessions, persistGuestSessions, updateDiagnostics]);
 
   const getInProgressClassicSession = useCallback(async (): Promise<PuzzleSessionRow | null> => {
-    const localClassicSession = activeSessions.find((session) => session.mode === "classic" && session.status === "in_progress") ?? null;
+    const localClassicSession = sortSessionsNewestFirst(activeSessions.filter((session) => isClassicSession(session) && session.status === "in_progress"))[0] ?? null;
     if (!auth.isSignedIn || !auth.user || !isSupabaseConfigured) return localClassicSession;
 
     const { data, error } = await supabase
@@ -1363,19 +1438,54 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       .select("*")
       .eq("user_id", auth.user.id)
       .eq("mode", "classic")
-      .eq("status", "in_progress")
       .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(10);
 
     if (error) {
       updateDiagnostics({ lastError: error.message });
       return localClassicSession;
     }
 
-    const session = await getResumableBackendSession((data as PuzzleSessionRow | null) ?? null);
+    const rows = sortSessionsNewestFirst((data ?? []) as PuzzleSessionRow[]);
+    const latestSession = rows[0] ?? null;
+    if (!latestSession || latestSession.status !== "in_progress") {
+      const activeClassicIds = rows.filter((session) => session.status === "in_progress").map((session) => session.session_id);
+      if (activeClassicIds.length > 0) {
+        void supabase
+          .from("puzzle_sessions")
+          .update({ status: "abandoned", updated_at: new Date().toISOString() })
+          .eq("user_id", auth.user.id)
+          .eq("mode", "classic")
+          .eq("status", "in_progress")
+          .in("session_id", activeClassicIds)
+          .then(({ error: cleanupError }) => {
+            if (cleanupError) updateDiagnostics({ lastError: cleanupError.message });
+          });
+      }
+      setActiveSessions((prev) => prev.filter((entry) => !isClassicSession(entry)));
+      return null;
+    }
+
+    const session = await getResumableBackendSession(latestSession);
     if (session) {
-      setActiveSessions((prev) => [session, ...prev.filter((entry) => entry.session_id !== session.session_id && entry.status === "in_progress")]);
+      const olderClassicIds = rows
+        .filter((entry) => entry.status === "in_progress" && entry.session_id !== session.session_id)
+        .map((entry) => entry.session_id);
+      if (olderClassicIds.length > 0) {
+        void supabase
+          .from("puzzle_sessions")
+          .update({ status: "abandoned", updated_at: new Date().toISOString() })
+          .eq("user_id", auth.user.id)
+          .eq("mode", "classic")
+          .eq("status", "in_progress")
+          .in("session_id", olderClassicIds)
+          .then(({ error: cleanupError }) => {
+            if (cleanupError) updateDiagnostics({ lastError: cleanupError.message });
+          });
+      }
+      setActiveSessions((prev) => [session, ...prev.filter((entry) => entry.session_id !== session.session_id && entry.status === "in_progress" && !isClassicSession(entry))]);
+    } else {
+      setActiveSessions((prev) => prev.filter((entry) => !isClassicSession(entry)));
     }
     return session;
   }, [activeSessions, auth.isSignedIn, auth.user, getResumableBackendSession, updateDiagnostics]);
@@ -2834,12 +2944,17 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     return { ok: true };
   }, [auth.user, loadBackendProfile]);
 
-  const hasActiveSession = auth.isSignedIn ? activeSessions.some((s) => s.status === "in_progress") : activeGuestSessions.length > 0;
+  const visibleActiveSessions = auth.isSignedIn ? activeSessions : activeGuestSessions.map(guestSessionToPuzzleSessionRow);
+  const classicContinueSession = sortSessionsNewestFirst(
+    visibleActiveSessions.filter((session) => isClassicSession(session) && session.status === "in_progress")
+  )[0] ?? null;
+  const hasActiveSession = visibleActiveSessions.some((s) => s.status === "in_progress");
   const profileSetupRequired = auth.isSignedIn && isLoaded && (!profile.profile_setup_completed || !profile.username_handle);
 
   return useMemo(() => ({
     profile, isLoaded, loadError, lastUpdate,
-    activeSessions: auth.isSignedIn ? activeSessions : activeGuestSessions.map(guestSessionToPuzzleSessionRow),
+    activeSessions: visibleActiveSessions,
+    classicContinueSession,
     diagnostics, hasActiveSession, profileSetupRequired,
     recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, fetchRankedLeaderboard, simulateResult, simulateRankedWin, simulateRankedLoss,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
@@ -2851,7 +2966,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
   }), [
     activeGuestSessions, activeSessions, auth.isSignedIn,
-    checkUsernameAvailable, clearLastUpdate, completeProfileSetup, diagnostics, hasActiveSession, isLoaded, lastUpdate, loadBackendProfile, loadError, profile, profileSetupRequired,
+    checkUsernameAvailable, classicContinueSession, clearLastUpdate, completeProfileSetup, diagnostics, hasActiveSession, isLoaded, lastUpdate, loadBackendProfile, loadError, profile, profileSetupRequired, visibleActiveSessions,
     recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, fetchRankedLeaderboard,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
