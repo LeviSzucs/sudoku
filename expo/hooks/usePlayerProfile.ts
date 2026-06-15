@@ -24,6 +24,7 @@ function generateUUID(): string {
 
 const PLAYER_PROFILE_KEY = "sudoku.player_profile.v2";
 const GUEST_SESSIONS_KEY = "sudoku.guest_sessions.v1";
+const GUEST_COMPLETED_RESULTS_KEY = "sudoku.completed_results";
 
 type SaveResult = { ok: boolean; error?: string };
 type SessionStatus = "in_progress" | "completed" | "failed" | "abandoned";
@@ -681,6 +682,16 @@ function guestSessionToPuzzleSessionRow(entry: GuestSessionEntry): PuzzleSession
   };
 }
 
+function isResumableGuestSession(entry: GuestSessionEntry, completedPuzzleIds: Set<string>): boolean {
+  const snapshot = entry.snapshot;
+  if (!entry.sessionId || !snapshot?.puzzle_id) return false;
+  if (completedPuzzleIds.has(snapshot.puzzle_id)) return false;
+  if (snapshot.mode !== "classic" && snapshot.mode !== "daily") return false;
+  if (!Array.isArray(snapshot.board_state) || snapshot.board_state.length !== 9) return false;
+  if (!Array.isArray(snapshot.notes_state) || snapshot.notes_state.length !== 9) return false;
+  return true;
+}
+
 export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() => {
   const auth = useAuth();
   const [profile, setProfile] = useState<PlayerProfile>(() => createInitialPlayerProfile(false));
@@ -748,9 +759,22 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
   const loadGuestSessions = useCallback(async (): Promise<GuestSessionEntry[]> => {
     const raw = await AsyncStorage.getItem(GUEST_SESSIONS_KEY);
     if (!raw) return [];
-    const entries = JSON.parse(raw) as GuestSessionEntry[];
-    setActiveGuestSessions(entries);
-    return entries;
+    try {
+      const entries = JSON.parse(raw) as GuestSessionEntry[];
+      const completedRaw = await AsyncStorage.getItem(GUEST_COMPLETED_RESULTS_KEY);
+      const completed = completedRaw ? JSON.parse(completedRaw) as Record<string, unknown> : {};
+      const completedPuzzleIds = new Set(Object.keys(completed));
+      const resumableEntries = entries.filter((entry) => isResumableGuestSession(entry, completedPuzzleIds));
+      if (resumableEntries.length !== entries.length) {
+        await AsyncStorage.setItem(GUEST_SESSIONS_KEY, JSON.stringify(resumableEntries)).catch(() => {});
+      }
+      setActiveGuestSessions(resumableEntries);
+      return resumableEntries;
+    } catch {
+      await AsyncStorage.removeItem(GUEST_SESSIONS_KEY).catch(() => {});
+      setActiveGuestSessions([]);
+      return [];
+    }
   }, []);
 
   // ── Backend profile repair / load ────────────────────────────────

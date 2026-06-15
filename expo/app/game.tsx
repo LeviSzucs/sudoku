@@ -133,6 +133,9 @@ export default function GameScreen() {
         }
         const today = getDailyDateKey();
         if (sessionIdParam) {
+          if (!restoreSnapshot) {
+            throw new Error("Saved puzzle could not be resumed. Return to Play and start a fresh puzzle.");
+          }
           const sessionPuzzleId = restorePuzzleId ?? routePuzzleId;
           const sessionDifficulty = restoreDifficulty ?? difficulty;
           if (!sessionPuzzleId) {
@@ -501,7 +504,7 @@ export default function GameScreen() {
       ? "failed"
       : "pending"
     : "guest";
-  const failedAttemptIsFinal = auth.isSignedIn && (effectiveMode === "daily" || effectiveMode === "daily_duel" || effectiveMode === "friend_challenge" || effectiveMode === "ranked_duel");
+  const failedAttemptIsFinal = auth.isSignedIn && (effectiveMode === "classic" || effectiveMode === "daily" || effectiveMode === "daily_duel" || effectiveMode === "friend_challenge" || effectiveMode === "ranked_duel");
   const failedAttemptStatusText = failedAttemptIsFinal
     ? isSubmittingFailedResult
       ? "Saving this final attempt..."
@@ -600,7 +603,7 @@ export default function GameScreen() {
   }, [auth.isSignedIn, auth.user?.id, cancelPendingSave, closeSessionForPuzzle, effectiveMode, fetchFriendChallenges, fetchRankedDuel, game.board, game.result, isSubmittingResult, processedResultId, recordPuzzleResult, saveSession, submitOfficialPuzzleResult]);
 
   useEffect(() => {
-    const finalizesFailedAttempt = auth.isSignedIn && (effectiveMode === "daily" || effectiveMode === "daily_duel" || effectiveMode === "friend_challenge" || effectiveMode === "ranked_duel");
+    const finalizesFailedAttempt = auth.isSignedIn && (effectiveMode === "classic" || effectiveMode === "daily" || effectiveMode === "daily_duel" || effectiveMode === "friend_challenge" || effectiveMode === "ranked_duel");
     const failedSessionId = currentSessionIdRef.current;
     if (!game.gameOver || game.completed || !finalizesFailedAttempt || isSubmittingFailedResult || !failedSessionId || processedFailedSessionId === failedSessionId) return;
 
@@ -678,6 +681,19 @@ export default function GameScreen() {
         setIsSubmittingFailedResult(false);
       });
   }, [auth.isSignedIn, auth.user?.id, cancelPendingSave, effectiveMode, fetchFriendChallenges, fetchRankedDuel, game.completed, game.difficulty, game.gameOver, game.hintsUsed, game.mistakes, game.puzzleId, game.seconds, game.undoCount, isSubmittingFailedResult, processedFailedSessionId, saveSession, submitFailedPuzzleResult]);
+
+  useEffect(() => {
+    if (!game.gameOver || game.completed || auth.isSignedIn || isSubmittingFailedResult) return;
+    const failedSessionId = currentSessionIdRef.current;
+    if (!failedSessionId || processedFailedSessionId === failedSessionId) return;
+    setProcessedFailedSessionId(failedSessionId);
+    cancelPendingSave();
+    isCompletedRef.current = true;
+    void closeSessionForPuzzle(game.puzzleId, failedSessionId, "failed").finally(() => {
+      currentSessionIdRef.current = null;
+      setHasSavedOnce(false);
+    });
+  }, [auth.isSignedIn, cancelPendingSave, closeSessionForPuzzle, game.completed, game.gameOver, game.puzzleId, isSubmittingFailedResult, processedFailedSessionId]);
 
   const cleanupCompletedSession = useCallback(() => {
     cancelPendingSave();
