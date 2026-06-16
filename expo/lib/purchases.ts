@@ -4,6 +4,8 @@ import {
   getRevenueCatApiKey,
   PURCHASES_ENABLED,
   PURCHASES_UNAVAILABLE_MESSAGE,
+  PRODUCT_MONTHLY,
+  PRODUCT_YEARLY,
   REVENUECAT_ENTITLEMENT_ID,
   REVENUECAT_OFFERING_ID,
 } from "@/constants/purchases";
@@ -35,6 +37,30 @@ export type PurchaseResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string; unavailable?: boolean };
 
+export type PurchaseDiagnostics = {
+  platform: typeof Platform.OS;
+  purchasesEnabled: boolean;
+  iosApiKeyPresent: boolean;
+  iosApiKeyLength: number;
+  iosApiKeyPrefix: string | null;
+  entitlementId: string;
+  offeringId: string;
+  expectedMonthlyProductId: string;
+  expectedYearlyProductId: string;
+  configureSucceeded: boolean;
+  getOfferingsSucceeded: boolean;
+  currentOfferingIdentifier: string | null;
+  allOfferingIdentifiers: string[];
+  selectedOfferingIdentifier: string | null;
+  availablePackageCount: number;
+  packageIdentifiers: string[];
+  productIdentifiers: string[];
+  priceStrings: string[];
+  lastErrorCategory: string | null;
+  lastErrorCode: string | null;
+  lastErrorMessage: string | null;
+};
+
 type PurchasesModule = {
   configure: (options: { apiKey: string; appUserID?: string }) => void;
   logIn?: (appUserID: string) => Promise<{ customerInfo: CustomerInfoLike }>;
@@ -53,9 +79,30 @@ let configurePromise: Promise<PurchaseResult<boolean>> | null = null;
 let hasConfigured = false;
 let configuredApiKey: string | null = null;
 let currentAppUserId: string | null = null;
+let lastRevenueCatError: { category: string; code: string | null; message: string | null } | null = null;
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : typeof error === "string" ? error : fallback;
+}
+
+function getErrorCode(error: unknown): string | null {
+  if (error && typeof error === "object" && "code" in error) {
+    const value = (error as { code?: unknown }).code;
+    return typeof value === "string" || typeof value === "number" ? String(value) : null;
+  }
+  return null;
+}
+
+function setLastRevenueCatError(category: string, error: unknown, fallback: string) {
+  lastRevenueCatError = {
+    category,
+    code: getErrorCode(error),
+    message: getErrorMessage(error, fallback),
+  };
+}
+
+function clearLastRevenueCatError() {
+  lastRevenueCatError = null;
 }
 
 function unavailable(message = PURCHASES_UNAVAILABLE_MESSAGE): PurchaseResult<never> {
@@ -94,6 +141,7 @@ export async function configurePurchases(): Promise<PurchaseResult<boolean>> {
       loaded.data.configure({ apiKey });
       configuredApiKey = apiKey;
       hasConfigured = true;
+      clearLastRevenueCatError();
       return { ok: true, data: true };
     } catch (error) {
       console.warn("[Purchases] RevenueCat configuration failed.", {
@@ -103,6 +151,7 @@ export async function configurePurchases(): Promise<PurchaseResult<boolean>> {
         entitlementId: REVENUECAT_ENTITLEMENT_ID,
         offeringId: REVENUECAT_OFFERING_ID,
       });
+      setLastRevenueCatError("configure_failed", error, "Could not configure purchases.");
       configuredApiKey = null;
       currentAppUserId = null;
       hasConfigured = false;
@@ -126,10 +175,12 @@ export async function identifyPurchasesUser(userId: string): Promise<PurchaseRes
     if (loaded.data.logIn && currentAppUserId !== userId) {
       const result = await loaded.data.logIn(userId);
       currentAppUserId = userId;
+      clearLastRevenueCatError();
       return { ok: true, data: result.customerInfo };
     }
     return getCustomerInfo();
   } catch (error) {
+    setLastRevenueCatError("login_failed", error, "Could not identify purchase user.");
     return { ok: false, error: error instanceof Error ? error.message : "Could not identify purchase user." };
   }
 }
@@ -149,8 +200,10 @@ export async function resetPurchasesUser(): Promise<PurchaseResult<CustomerInfoL
       return { ok: true, data: null };
     }
     const info = await loaded.data.logOut();
+    clearLastRevenueCatError();
     return { ok: true, data: info };
   } catch (error) {
+    setLastRevenueCatError("logout_failed", error, "Could not reset purchases user.");
     return { ok: false, error: error instanceof Error ? error.message : "Could not reset purchases user." };
   }
 }
@@ -163,8 +216,10 @@ export async function getCustomerInfo(): Promise<PurchaseResult<CustomerInfoLike
   if (!loaded.ok) return loaded;
 
   try {
+    clearLastRevenueCatError();
     return { ok: true, data: await loaded.data.getCustomerInfo() };
   } catch (error) {
+    setLastRevenueCatError("customer_info_failed", error, "Could not load purchase status.");
     return { ok: false, error: error instanceof Error ? error.message : "Could not load purchase status." };
   }
 }
@@ -204,6 +259,7 @@ export async function getCurrentOffering(): Promise<PurchaseResult<CurrentOfferi
 
   try {
     const offerings = await loaded.data.getOfferings();
+    clearLastRevenueCatError();
     const offering = (offerings.all?.[REVENUECAT_OFFERING_ID] ?? offerings.current) as unknown;
     return { ok: true, data: mapOffering(offering) };
   } catch (error) {
@@ -214,6 +270,7 @@ export async function getCurrentOffering(): Promise<PurchaseResult<CurrentOfferi
       entitlementId: REVENUECAT_ENTITLEMENT_ID,
       offeringId: REVENUECAT_OFFERING_ID,
     });
+    setLastRevenueCatError("get_offerings_failed", error, "Could not load Premium offers.");
     return { ok: false, error: "Premium purchases are not available right now. Please try again later." };
   }
 }
@@ -227,6 +284,7 @@ export async function purchasePackage(pkg: PurchasePackage): Promise<PurchaseRes
 
   try {
     const result = await loaded.data.purchasePackage(pkg.raw);
+    clearLastRevenueCatError();
     return { ok: true, data: result.customerInfo };
   } catch (error: any) {
     if (error?.userCancelled) return { ok: false, error: "Purchase cancelled." };
@@ -235,6 +293,7 @@ export async function purchasePackage(pkg: PurchasePackage): Promise<PurchaseRes
       platform: Platform.OS,
       productId: pkg.product.identifier,
     });
+    setLastRevenueCatError("purchase_failed", error, "Purchase could not be completed.");
     return { ok: false, error: "Purchase could not be completed right now. Please try again later." };
   }
 }
@@ -247,6 +306,7 @@ export async function restorePurchases(): Promise<PurchaseResult<CustomerInfoLik
   if (!loaded.ok) return loaded;
 
   try {
+    clearLastRevenueCatError();
     return { ok: true, data: await loaded.data.restorePurchases() };
   } catch (error) {
     console.warn("[Purchases] RevenueCat restore failed.", {
@@ -254,6 +314,7 @@ export async function restorePurchases(): Promise<PurchaseResult<CustomerInfoLik
       platform: Platform.OS,
       entitlementId: REVENUECAT_ENTITLEMENT_ID,
     });
+    setLastRevenueCatError("restore_failed", error, "Purchases could not be restored.");
     return { ok: false, error: "Purchases could not be restored right now. Please try again later." };
   }
 }
@@ -277,4 +338,74 @@ export async function subscribeToCustomerInfoUpdates(callback: (customerInfo: Cu
     }
     loaded.data.removeCustomerInfoUpdateListener?.(callback);
   };
+}
+
+export async function getPurchaseDiagnostics(): Promise<PurchaseDiagnostics> {
+  const iosKey = getRevenueCatApiKey("ios").trim();
+  const diagnostics: PurchaseDiagnostics = {
+    platform: Platform.OS,
+    purchasesEnabled: PURCHASES_ENABLED,
+    iosApiKeyPresent: iosKey.length > 0,
+    iosApiKeyLength: iosKey.length,
+    iosApiKeyPrefix: iosKey ? iosKey.slice(0, 6) : null,
+    entitlementId: REVENUECAT_ENTITLEMENT_ID,
+    offeringId: REVENUECAT_OFFERING_ID,
+    expectedMonthlyProductId: PRODUCT_MONTHLY,
+    expectedYearlyProductId: PRODUCT_YEARLY,
+    configureSucceeded: false,
+    getOfferingsSucceeded: false,
+    currentOfferingIdentifier: null,
+    allOfferingIdentifiers: [],
+    selectedOfferingIdentifier: null,
+    availablePackageCount: 0,
+    packageIdentifiers: [],
+    productIdentifiers: [],
+    priceStrings: [],
+    lastErrorCategory: lastRevenueCatError?.category ?? null,
+    lastErrorCode: lastRevenueCatError?.code ?? null,
+    lastErrorMessage: lastRevenueCatError?.message ?? null,
+  };
+
+  const configured = await configurePurchases();
+  diagnostics.configureSucceeded = configured.ok;
+  diagnostics.lastErrorCategory = lastRevenueCatError?.category ?? diagnostics.lastErrorCategory;
+  diagnostics.lastErrorCode = lastRevenueCatError?.code ?? diagnostics.lastErrorCode;
+  diagnostics.lastErrorMessage = lastRevenueCatError?.message ?? diagnostics.lastErrorMessage;
+
+  if (!configured.ok) {
+    return diagnostics;
+  }
+
+  const loaded = await loadPurchasesModule();
+  if (!loaded.ok) {
+    return diagnostics;
+  }
+
+  try {
+    const offerings = await loaded.data.getOfferings();
+    diagnostics.getOfferingsSucceeded = true;
+    clearLastRevenueCatError();
+
+    const allOfferings = offerings.all ?? {};
+    diagnostics.allOfferingIdentifiers = Object.keys(allOfferings);
+    const currentOffering = offerings.current as any;
+    diagnostics.currentOfferingIdentifier = currentOffering?.identifier ? String(currentOffering.identifier) : null;
+
+    const selectedOffering = (allOfferings[REVENUECAT_OFFERING_ID] ?? offerings.current) as any;
+    const mapped = mapOffering(selectedOffering);
+    diagnostics.selectedOfferingIdentifier = mapped?.identifier ?? null;
+    diagnostics.availablePackageCount = mapped?.availablePackages.length ?? 0;
+    diagnostics.packageIdentifiers = mapped?.availablePackages.map((pkg) => pkg.identifier) ?? [];
+    diagnostics.productIdentifiers = mapped?.availablePackages.map((pkg) => pkg.product.identifier) ?? [];
+    diagnostics.priceStrings = (mapped?.availablePackages
+      .map((pkg) => pkg.product.priceString)
+      .filter((value): value is string => typeof value === "string" && value.length > 0)) ?? [];
+  } catch (error) {
+    setLastRevenueCatError("get_offerings_failed", error, "Could not load Premium offers.");
+    diagnostics.lastErrorCategory = lastRevenueCatError?.category ?? diagnostics.lastErrorCategory;
+    diagnostics.lastErrorCode = lastRevenueCatError?.code ?? diagnostics.lastErrorCode;
+    diagnostics.lastErrorMessage = lastRevenueCatError?.message ?? diagnostics.lastErrorMessage;
+  }
+
+  return diagnostics;
 }

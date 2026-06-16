@@ -279,6 +279,9 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] RevenueCat offering `default` exists.
 - [ ] App Store Connect products `sudoduel_premium_monthly` and `sudoduel_premium_yearly` exist.
 - [ ] Premium screen loads monthly/yearly offerings and prices from the store in sandbox/TestFlight.
+- [ ] Long-press the Premium screen title to open internal Premium diagnostics for TestFlight purchase debugging.
+- [ ] Premium diagnostics show API key presence, masked prefix, entitlement/offering IDs, package identifiers, and last safe RevenueCat error details without exposing the full key.
+- [ ] Premium diagnostics confirm whether `configurePurchases()` and `getOfferings()` succeeded when purchases are unavailable.
 - [ ] Subscribe flow works in sandbox/TestFlight.
 - [ ] Restore purchases refreshes Premium status.
 - [ ] Logout/login preserves active Premium entitlement.
