@@ -1,7 +1,7 @@
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { ChevronLeft, Crown, HelpCircle, Shield } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import BrandMark from "@/components/BrandMark";
@@ -12,7 +12,7 @@ import { PREMIUM_FAIRNESS_NOTE } from "@/constants/premium";
 import { PRODUCT_MONTHLY, PRODUCT_YEARLY } from "@/constants/purchases";
 import { LEGAL_LAST_UPDATED, PRIVACY_POLICY_VERSION, SUPPORT_EMAIL_LABEL, TERMS_VERSION } from "@/constants/legal";
 import { usePremiumStatus } from "@/hooks/usePremiumStatus";
-import { getCurrentOffering, purchasePackage, restorePurchases, type CurrentOffering, type PurchasePackage } from "@/lib/purchases";
+import { getCurrentOffering, getPurchaseDiagnostics, purchasePackage, restorePurchases, type CurrentOffering, type PurchaseDiagnostics, type PurchasePackage } from "@/lib/purchases";
 
 type InfoPage = "premium" | "help" | "support" | "terms" | "privacy";
 
@@ -21,6 +21,8 @@ const PURCHASES_UNAVAILABLE_TITLE = "Purchases temporarily unavailable";
 const PURCHASES_UNAVAILABLE_BODY = "Premium purchases are not available right now. Please try again later.";
 const PURCHASES_UNAVAILABLE_HELP = "Your Free plan is still active. All Classic difficulties, Daily Sudoku, Daily Duel, Ranked Duel, achievements, and basic stats remain available.";
 const RESTORE_UNAVAILABLE_BODY = "Purchases cannot be restored right now. Please try again later.";
+
+type DiagnosticRow = { label: string; value: string };
 
 const CONTENT: Record<InfoPage, {
   eyebrow: string;
@@ -127,8 +129,8 @@ function getPage(value: string | string[] | undefined): InfoPage {
 
 function PageIcon({ type }: { type: "premium" | "help" | "legal" }) {
   if (type === "premium") return <BrandMark size={42} />;
-  const Icon = type === "premium" ? Crown : type === "help" ? HelpCircle : Shield;
-  return <View style={styles.icon}><Icon size={22} color={type === "premium" ? C.gold : C.inkSoft} /></View>;
+  const Icon = type === "help" ? HelpCircle : Shield;
+  return <View style={styles.icon}><Icon size={22} color={C.inkSoft} /></View>;
 }
 
 export default function SettingsInfoScreen() {
@@ -142,6 +144,9 @@ export default function SettingsInfoScreen() {
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [isLoadingOffering, setIsLoadingOffering] = useState(false);
   const [purchaseAction, setPurchaseAction] = useState<string | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [purchaseDiagnostics, setPurchaseDiagnostics] = useState<PurchaseDiagnostics | null>(null);
+  const [isLoadingDiagnostics, setIsLoadingDiagnostics] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -219,6 +224,42 @@ export default function SettingsInfoScreen() {
   const hasMonthlyAndYearly = premiumPackages.some((pkg) => pkg.product.identifier === PRODUCT_MONTHLY)
     && premiumPackages.some((pkg) => pkg.product.identifier === PRODUCT_YEARLY);
 
+  const openDiagnostics = useCallback(async () => {
+    if (page !== "premium") return;
+    setShowDiagnostics(true);
+    setIsLoadingDiagnostics(true);
+    const result = await getPurchaseDiagnostics();
+    setPurchaseDiagnostics(result);
+    setIsLoadingDiagnostics(false);
+  }, [page]);
+
+  const diagnosticRows = useMemo<DiagnosticRow[]>(() => {
+    if (!purchaseDiagnostics) return [];
+    return [
+      { label: "Platform", value: String(purchaseDiagnostics.platform) },
+      { label: "Purchases enabled", value: purchaseDiagnostics.purchasesEnabled ? "Yes" : "No" },
+      { label: "iOS API key present", value: purchaseDiagnostics.iosApiKeyPresent ? "Yes" : "No" },
+      { label: "API key length", value: String(purchaseDiagnostics.iosApiKeyLength) },
+      { label: "API key prefix", value: purchaseDiagnostics.iosApiKeyPrefix ?? "None" },
+      { label: "Entitlement ID", value: purchaseDiagnostics.entitlementId },
+      { label: "Offering ID", value: purchaseDiagnostics.offeringId },
+      { label: "Expected monthly product", value: purchaseDiagnostics.expectedMonthlyProductId },
+      { label: "Expected yearly product", value: purchaseDiagnostics.expectedYearlyProductId },
+      { label: "configurePurchases() succeeded", value: purchaseDiagnostics.configureSucceeded ? "Yes" : "No" },
+      { label: "getOfferings() succeeded", value: purchaseDiagnostics.getOfferingsSucceeded ? "Yes" : "No" },
+      { label: "Current offering identifier", value: purchaseDiagnostics.currentOfferingIdentifier ?? "None" },
+      { label: "All offering identifiers", value: purchaseDiagnostics.allOfferingIdentifiers.length ? purchaseDiagnostics.allOfferingIdentifiers.join(", ") : "None" },
+      { label: "Selected offering identifier", value: purchaseDiagnostics.selectedOfferingIdentifier ?? "None" },
+      { label: "Available package count", value: String(purchaseDiagnostics.availablePackageCount) },
+      { label: "Package identifiers", value: purchaseDiagnostics.packageIdentifiers.length ? purchaseDiagnostics.packageIdentifiers.join(", ") : "None" },
+      { label: "Product identifiers", value: purchaseDiagnostics.productIdentifiers.length ? purchaseDiagnostics.productIdentifiers.join(", ") : "None" },
+      { label: "Price strings", value: purchaseDiagnostics.priceStrings.length ? purchaseDiagnostics.priceStrings.join(", ") : "None" },
+      { label: "Last error category", value: purchaseDiagnostics.lastErrorCategory ?? "None" },
+      { label: "Last error code", value: purchaseDiagnostics.lastErrorCode ?? "None" },
+      { label: "Last error message", value: purchaseDiagnostics.lastErrorMessage ?? "None" },
+    ];
+  }, [purchaseDiagnostics]);
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -228,11 +269,11 @@ export default function SettingsInfoScreen() {
             <ChevronLeft size={20} color={C.ink} />
           </Pressable>
           <PageIcon type={content.icon} />
-          <View style={{ flex: 1 }}>
+          <Pressable style={{ flex: 1 }} disabled={page !== "premium"} onLongPress={() => { void openDiagnostics(); }} delayLongPress={500}>
             <Text style={styles.eyebrow}>{content.eyebrow}</Text>
             <Text style={styles.title}>{content.title}</Text>
             <Text style={styles.sub}>{page === "premium" ? premiumSubtitle : content.subtitle}</Text>
-          </View>
+          </Pressable>
         </View>
 
         <Card style={{ marginTop: 18 }}>
@@ -322,6 +363,43 @@ export default function SettingsInfoScreen() {
           ))}
         </Card>
       </ScrollView>
+
+      <Modal
+        visible={showDiagnostics}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowDiagnostics(false)}
+      >
+        <View style={styles.modalScrim}>
+          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 20 }]}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalEyebrow}>INTERNAL</Text>
+                <Text style={styles.modalTitle}>Premium diagnostics</Text>
+              </View>
+              <Pressable style={styles.modalClose} onPress={() => setShowDiagnostics(false)}>
+                <Text style={styles.modalCloseText}>Done</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.modalSub}>Hidden RevenueCat diagnostics for TestFlight purchase debugging.</Text>
+            {isLoadingDiagnostics ? (
+              <View style={styles.purchaseLoading}>
+                <ActivityIndicator color={C.gold} />
+                <Text style={styles.purchaseMuted}>Loading diagnostics...</Text>
+              </View>
+            ) : (
+              <ScrollView style={styles.diagnosticsList} contentContainerStyle={{ paddingBottom: 12 }} showsVerticalScrollIndicator={false}>
+                {diagnosticRows.map((row, index) => (
+                  <View key={row.label} style={[styles.diagnosticRow, index < diagnosticRows.length - 1 && styles.diagnosticDivider]}>
+                    <Text style={styles.diagnosticLabel}>{row.label}</Text>
+                    <Text style={styles.diagnosticValue}>{row.value}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -368,4 +446,17 @@ const styles = StyleSheet.create({
   restoreButtonText: { color: C.ink, fontSize: 13, fontWeight: "900" },
   pressed: { opacity: 0.86, transform: [{ scale: 0.99 }] },
   featureStripTitle: { color: C.gold, fontSize: 12, fontWeight: "900", letterSpacing: 1.1, textTransform: "uppercase" },
+  modalScrim: { flex: 1, backgroundColor: "rgba(15, 16, 38, 0.48)", justifyContent: "flex-end" },
+  modalSheet: { backgroundColor: C.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 18, maxHeight: "78%" },
+  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  modalEyebrow: { color: C.gold, fontSize: 11, fontWeight: "900", letterSpacing: 1.3 },
+  modalTitle: { color: C.ink, fontSize: 24, fontWeight: "900", marginTop: 3 },
+  modalSub: { color: C.muted, fontSize: 13, fontWeight: "700", lineHeight: 18, marginTop: 8, marginBottom: 10 },
+  modalClose: { borderRadius: 999, borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, paddingHorizontal: 14, paddingVertical: 9 },
+  modalCloseText: { color: C.ink, fontSize: 13, fontWeight: "900" },
+  diagnosticsList: { marginTop: 6 },
+  diagnosticRow: { paddingVertical: 10 },
+  diagnosticDivider: { borderBottomWidth: 1, borderBottomColor: C.border },
+  diagnosticLabel: { color: C.gold, fontSize: 11, fontWeight: "900", letterSpacing: 0.8, textTransform: "uppercase" },
+  diagnosticValue: { color: C.ink, fontSize: 14, fontWeight: "700", lineHeight: 20, marginTop: 4 },
 });
