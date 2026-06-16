@@ -238,7 +238,13 @@ export default function SettingsInfoScreen() {
     return [
       { label: "Platform", value: String(purchaseDiagnostics.platform) },
       { label: "Purchases enabled", value: purchaseDiagnostics.purchasesEnabled ? "Yes" : "No" },
+      { label: "Purchases module import attempted", value: purchaseDiagnostics.purchasesModuleImportAttempted ? "Yes" : "No" },
+      { label: "Purchases module imported", value: purchaseDiagnostics.purchasesModuleImported ? "Yes" : "No" },
       { label: "Purchases module loaded", value: purchaseDiagnostics.purchasesModuleLoaded ? "Yes" : "No" },
+      { label: "Module has configure", value: purchaseDiagnostics.purchasesModuleHasConfigure ? "Yes" : "No" },
+      { label: "Module has getOfferings", value: purchaseDiagnostics.purchasesModuleHasGetOfferings ? "Yes" : "No" },
+      { label: "Module has purchasePackage", value: purchaseDiagnostics.purchasesModuleHasPurchasePackage ? "Yes" : "No" },
+      { label: "Module has restorePurchases", value: purchaseDiagnostics.purchasesModuleHasRestorePurchases ? "Yes" : "No" },
       { label: "iOS API key present", value: purchaseDiagnostics.iosApiKeyPresent ? "Yes" : "No" },
       { label: "API key length", value: String(purchaseDiagnostics.iosApiKeyLength) },
       { label: "API key prefix", value: purchaseDiagnostics.iosApiKeyPrefix ?? "None" },

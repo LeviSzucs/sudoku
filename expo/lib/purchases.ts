@@ -40,7 +40,13 @@ export type PurchaseResult<T = unknown> =
 export type PurchaseDiagnostics = {
   platform: typeof Platform.OS;
   purchasesEnabled: boolean;
+  purchasesModuleImportAttempted: boolean;
+  purchasesModuleImported: boolean;
   purchasesModuleLoaded: boolean;
+  purchasesModuleHasConfigure: boolean;
+  purchasesModuleHasGetOfferings: boolean;
+  purchasesModuleHasPurchasePackage: boolean;
+  purchasesModuleHasRestorePurchases: boolean;
   iosApiKeyPresent: boolean;
   iosApiKeyLength: number;
   iosApiKeyPrefix: string | null;
@@ -89,7 +95,13 @@ let configuredApiKey: string | null = null;
 let currentAppUserId: string | null = null;
 let lastRevenueCatError: { category: string; code: string | null; message: string | null } | null = null;
 let purchaseDiagnosticState = {
+  moduleImportAttempted: false,
+  moduleImported: false,
   moduleLoaded: false,
+  moduleHasConfigure: false,
+  moduleHasGetOfferings: false,
+  moduleHasPurchasePackage: false,
+  moduleHasRestorePurchases: false,
   configureAttempted: false,
   configureSucceeded: false,
   getOfferingsAttempted: false,
@@ -125,7 +137,13 @@ function clearLastRevenueCatError() {
 
 function resetPurchaseDiagnosticState() {
   purchaseDiagnosticState = {
+    moduleImportAttempted: false,
+    moduleImported: false,
     moduleLoaded: false,
+    moduleHasConfigure: false,
+    moduleHasGetOfferings: false,
+    moduleHasPurchasePackage: false,
+    moduleHasRestorePurchases: false,
     configureAttempted: false,
     configureSucceeded: false,
     getOfferingsAttempted: false,
@@ -140,29 +158,47 @@ function unavailable(message = PURCHASES_UNAVAILABLE_MESSAGE): PurchaseResult<ne
   return { ok: false, error: message, unavailable: true };
 }
 
+function captureModuleShape(module: PurchasesModule | null) {
+  purchaseDiagnosticState.moduleHasConfigure = Boolean(module && typeof module.configure === "function");
+  purchaseDiagnosticState.moduleHasGetOfferings = Boolean(module && typeof module.getOfferings === "function");
+  purchaseDiagnosticState.moduleHasPurchasePackage = Boolean(module && typeof module.purchasePackage === "function");
+  purchaseDiagnosticState.moduleHasRestorePurchases = Boolean(module && typeof module.restorePurchases === "function");
+}
+
 async function loadPurchasesModule(): Promise<PurchaseResult<PurchasesModule>> {
+  purchaseDiagnosticState.moduleImportAttempted = true;
   if (!PURCHASES_ENABLED) {
+    purchaseDiagnosticState.moduleImported = false;
     purchaseDiagnosticState.moduleLoaded = false;
     purchaseDiagnosticState.lastModuleLoadErrorMessage = "RevenueCat API key missing.";
     setLastRevenueCatError("api_key_missing", "RevenueCat API key missing.", "RevenueCat API key missing.");
     return unavailable();
   }
   if (Platform.OS !== "ios" && Platform.OS !== "android") {
+    purchaseDiagnosticState.moduleImported = false;
     purchaseDiagnosticState.moduleLoaded = false;
     purchaseDiagnosticState.lastModuleLoadErrorMessage = "Purchases are not supported on this platform.";
     setLastRevenueCatError("unsupported_platform", "Purchases are not supported on this platform.", "Purchases are not supported on this platform.");
     return unavailable();
   }
   if (purchasesModule) {
+    purchaseDiagnosticState.moduleImported = true;
     purchaseDiagnosticState.moduleLoaded = true;
+    captureModuleShape(purchasesModule);
     return { ok: true, data: purchasesModule };
   }
 
   try {
     const mod = await import("react-native-purchases");
     purchasesModule = (mod.default ?? mod) as unknown as PurchasesModule;
+    purchaseDiagnosticState.moduleImported = true;
     purchaseDiagnosticState.moduleLoaded = true;
+    captureModuleShape(purchasesModule);
     purchaseDiagnosticState.lastModuleLoadErrorMessage = null;
+    if (!purchaseDiagnosticState.moduleHasConfigure || !purchaseDiagnosticState.moduleHasGetOfferings || !purchaseDiagnosticState.moduleHasPurchasePackage || !purchaseDiagnosticState.moduleHasRestorePurchases) {
+      purchaseDiagnosticState.lastModuleLoadErrorMessage = "react-native-purchases loaded but is missing one or more required methods.";
+      setLastRevenueCatError("module_methods_missing", "react-native-purchases loaded but is missing one or more required methods.", "react-native-purchases loaded but is missing one or more required methods.");
+    }
     return { ok: true, data: purchasesModule };
   } catch (error) {
     const message = getErrorMessage(error, "Could not load react-native-purchases.");
@@ -171,7 +207,9 @@ async function loadPurchasesModule(): Promise<PurchaseResult<PurchasesModule>> {
       platform: Platform.OS,
       purchasesEnabled: PURCHASES_ENABLED,
     });
+    purchaseDiagnosticState.moduleImported = false;
     purchaseDiagnosticState.moduleLoaded = false;
+    captureModuleShape(null);
     purchaseDiagnosticState.lastModuleLoadErrorMessage = message;
     setLastRevenueCatError("module_load_failed", error, "Could not load react-native-purchases.");
     return unavailable();
@@ -423,7 +461,13 @@ export async function getPurchaseDiagnostics(): Promise<PurchaseDiagnostics> {
   const diagnostics: PurchaseDiagnostics = {
     platform: Platform.OS,
     purchasesEnabled: PURCHASES_ENABLED,
+    purchasesModuleImportAttempted: false,
+    purchasesModuleImported: false,
     purchasesModuleLoaded: false,
+    purchasesModuleHasConfigure: false,
+    purchasesModuleHasGetOfferings: false,
+    purchasesModuleHasPurchasePackage: false,
+    purchasesModuleHasRestorePurchases: false,
     iosApiKeyPresent: iosKey.length > 0,
     iosApiKeyLength: iosKey.length,
     iosApiKeyPrefix: iosKey ? iosKey.slice(0, 6) : null,
@@ -453,7 +497,13 @@ export async function getPurchaseDiagnostics(): Promise<PurchaseDiagnostics> {
   };
 
   const configured = await configurePurchases();
+  diagnostics.purchasesModuleImportAttempted = purchaseDiagnosticState.moduleImportAttempted;
+  diagnostics.purchasesModuleImported = purchaseDiagnosticState.moduleImported;
   diagnostics.purchasesModuleLoaded = purchaseDiagnosticState.moduleLoaded;
+  diagnostics.purchasesModuleHasConfigure = purchaseDiagnosticState.moduleHasConfigure;
+  diagnostics.purchasesModuleHasGetOfferings = purchaseDiagnosticState.moduleHasGetOfferings;
+  diagnostics.purchasesModuleHasPurchasePackage = purchaseDiagnosticState.moduleHasPurchasePackage;
+  diagnostics.purchasesModuleHasRestorePurchases = purchaseDiagnosticState.moduleHasRestorePurchases;
   diagnostics.configureAttempted = purchaseDiagnosticState.configureAttempted;
   diagnostics.configureSucceeded = configured.ok;
   diagnostics.lastModuleLoadErrorMessage = purchaseDiagnosticState.lastModuleLoadErrorMessage;
@@ -468,12 +518,24 @@ export async function getPurchaseDiagnostics(): Promise<PurchaseDiagnostics> {
 
   const loaded = await loadPurchasesModule();
   if (!loaded.ok) {
+    diagnostics.purchasesModuleImportAttempted = purchaseDiagnosticState.moduleImportAttempted;
+    diagnostics.purchasesModuleImported = purchaseDiagnosticState.moduleImported;
     diagnostics.purchasesModuleLoaded = purchaseDiagnosticState.moduleLoaded;
+    diagnostics.purchasesModuleHasConfigure = purchaseDiagnosticState.moduleHasConfigure;
+    diagnostics.purchasesModuleHasGetOfferings = purchaseDiagnosticState.moduleHasGetOfferings;
+    diagnostics.purchasesModuleHasPurchasePackage = purchaseDiagnosticState.moduleHasPurchasePackage;
+    diagnostics.purchasesModuleHasRestorePurchases = purchaseDiagnosticState.moduleHasRestorePurchases;
     diagnostics.lastModuleLoadErrorMessage = purchaseDiagnosticState.lastModuleLoadErrorMessage;
     return diagnostics;
   }
 
+  diagnostics.purchasesModuleImportAttempted = purchaseDiagnosticState.moduleImportAttempted;
+  diagnostics.purchasesModuleImported = purchaseDiagnosticState.moduleImported;
   diagnostics.purchasesModuleLoaded = true;
+  diagnostics.purchasesModuleHasConfigure = purchaseDiagnosticState.moduleHasConfigure;
+  diagnostics.purchasesModuleHasGetOfferings = purchaseDiagnosticState.moduleHasGetOfferings;
+  diagnostics.purchasesModuleHasPurchasePackage = purchaseDiagnosticState.moduleHasPurchasePackage;
+  diagnostics.purchasesModuleHasRestorePurchases = purchaseDiagnosticState.moduleHasRestorePurchases;
   diagnostics.getOfferingsAttempted = true;
   try {
     const offerings = await loaded.data.getOfferings();
