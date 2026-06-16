@@ -11,6 +11,7 @@ import {
   defaultNotificationPreferences,
   fetchNotificationPreferences,
   fetchNotifications,
+  getPushAvailabilityState,
   getNotificationPermissionStatus,
   markNotificationRead,
   registerPushToken,
@@ -33,8 +34,9 @@ const TOGGLE_ROWS: { key: keyof NotificationPreferenceRow; label: string; descri
   { key: "marketing", label: "News and offers", description: "Product news. Off by default." },
 ];
 
-function permissionCopy(status: NotificationPermissionStatus): { title: string; body: string } {
-  if (status === "granted") return { title: "Push notifications are on", body: "This device can receive SudoDuel push updates." };
+function permissionCopy(status: NotificationPermissionStatus, pushAvailable: boolean): { title: string; body: string } {
+  if (status === "granted" && pushAvailable) return { title: "Push notifications are on", body: "This device can receive SudoDuel push updates." };
+  if (!pushAvailable) return { title: "Inbox notifications are available", body: "Phone push notifications are not available in this build." };
   if (status === "denied") return { title: "Push notifications are off", body: "Push notifications are turned off in iOS Settings. You can still use SudoDuel normally." };
   if (status === "unsupported") return { title: "Push unavailable in this build", body: "You can still use in-app notifications and all gameplay normally." };
   return { title: "Push notifications are optional", body: "Gameplay works without notifications. Enable them if you want duel and social updates." };
@@ -44,6 +46,12 @@ function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+}
+
+function isCalmPushUnavailableMessage(message: string | null | undefined): boolean {
+  if (!message) return false;
+  return message.includes("Phone push notifications are not available in this build.")
+    || message.includes("Push project ID missing.");
 }
 
 export default function SettingsNotificationsScreen() {
@@ -56,10 +64,11 @@ export default function SettingsNotificationsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pushAvailable, setPushAvailable] = useState<boolean>(false);
   const tokenSyncAttemptRef = useRef<string | null>(null);
 
   const unreadCount = useMemo(() => notifications.filter((item) => !item.read_at).length, [notifications]);
-  const permission = permissionCopy(permissionStatus);
+  const permission = permissionCopy(permissionStatus, pushAvailable);
 
   const load = useCallback(async () => {
     if (!userId) {
@@ -68,12 +77,14 @@ export default function SettingsNotificationsScreen() {
     }
 
     setError(null);
-    const [status, prefs, inbox] = await Promise.all([
+    const [status, availability, prefs, inbox] = await Promise.all([
       getNotificationPermissionStatus(),
+      getPushAvailabilityState(),
       fetchNotificationPreferences(userId),
       fetchNotifications(),
     ]);
     setPermissionStatus(status);
+    setPushAvailable(availability.available);
     if (prefs.ok) setPreferences(prefs.data);
     else setError(prefs.error);
     if (inbox.ok) setNotifications(inbox.data);
@@ -96,7 +107,9 @@ export default function SettingsNotificationsScreen() {
     if (tokenSyncAttemptRef.current === attemptKey) return;
     tokenSyncAttemptRef.current = attemptKey;
     void registerPushToken(userId).then((result) => {
-      if (!result.ok) setError((current) => current ?? result.error);
+      if (!result.ok && !isCalmPushUnavailableMessage(result.error)) {
+        setError((current) => current ?? result.error);
+      }
     });
   }, [permissionStatus, userId]);
 
@@ -124,7 +137,7 @@ export default function SettingsNotificationsScreen() {
     setPermissionStatus(status);
     if (status === "granted") {
       const token = await registerPushToken(userId);
-      if (!token.ok) setError(token.error);
+      if (!token.ok && !isCalmPushUnavailableMessage(token.error)) setError(token.error);
     }
     setIsSaving(false);
   };
@@ -184,7 +197,7 @@ export default function SettingsNotificationsScreen() {
                   <Text style={styles.body}>{permission.body}</Text>
                 </View>
               </View>
-              {permissionStatus !== "granted" && permissionStatus !== "unsupported" ? (
+              {pushAvailable && permissionStatus !== "granted" && permissionStatus !== "unsupported" ? (
                 <Pressable style={styles.primaryButton} onPress={() => { void enablePush(); }} disabled={isSaving}>
                   <Text style={styles.primaryButtonText}>{isSaving ? "Enabling..." : "Enable push notifications"}</Text>
                 </Pressable>
