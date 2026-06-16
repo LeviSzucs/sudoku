@@ -281,7 +281,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Premium screen loads monthly/yearly offerings and prices from the store in sandbox/TestFlight.
 - [ ] Long-press the Premium screen title to open internal Premium diagnostics for TestFlight purchase debugging.
 - [ ] Premium diagnostics show API key presence, masked prefix, entitlement/offering IDs, package identifiers, and last safe RevenueCat error details without exposing the full key.
-- [ ] Premium diagnostics confirm whether `configurePurchases()` and `getOfferings()` succeeded when purchases are unavailable.
+- [ ] Premium diagnostics confirm whether the `react-native-purchases` module loaded, whether `configurePurchases()` was attempted and succeeded, and whether `getOfferings()` was attempted and succeeded.
+- [ ] Premium diagnostics distinguish API key missing, module load failure, configure failure, offering with zero packages, and packages with missing price strings.
 - [ ] Subscribe flow works in sandbox/TestFlight.
 - [ ] Restore purchases refreshes Premium status.
 - [ ] Logout/login preserves active Premium entitlement.

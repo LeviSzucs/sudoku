@@ -40,6 +40,7 @@ export type PurchaseResult<T = unknown> =
 export type PurchaseDiagnostics = {
   platform: typeof Platform.OS;
   purchasesEnabled: boolean;
+  purchasesModuleLoaded: boolean;
   iosApiKeyPresent: boolean;
   iosApiKeyLength: number;
   iosApiKeyPrefix: string | null;
@@ -47,18 +48,25 @@ export type PurchaseDiagnostics = {
   offeringId: string;
   expectedMonthlyProductId: string;
   expectedYearlyProductId: string;
+  configureAttempted: boolean;
   configureSucceeded: boolean;
+  getOfferingsAttempted: boolean;
   getOfferingsSucceeded: boolean;
   currentOfferingIdentifier: string | null;
   allOfferingIdentifiers: string[];
   selectedOfferingIdentifier: string | null;
+  selectedOfferingHasZeroPackages: boolean;
   availablePackageCount: number;
   packageIdentifiers: string[];
   productIdentifiers: string[];
   priceStrings: string[];
+  packagesMissingPriceStrings: boolean;
   lastErrorCategory: string | null;
   lastErrorCode: string | null;
   lastErrorMessage: string | null;
+  lastModuleLoadErrorMessage: string | null;
+  lastConfigureErrorMessage: string | null;
+  lastGetOfferingsErrorMessage: string | null;
 };
 
 type PurchasesModule = {
@@ -80,6 +88,16 @@ let hasConfigured = false;
 let configuredApiKey: string | null = null;
 let currentAppUserId: string | null = null;
 let lastRevenueCatError: { category: string; code: string | null; message: string | null } | null = null;
+let purchaseDiagnosticState = {
+  moduleLoaded: false,
+  configureAttempted: false,
+  configureSucceeded: false,
+  getOfferingsAttempted: false,
+  getOfferingsSucceeded: false,
+  lastModuleLoadErrorMessage: null as string | null,
+  lastConfigureErrorMessage: null as string | null,
+  lastGetOfferingsErrorMessage: null as string | null,
+};
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : typeof error === "string" ? error : fallback;
@@ -105,29 +123,75 @@ function clearLastRevenueCatError() {
   lastRevenueCatError = null;
 }
 
+function resetPurchaseDiagnosticState() {
+  purchaseDiagnosticState = {
+    moduleLoaded: false,
+    configureAttempted: false,
+    configureSucceeded: false,
+    getOfferingsAttempted: false,
+    getOfferingsSucceeded: false,
+    lastModuleLoadErrorMessage: null,
+    lastConfigureErrorMessage: null,
+    lastGetOfferingsErrorMessage: null,
+  };
+}
+
 function unavailable(message = PURCHASES_UNAVAILABLE_MESSAGE): PurchaseResult<never> {
   return { ok: false, error: message, unavailable: true };
 }
 
 async function loadPurchasesModule(): Promise<PurchaseResult<PurchasesModule>> {
-  if (!PURCHASES_ENABLED) return unavailable();
-  if (Platform.OS !== "ios" && Platform.OS !== "android") return unavailable();
-  if (purchasesModule) return { ok: true, data: purchasesModule };
+  if (!PURCHASES_ENABLED) {
+    purchaseDiagnosticState.moduleLoaded = false;
+    purchaseDiagnosticState.lastModuleLoadErrorMessage = "RevenueCat API key missing.";
+    setLastRevenueCatError("api_key_missing", "RevenueCat API key missing.", "RevenueCat API key missing.");
+    return unavailable();
+  }
+  if (Platform.OS !== "ios" && Platform.OS !== "android") {
+    purchaseDiagnosticState.moduleLoaded = false;
+    purchaseDiagnosticState.lastModuleLoadErrorMessage = "Purchases are not supported on this platform.";
+    setLastRevenueCatError("unsupported_platform", "Purchases are not supported on this platform.", "Purchases are not supported on this platform.");
+    return unavailable();
+  }
+  if (purchasesModule) {
+    purchaseDiagnosticState.moduleLoaded = true;
+    return { ok: true, data: purchasesModule };
+  }
 
   try {
     const mod = await import("react-native-purchases");
     purchasesModule = (mod.default ?? mod) as unknown as PurchasesModule;
+    purchaseDiagnosticState.moduleLoaded = true;
+    purchaseDiagnosticState.lastModuleLoadErrorMessage = null;
     return { ok: true, data: purchasesModule };
-  } catch {
+  } catch (error) {
+    const message = getErrorMessage(error, "Could not load react-native-purchases.");
+    console.warn("[Purchases] react-native-purchases module load failed.", {
+      message,
+      platform: Platform.OS,
+      purchasesEnabled: PURCHASES_ENABLED,
+    });
+    purchaseDiagnosticState.moduleLoaded = false;
+    purchaseDiagnosticState.lastModuleLoadErrorMessage = message;
+    setLastRevenueCatError("module_load_failed", error, "Could not load react-native-purchases.");
     return unavailable();
   }
 }
 
 export async function configurePurchases(): Promise<PurchaseResult<boolean>> {
   const apiKey = getRevenueCatApiKey().trim();
-  if (!apiKey) return unavailable();
+  if (!apiKey) {
+    purchaseDiagnosticState.configureAttempted = false;
+    purchaseDiagnosticState.configureSucceeded = false;
+    purchaseDiagnosticState.lastConfigureErrorMessage = "RevenueCat API key missing.";
+    setLastRevenueCatError("api_key_missing", "RevenueCat API key missing.", "RevenueCat API key missing.");
+    return unavailable();
+  }
 
   if (hasConfigured && configuredApiKey === apiKey) {
+    purchaseDiagnosticState.configureAttempted = true;
+    purchaseDiagnosticState.configureSucceeded = true;
+    purchaseDiagnosticState.lastConfigureErrorMessage = null;
     return { ok: true, data: true };
   }
 
@@ -137,20 +201,26 @@ export async function configurePurchases(): Promise<PurchaseResult<boolean>> {
     const loaded = await loadPurchasesModule();
     if (!loaded.ok) return loaded;
 
+    purchaseDiagnosticState.configureAttempted = true;
     try {
       loaded.data.configure({ apiKey });
       configuredApiKey = apiKey;
       hasConfigured = true;
+      purchaseDiagnosticState.configureSucceeded = true;
+      purchaseDiagnosticState.lastConfigureErrorMessage = null;
       clearLastRevenueCatError();
       return { ok: true, data: true };
     } catch (error) {
+      const message = getErrorMessage(error, "Could not configure purchases.");
       console.warn("[Purchases] RevenueCat configuration failed.", {
-        message: getErrorMessage(error, "Could not configure purchases."),
+        message,
         platform: Platform.OS,
         purchasesEnabled: PURCHASES_ENABLED,
         entitlementId: REVENUECAT_ENTITLEMENT_ID,
         offeringId: REVENUECAT_OFFERING_ID,
       });
+      purchaseDiagnosticState.configureSucceeded = false;
+      purchaseDiagnosticState.lastConfigureErrorMessage = message;
       setLastRevenueCatError("configure_failed", error, "Could not configure purchases.");
       configuredApiKey = null;
       currentAppUserId = null;
@@ -257,19 +327,25 @@ export async function getCurrentOffering(): Promise<PurchaseResult<CurrentOfferi
   const loaded = await loadPurchasesModule();
   if (!loaded.ok) return loaded;
 
+  purchaseDiagnosticState.getOfferingsAttempted = true;
   try {
     const offerings = await loaded.data.getOfferings();
+    purchaseDiagnosticState.getOfferingsSucceeded = true;
+    purchaseDiagnosticState.lastGetOfferingsErrorMessage = null;
     clearLastRevenueCatError();
     const offering = (offerings.all?.[REVENUECAT_OFFERING_ID] ?? offerings.current) as unknown;
     return { ok: true, data: mapOffering(offering) };
   } catch (error) {
+    const message = getErrorMessage(error, "Could not load Premium offers.");
     console.warn("[Purchases] RevenueCat offering fetch failed.", {
-      message: getErrorMessage(error, "Could not load Premium offers."),
+      message,
       platform: Platform.OS,
       purchasesEnabled: PURCHASES_ENABLED,
       entitlementId: REVENUECAT_ENTITLEMENT_ID,
       offeringId: REVENUECAT_OFFERING_ID,
     });
+    purchaseDiagnosticState.getOfferingsSucceeded = false;
+    purchaseDiagnosticState.lastGetOfferingsErrorMessage = message;
     setLastRevenueCatError("get_offerings_failed", error, "Could not load Premium offers.");
     return { ok: false, error: "Premium purchases are not available right now. Please try again later." };
   }
@@ -341,10 +417,13 @@ export async function subscribeToCustomerInfoUpdates(callback: (customerInfo: Cu
 }
 
 export async function getPurchaseDiagnostics(): Promise<PurchaseDiagnostics> {
+  resetPurchaseDiagnosticState();
+  clearLastRevenueCatError();
   const iosKey = getRevenueCatApiKey("ios").trim();
   const diagnostics: PurchaseDiagnostics = {
     platform: Platform.OS,
     purchasesEnabled: PURCHASES_ENABLED,
+    purchasesModuleLoaded: false,
     iosApiKeyPresent: iosKey.length > 0,
     iosApiKeyLength: iosKey.length,
     iosApiKeyPrefix: iosKey ? iosKey.slice(0, 6) : null,
@@ -352,22 +431,33 @@ export async function getPurchaseDiagnostics(): Promise<PurchaseDiagnostics> {
     offeringId: REVENUECAT_OFFERING_ID,
     expectedMonthlyProductId: PRODUCT_MONTHLY,
     expectedYearlyProductId: PRODUCT_YEARLY,
+    configureAttempted: false,
     configureSucceeded: false,
+    getOfferingsAttempted: false,
     getOfferingsSucceeded: false,
     currentOfferingIdentifier: null,
     allOfferingIdentifiers: [],
     selectedOfferingIdentifier: null,
+    selectedOfferingHasZeroPackages: false,
     availablePackageCount: 0,
     packageIdentifiers: [],
     productIdentifiers: [],
     priceStrings: [],
+    packagesMissingPriceStrings: false,
     lastErrorCategory: lastRevenueCatError?.category ?? null,
     lastErrorCode: lastRevenueCatError?.code ?? null,
     lastErrorMessage: lastRevenueCatError?.message ?? null,
+    lastModuleLoadErrorMessage: null,
+    lastConfigureErrorMessage: null,
+    lastGetOfferingsErrorMessage: null,
   };
 
   const configured = await configurePurchases();
+  diagnostics.purchasesModuleLoaded = purchaseDiagnosticState.moduleLoaded;
+  diagnostics.configureAttempted = purchaseDiagnosticState.configureAttempted;
   diagnostics.configureSucceeded = configured.ok;
+  diagnostics.lastModuleLoadErrorMessage = purchaseDiagnosticState.lastModuleLoadErrorMessage;
+  diagnostics.lastConfigureErrorMessage = purchaseDiagnosticState.lastConfigureErrorMessage;
   diagnostics.lastErrorCategory = lastRevenueCatError?.category ?? diagnostics.lastErrorCategory;
   diagnostics.lastErrorCode = lastRevenueCatError?.code ?? diagnostics.lastErrorCode;
   diagnostics.lastErrorMessage = lastRevenueCatError?.message ?? diagnostics.lastErrorMessage;
@@ -378,11 +468,17 @@ export async function getPurchaseDiagnostics(): Promise<PurchaseDiagnostics> {
 
   const loaded = await loadPurchasesModule();
   if (!loaded.ok) {
+    diagnostics.purchasesModuleLoaded = purchaseDiagnosticState.moduleLoaded;
+    diagnostics.lastModuleLoadErrorMessage = purchaseDiagnosticState.lastModuleLoadErrorMessage;
     return diagnostics;
   }
 
+  diagnostics.purchasesModuleLoaded = true;
+  diagnostics.getOfferingsAttempted = true;
   try {
     const offerings = await loaded.data.getOfferings();
+    purchaseDiagnosticState.getOfferingsSucceeded = true;
+    purchaseDiagnosticState.lastGetOfferingsErrorMessage = null;
     diagnostics.getOfferingsSucceeded = true;
     clearLastRevenueCatError();
 
@@ -395,17 +491,25 @@ export async function getPurchaseDiagnostics(): Promise<PurchaseDiagnostics> {
     const mapped = mapOffering(selectedOffering);
     diagnostics.selectedOfferingIdentifier = mapped?.identifier ?? null;
     diagnostics.availablePackageCount = mapped?.availablePackages.length ?? 0;
+    diagnostics.selectedOfferingHasZeroPackages = Boolean(mapped && diagnostics.availablePackageCount === 0);
     diagnostics.packageIdentifiers = mapped?.availablePackages.map((pkg) => pkg.identifier) ?? [];
     diagnostics.productIdentifiers = mapped?.availablePackages.map((pkg) => pkg.product.identifier) ?? [];
     diagnostics.priceStrings = (mapped?.availablePackages
       .map((pkg) => pkg.product.priceString)
       .filter((value): value is string => typeof value === "string" && value.length > 0)) ?? [];
+    diagnostics.packagesMissingPriceStrings = diagnostics.availablePackageCount > 0 && diagnostics.priceStrings.length === 0;
   } catch (error) {
+    const message = getErrorMessage(error, "Could not load Premium offers.");
+    purchaseDiagnosticState.getOfferingsSucceeded = false;
+    purchaseDiagnosticState.lastGetOfferingsErrorMessage = message;
     setLastRevenueCatError("get_offerings_failed", error, "Could not load Premium offers.");
+    diagnostics.getOfferingsSucceeded = false;
     diagnostics.lastErrorCategory = lastRevenueCatError?.category ?? diagnostics.lastErrorCategory;
     diagnostics.lastErrorCode = lastRevenueCatError?.code ?? diagnostics.lastErrorCode;
     diagnostics.lastErrorMessage = lastRevenueCatError?.message ?? diagnostics.lastErrorMessage;
   }
+
+  diagnostics.lastGetOfferingsErrorMessage = purchaseDiagnosticState.lastGetOfferingsErrorMessage;
 
   return diagnostics;
 }

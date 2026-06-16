@@ -238,6 +238,7 @@ export default function SettingsInfoScreen() {
     return [
       { label: "Platform", value: String(purchaseDiagnostics.platform) },
       { label: "Purchases enabled", value: purchaseDiagnostics.purchasesEnabled ? "Yes" : "No" },
+      { label: "Purchases module loaded", value: purchaseDiagnostics.purchasesModuleLoaded ? "Yes" : "No" },
       { label: "iOS API key present", value: purchaseDiagnostics.iosApiKeyPresent ? "Yes" : "No" },
       { label: "API key length", value: String(purchaseDiagnostics.iosApiKeyLength) },
       { label: "API key prefix", value: purchaseDiagnostics.iosApiKeyPrefix ?? "None" },
@@ -245,18 +246,25 @@ export default function SettingsInfoScreen() {
       { label: "Offering ID", value: purchaseDiagnostics.offeringId },
       { label: "Expected monthly product", value: purchaseDiagnostics.expectedMonthlyProductId },
       { label: "Expected yearly product", value: purchaseDiagnostics.expectedYearlyProductId },
+      { label: "configurePurchases() attempted", value: purchaseDiagnostics.configureAttempted ? "Yes" : "No" },
       { label: "configurePurchases() succeeded", value: purchaseDiagnostics.configureSucceeded ? "Yes" : "No" },
+      { label: "getOfferings() attempted", value: purchaseDiagnostics.getOfferingsAttempted ? "Yes" : "No" },
       { label: "getOfferings() succeeded", value: purchaseDiagnostics.getOfferingsSucceeded ? "Yes" : "No" },
       { label: "Current offering identifier", value: purchaseDiagnostics.currentOfferingIdentifier ?? "None" },
       { label: "All offering identifiers", value: purchaseDiagnostics.allOfferingIdentifiers.length ? purchaseDiagnostics.allOfferingIdentifiers.join(", ") : "None" },
       { label: "Selected offering identifier", value: purchaseDiagnostics.selectedOfferingIdentifier ?? "None" },
+      { label: "Selected offering has zero packages", value: purchaseDiagnostics.selectedOfferingHasZeroPackages ? "Yes" : "No" },
       { label: "Available package count", value: String(purchaseDiagnostics.availablePackageCount) },
       { label: "Package identifiers", value: purchaseDiagnostics.packageIdentifiers.length ? purchaseDiagnostics.packageIdentifiers.join(", ") : "None" },
       { label: "Product identifiers", value: purchaseDiagnostics.productIdentifiers.length ? purchaseDiagnostics.productIdentifiers.join(", ") : "None" },
       { label: "Price strings", value: purchaseDiagnostics.priceStrings.length ? purchaseDiagnostics.priceStrings.join(", ") : "None" },
+      { label: "Packages missing price strings", value: purchaseDiagnostics.packagesMissingPriceStrings ? "Yes" : "No" },
       { label: "Last error category", value: purchaseDiagnostics.lastErrorCategory ?? "None" },
       { label: "Last error code", value: purchaseDiagnostics.lastErrorCode ?? "None" },
       { label: "Last error message", value: purchaseDiagnostics.lastErrorMessage ?? "None" },
+      { label: "Last module load error", value: purchaseDiagnostics.lastModuleLoadErrorMessage ?? "None" },
+      { label: "Last configure error", value: purchaseDiagnostics.lastConfigureErrorMessage ?? "None" },
+      { label: "Last getOfferings error", value: purchaseDiagnostics.lastGetOfferingsErrorMessage ?? "None" },
     ];
   }, [purchaseDiagnostics]);
 
