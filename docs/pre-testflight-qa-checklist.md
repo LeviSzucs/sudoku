@@ -230,7 +230,9 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] EAS/Expo project ID is present through `extra.eas.projectId`, `Constants.easConfig.projectId`, or UUID-shaped `EXPO_PUBLIC_EAS_PROJECT_ID`.
 - [ ] `EXPO_PUBLIC_PROJECT_ID` may be a Rork slug and must not be treated as a valid EAS UUID unless UUID-shaped.
 - [ ] Phone push requires `EXPO_PUBLIC_EAS_PROJECT_ID` or another real UUID-shaped project ID source.
-- [ ] TestFlight shows a graceful unavailable message, not raw Expo errors, when only an invalid Rork slug is present.
+- [ ] If Rork/EAS/APNs is not fully configured, TestFlight shows a calm unavailable message, not a raw Expo error.
+- [ ] In that parked state, Inbox notifications still load and remain fully usable.
+- [ ] Phone push is treated as pending Rork EAS/APNs setup for this build, not as a blocker for in-app notification QA.
 - [ ] Long-press Settings > Legal > App version to open Push Diagnostics in TestFlight; confirm the selected project ID source and UUID-shaped value.
 - [ ] Push token registers after permission is granted.
 - [ ] TestFlight device creates an active `push_tokens` row after opening Notifications with permission granted.

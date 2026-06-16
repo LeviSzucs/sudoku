@@ -54,6 +54,12 @@ export type PushProjectDiagnostics = {
   lastTokenErrorMessage: string | null;
 };
 
+export type PushAvailabilityState = {
+  available: boolean;
+  category: "available" | "missing_project_id" | "invalid_project_id" | "unsupported";
+  message: string | null;
+};
+
 const DEFAULT_NOTIFICATION_PREFERENCES: Omit<NotificationPreferenceRow, "user_id"> = {
   push_enabled: true,
   friend_requests: true,
@@ -168,6 +174,33 @@ function expoProjectIdState(): {
       hasExpoPublicEasProjectId: Boolean(envEasProjectId),
       hasExpoPublicProjectId: Boolean(envRorkProjectId),
     },
+  };
+}
+
+export async function getPushAvailabilityState(): Promise<PushAvailabilityState> {
+  const loaded = await loadNotificationsModule();
+  if (!loaded.ok) {
+    return {
+      available: false,
+      category: "unsupported",
+      message: "Phone push notifications are not available in this build.",
+    };
+  }
+
+  const projectIdInfo = expoProjectIdState();
+  if (projectIdInfo.projectId) {
+    return {
+      available: true,
+      category: "available",
+      message: null,
+    };
+  }
+
+  const hasRawProjectId = Boolean(projectIdInfo.selectedValue);
+  return {
+    available: false,
+    category: hasRawProjectId ? "invalid_project_id" : "missing_project_id",
+    message: "Phone push notifications are not available in this build. Inbox notifications still work.",
   };
 }
 
