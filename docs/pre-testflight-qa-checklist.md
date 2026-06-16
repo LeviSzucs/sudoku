@@ -180,6 +180,11 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Save persists after restart.
 - [ ] Avatar renders across Profile, Ranks, Friends, Duels, and Results.
 - [ ] Opponent avatars use saved character customisation in Daily Duel, Ranked Duel, Friend Challenge, H2H, and leaderboards.
+- [ ] User A changes avatar to an obvious style, colour, accessory, or frame.
+- [ ] User B force closes and reopens the app.
+- [ ] User B starts a new Friend Challenge with User A and sees User A's exact saved avatar.
+- [ ] User A sees User B's exact saved avatar in the same social surfaces.
+- [ ] User A changes avatar again, and User B sees the updated avatar after refresh or a new challenge.
 - [ ] Legacy initials fallback still works.
 - [ ] Chip rows do not clip at screen edges.
 

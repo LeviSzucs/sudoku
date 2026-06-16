@@ -31,8 +31,6 @@ type DailySessionMode = "daily" | "daily_duel";
 type UsernameAvailabilityStatus = "available" | "unavailable" | "invalid" | "error";
 
 const RESERVED_USERNAMES = new Set(["player", "admin", "support", "sudoku", "ranked", "daily", "guest"]);
-const PUBLIC_PROFILE_AVATAR_SELECT = "id,username,display_name,username_handle,initials,avatar_color,avatar_symbol,avatar_style_version,avatar_bg_color,avatar_initials,avatar_skin_tone,avatar_hair_style,avatar_hair_color,avatar_top_style,avatar_top_color,avatar_accessory,avatar_frame";
-
 export interface PublicAvatarConfig extends CharacterAvatarConfig {
   avatar_symbol?: string | null;
 }
@@ -1782,10 +1780,9 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     const profilesById = new Map<string, ProfileRow>();
     if (!isSupabaseConfigured || ids.length === 0) return profilesById;
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(PUBLIC_PROFILE_AVATAR_SELECT)
-      .in("id", ids);
+    const { data, error } = await supabase.rpc("get_public_profiles", {
+      p_user_ids: ids,
+    });
     if (error) {
       updateDiagnostics({ lastError: error.message });
       return profilesById;
@@ -1932,18 +1929,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       rowsReturned: rows.length,
       supabaseError: null,
     });
-    const userIds = Array.from(new Set(rows.map((row) => row.user_id).filter((id): id is string => typeof id === "string" && id.length > 0)));
-    const profilesById = new Map<string, ProfileRow>();
-    if (userIds.length > 0) {
-      const { data: profileRows, error: profileError } = await supabase
-        .from("profiles")
-        .select(PUBLIC_PROFILE_AVATAR_SELECT)
-        .in("id", userIds);
-      if (profileError) updateDiagnostics({ lastError: profileError.message });
-      for (const profileRow of (profileRows ?? []) as ProfileRow[]) {
-        profilesById.set(profileRow.id, profileRow);
-      }
-    }
+    const profilesById = await fetchPublicProfileMap(rows.map((row) => row.user_id));
 
     const entries = rows
       .map((row) => {
