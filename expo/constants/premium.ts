@@ -38,7 +38,7 @@ export interface PremiumLimitDecision {
 }
 
 export const PREMIUM_V1_LIMITS = {
-  freeFriendChallengesPerDay: 3,
+  freeFriendChallengesPerDay: 10,
   premiumFriendChallengesPerDay: null,
   freeResultHistoryLimit: 20,
   premiumResultHistoryLimit: null,
@@ -102,7 +102,7 @@ export function canCreateFriendChallenge(plan: PremiumPlan, usageState: PremiumU
     allowed: used < limit,
     limit,
     remaining,
-    reason: used < limit ? undefined : `Free accounts can create ${limit} Friend Challenges per day.`,
+    reason: used < limit ? undefined : `You've used today's ${limit} free Friend Challenges. Premium gives you more challenge creation.`,
   };
 }
 

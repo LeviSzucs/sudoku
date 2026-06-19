@@ -287,7 +287,14 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Premium plan is treated as ad-free by policy.
 - [ ] `user_entitlements` RLS is enabled.
 - [ ] Current user has no active Premium entitlement unless intentionally configured for QA.
-- [ ] Friend Challenge creation limits are documented as Free: 3 per day and Premium: higher/unlimited.
+- [ ] Friend Challenge creation limits are documented as Free: 10 per day and Premium: higher/unlimited.
+- [ ] Free users can create up to 10 Friend Challenges in the current limit window.
+- [ ] Free users see no Premium clutter in the Friend Challenge modal before hitting the limit.
+- [ ] Free users only see Friend Challenge limit copy after hitting the 10-challenge free allowance.
+- [ ] Premium users see no `Premium active` clutter in the Friend Challenge modal.
+- [ ] Premium users can create Friend Challenges beyond the Free limit.
+- [ ] Friend Challenge accept, complete, and result flows still work after limit checks.
+- [ ] Friend Challenge difficulty selection still works for Easy, Medium, Hard, Expert, and Master.
 - [ ] Free result history limit is documented as latest 20 results.
 - [ ] Friend Challenge limits, stats limits, history limits, and ad-free behaviour must be retested once payments are integrated.
 - [ ] RevenueCat public iOS API key is configured for purchase-enabled builds.

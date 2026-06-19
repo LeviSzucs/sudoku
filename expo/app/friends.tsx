@@ -9,7 +9,10 @@ import Card from "@/components/Card";
 import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
 import type { Difficulty } from "@/constants/mockData";
+import { canCreateFriendChallenge } from "@/constants/premium";
 import { useAuth } from "@/hooks/useAuth";
+import { usePremiumStatus } from "@/hooks/usePremiumStatus";
+import { getDailyDateKey } from "@/lib/daily";
 import { usePlayerProfile, type FriendChallengeEntry, type FriendRequestEntry, type FriendUser } from "@/hooks/usePlayerProfile";
 import { formatTime } from "@/lib/sudoku";
 
@@ -45,6 +48,7 @@ export default function FriendsScreen() {
   const isChallengeMode = screenMode === "challenge";
   const insets = useSafeAreaInsets();
   const auth = useAuth();
+  const premium = usePremiumStatus();
   const {
     fetchFriends,
     fetchPendingFriendRequests,
@@ -72,6 +76,14 @@ export default function FriendsScreen() {
   const activeChallenges = useMemo(() => challenges.filter((challenge) => isActiveChallenge(challenge.status) && !needsIncomingResponse(challenge) && challenge.status !== "pending"), [challenges]);
   const outgoingPendingChallenges = useMemo(() => challenges.filter((challenge) => challenge.direction === "outgoing" && challenge.status === "pending"), [challenges]);
   const completedChallenges = useMemo(() => challenges.filter((challenge) => challenge.status === "completed"), [challenges]);
+  const createdToday = useMemo(() => {
+    const todayKey = getDailyDateKey();
+    return challenges.filter((challenge) => challenge.direction === "outgoing" && getDailyDateKey(new Date(challenge.created_at)) === todayKey).length;
+  }, [challenges]);
+  const challengeCreation = useMemo(
+    () => canCreateFriendChallenge(premium.plan, { friendChallengesCreatedToday: createdToday }),
+    [createdToday, premium.plan],
+  );
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -207,6 +219,14 @@ export default function FriendsScreen() {
     });
   }, []);
 
+  const openChallengeModal = useCallback((friend: FriendUser) => {
+    if (!challengeCreation.allowed) {
+      Alert.alert("Friend Challenge", challengeCreation.reason ?? "You cannot create a new Friend Challenge right now.");
+      return;
+    }
+    setChallengeTarget(friend);
+  }, [challengeCreation]);
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
@@ -294,7 +314,7 @@ export default function FriendsScreen() {
                 last={index === friends.length - 1}
                 action="Friends"
                 challengeWorking={workingId === `challenge:${friend.user_id}`}
-                onChallenge={() => setChallengeTarget(friend)}
+                onChallenge={() => openChallengeModal(friend)}
                 onHistory={() => openHistory(friend)}
               />
             ))}
