@@ -5,7 +5,6 @@ import {
   ChevronRight,
   Crown,
   Play as PlayIcon,
-  Sparkles,
   Swords,
   Zap,
 } from "lucide-react-native";
@@ -17,7 +16,6 @@ import Card from "@/components/Card";
 import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
 import { buttonShadow, cardShadow, premiumShadow } from "@/constants/depth";
-import { PREMIUM_DEV_NOTE } from "@/constants/premium";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import type { GameMode } from "@/hooks/useSudokuGame";
@@ -420,16 +418,6 @@ export default function PlayHubScreen() {
           </Card>
         </View>
 
-        <View style={{ height: 8 }} />
-        <Pressable onPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })}>
-          {({ pressed }) => (
-            <View style={[styles.premiumHint, { opacity: pressed ? 0.92 : 1 }]}>
-              <Sparkles size={14} color={C.gold} />
-              <Text style={styles.premiumHintText}>Premium extras coming soon: ad-free, stats, history, and cosmetics</Text>
-            </View>
-          )}
-        </Pressable>
-        <Text style={styles.premiumDevNote}>{PREMIUM_DEV_NOTE}</Text>
       </ScrollView>
       <ClassicSessionChoiceModal
         visible={!!pendingClassicSession}
@@ -590,32 +578,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     letterSpacing: 0.6,
     textTransform: "uppercase",
-  },
-  premiumHint: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: C.border,
-    marginTop: 8,
-    backgroundColor: C.card,
-    ...cardShadow,
-  },
-  premiumHintText: {
-    fontSize: 13,
-    color: C.muted,
-    fontWeight: "600",
-  },
-  premiumDevNote: {
-    color: C.muted,
-    fontSize: 11,
-    fontWeight: "700",
-    lineHeight: 16,
-    marginTop: 8,
-    textAlign: "center",
   },
 });
 
