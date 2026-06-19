@@ -318,7 +318,7 @@ export default function HomeScreen() {
                   </View>
                   <Text style={styles.premiumTitle}>SudoDuel Premium</Text>
                   <Text style={styles.premiumSub}>
-                    Ad-free play, advanced stats, deeper history, themes, and cosmetics
+                    Full history, advanced stats, friend challenge extras, and cosmetics
                   </Text>
                 </View>
                 <View style={styles.premiumCTA}>

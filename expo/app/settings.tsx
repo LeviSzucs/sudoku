@@ -13,6 +13,7 @@ import { buttonShadow } from "@/constants/depth";
 import { SHOW_DEVELOPER_TOOLS } from "@/constants/developer";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
+import { usePremiumStatus } from "@/hooks/usePremiumStatus";
 import { printActionAuditReport } from "@/lib/actionAudit";
 import { loadAppPreferences, saveAppPreferences, triggerHaptic, type AppPreferences } from "@/lib/appPreferences";
 import { normalizeAvatarConfig, type CharacterAvatarConfig } from "@/lib/avatar";
@@ -36,6 +37,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ panel?: string }>();
   const auth = useAuth();
+  const premium = usePremiumStatus();
   const profileState = usePlayerProfile();
   const {
     profile, diagnostics, updateAvatar, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
@@ -192,7 +194,7 @@ export default function SettingsScreen() {
         </Section>
 
         <Section title="Premium">
-          <Row icon={<Crown size={18} color={C.gold} />} title={PREMIUM_NAME} detail="Current plan: Free" onPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })} last />
+          <Row icon={<Crown size={18} color={C.gold} />} title={PREMIUM_NAME} detail={`Current plan: ${premium.isPremium ? "Premium" : "Free"}`} onPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })} last />
         </Section>
 
         <Section title="Support">
@@ -239,7 +241,7 @@ export default function SettingsScreen() {
       </Modal>
 
       <Modal visible={panel === "avatar"} transparent animationType="fade" onRequestClose={() => setPanel(null)}>
-        <View style={styles.backdrop}><Card style={styles.modalCard}><ScrollView showsVerticalScrollIndicator={false}><Text style={styles.modalTitle}>Avatar</Text><AvatarEditor value={avatarDraft} onChange={(next) => { setAvatarDraft(next); setAvatarError(null); }} error={avatarError} /><Actions onCancel={() => setPanel(null)} onSave={() => { void saveAvatar(); }} saveLabel={avatarSaving ? "Saving..." : "Done"} disabled={avatarSaving} /></ScrollView></Card></View>
+        <View style={styles.backdrop}><Card style={styles.modalCard}><ScrollView showsVerticalScrollIndicator={false}><Text style={styles.modalTitle}>Avatar</Text><AvatarEditor value={avatarDraft} onChange={(next) => { setAvatarDraft(next); setAvatarError(null); }} error={avatarError} hasPremiumCosmetics={premium.canUseFeature("avatar_cosmetics")} onLockedPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })} /><Actions onCancel={() => setPanel(null)} onSave={() => { void saveAvatar(); }} saveLabel={avatarSaving ? "Saving..." : "Done"} disabled={avatarSaving} /></ScrollView></Card></View>
       </Modal>
 
       <Modal visible={panel === "notifications"} transparent animationType="fade" onRequestClose={closePanel}>

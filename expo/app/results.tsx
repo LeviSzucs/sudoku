@@ -5,7 +5,10 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Card from "@/components/Card";
+import PremiumGateCard from "@/components/PremiumGateCard";
 import { C } from "@/constants/colors";
+import { getResultHistoryLimit } from "@/constants/premium";
+import { usePremiumStatus } from "@/hooks/usePremiumStatus";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import type { RecentResult } from "@/lib/playerProfile";
 import { formatTime } from "@/lib/sudoku";
@@ -52,9 +55,16 @@ function outcomeLabel(result: RecentResult): string | null {
 export default function ResultsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ source?: string }>();
+  const premium = usePremiumStatus();
   const { profile } = usePlayerProfile();
   const [filter, setFilter] = useState<ResultFilter>("All");
   const results = useMemo(() => profile.recent_results.filter((result) => modeMatches(filter, result.mode)), [filter, profile.recent_results]);
+  const historyLimit = getResultHistoryLimit(premium.plan);
+  const visibleResults = useMemo(
+    () => historyLimit == null ? results : results.slice(0, historyLimit),
+    [historyLimit, results]
+  );
+  const hiddenCount = Math.max(0, results.length - visibleResults.length);
   const emptyText = profile.recent_results.length === 0 ? "Complete a puzzle to start your result history." : "No results for this filter yet.";
 
   return (
@@ -67,7 +77,9 @@ export default function ResultsScreen() {
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>Results History</Text>
-            <Text style={styles.sub}>{results.length} saved results</Text>
+            <Text style={styles.sub}>
+              {visibleResults.length} {premium.isPremium || historyLimit == null ? "saved results" : `of ${results.length} visible`}
+            </Text>
           </View>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
@@ -78,14 +90,14 @@ export default function ResultsScreen() {
           ))}
         </ScrollView>
         <Card padded={false}>
-          {results.length === 0 ? (
+          {visibleResults.length === 0 ? (
             <Text style={styles.empty}>{emptyText}</Text>
           ) : (
-            results.map((result, index) => {
+            visibleResults.map((result, index) => {
               const ranked = isRankedResult(result);
               const outcome = outcomeLabel(result);
               return (
-                <View key={result.result_id ?? result.session_id ?? `${result.puzzle_id}-${result.completed_at}-${index}`} style={[styles.row, index !== results.length - 1 && styles.divider]}>
+                <View key={result.result_id ?? result.session_id ?? `${result.puzzle_id}-${result.completed_at}-${index}`} style={[styles.row, index !== visibleResults.length - 1 && styles.divider]}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.rowTitle}>{outcome ? `${outcome} / ` : ""}{modeLabel(result.mode)} / {result.difficulty}</Text>
                     <Text style={styles.rowSub}>{new Date(result.completed_at).toLocaleDateString()}</Text>
@@ -100,6 +112,15 @@ export default function ResultsScreen() {
             })
           )}
         </Card>
+        {hiddenCount > 0 ? (
+          <View style={{ marginTop: 14 }}>
+            <PremiumGateCard
+              title="Unlock your full results history"
+              body={`Free accounts can view the latest ${historyLimit} saved results. Premium unlocks the rest of your history without changing scores, RP, or matchmaking.`}
+              onPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })}
+            />
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

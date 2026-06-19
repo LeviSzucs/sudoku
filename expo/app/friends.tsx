@@ -8,8 +8,10 @@ import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
 import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
+import { canCreateFriendChallenge } from "@/constants/premium";
 import type { Difficulty } from "@/constants/mockData";
 import { useAuth } from "@/hooks/useAuth";
+import { usePremiumStatus } from "@/hooks/usePremiumStatus";
 import { usePlayerProfile, type FriendChallengeEntry, type FriendRequestEntry, type FriendUser } from "@/hooks/usePlayerProfile";
 import { formatTime } from "@/lib/sudoku";
 
@@ -45,6 +47,7 @@ export default function FriendsScreen() {
   const isChallengeMode = screenMode === "challenge";
   const insets = useSafeAreaInsets();
   const auth = useAuth();
+  const premium = usePremiumStatus();
   const {
     fetchFriends,
     fetchPendingFriendRequests,
@@ -72,6 +75,15 @@ export default function FriendsScreen() {
   const activeChallenges = useMemo(() => challenges.filter((challenge) => isActiveChallenge(challenge.status) && !needsIncomingResponse(challenge) && challenge.status !== "pending"), [challenges]);
   const outgoingPendingChallenges = useMemo(() => challenges.filter((challenge) => challenge.direction === "outgoing" && challenge.status === "pending"), [challenges]);
   const completedChallenges = useMemo(() => challenges.filter((challenge) => challenge.status === "completed"), [challenges]);
+  const todayKey = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const createdToday = useMemo(
+    () => challenges.filter((challenge) => challenge.direction === "outgoing" && challenge.created_at?.slice(0, 10) === todayKey).length,
+    [challenges, todayKey]
+  );
+  const challengeCreation = useMemo(
+    () => canCreateFriendChallenge(premium.plan, { friendChallengesCreatedToday: createdToday }),
+    [createdToday, premium.plan]
+  );
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -207,6 +219,14 @@ export default function FriendsScreen() {
     });
   }, []);
 
+  const openChallengeModal = useCallback((friend: FriendUser) => {
+    if (!challengeCreation.allowed) {
+      Alert.alert("Friend Challenge", challengeCreation.reason ?? "This plan has reached today's challenge limit.");
+      return;
+    }
+    setChallengeTarget(friend);
+  }, [challengeCreation.allowed, challengeCreation.reason]);
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
@@ -294,7 +314,7 @@ export default function FriendsScreen() {
                 last={index === friends.length - 1}
                 action="Friends"
                 challengeWorking={workingId === `challenge:${friend.user_id}`}
-                onChallenge={() => setChallengeTarget(friend)}
+                onChallenge={() => openChallengeModal(friend)}
                 onHistory={() => openHistory(friend)}
               />
             ))}
@@ -379,6 +399,11 @@ export default function FriendsScreen() {
           <Card style={styles.modalCard}>
             <Text style={styles.modalTitle}>Friend Challenge</Text>
             <Text style={styles.modalSub}>Choose a difficulty for @{challengeTarget?.username_handle}.</Text>
+            <Text style={styles.limitText}>
+              {premium.isPremium
+                ? "Premium plan: higher Friend Challenge creation is active."
+                : `Free plan: ${challengeCreation.remaining ?? 0} of ${challengeCreation.limit ?? 0} challenge${challengeCreation.limit === 1 ? "" : "s"} remaining today.`}
+            </Text>
             <View style={styles.difficultyWrap}>
               {DIFFICULTIES.map((difficulty) => (
                 <Pressable
@@ -394,7 +419,7 @@ export default function FriendsScreen() {
               <Pressable style={styles.secondaryButton} onPress={() => setChallengeTarget(null)}>
                 <Text style={styles.secondaryButtonText}>Cancel</Text>
               </Pressable>
-              <Pressable style={styles.primaryButton} onPress={sendChallenge} disabled={Boolean(workingId?.startsWith("challenge:"))}>
+              <Pressable style={[styles.primaryButton, !challengeCreation.allowed && styles.disabledPrimaryButton]} onPress={sendChallenge} disabled={Boolean(workingId?.startsWith("challenge:")) || !challengeCreation.allowed}>
                 {workingId?.startsWith("challenge:") ? <ActivityIndicator color="#FBF8F2" /> : <Text style={styles.primaryButtonText}>Send challenge</Text>}
               </Pressable>
             </View>
@@ -607,6 +632,7 @@ const styles = StyleSheet.create({
   modalCard: { width: "100%", maxWidth: 420 },
   modalTitle: { color: C.ink, fontSize: 20, fontWeight: "900" },
   modalSub: { color: C.muted, fontWeight: "700", marginTop: 6 },
+  limitText: { color: C.muted, fontWeight: "800", marginTop: 10, lineHeight: 18 },
   difficultyWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 16 },
   difficultyButton: { borderRadius: 999, borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, paddingHorizontal: 13, paddingVertical: 9 },
   difficultyButtonActive: { backgroundColor: C.accent, borderColor: C.accent },
@@ -616,5 +642,6 @@ const styles = StyleSheet.create({
   secondaryButton: { flex: 1, minHeight: 44, borderRadius: 14, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
   secondaryButtonText: { color: C.ink, fontWeight: "900" },
   primaryButton: { flex: 1.3, minHeight: 44, borderRadius: 14, backgroundColor: C.ink, alignItems: "center", justifyContent: "center" },
+  disabledPrimaryButton: { opacity: 0.45 },
   primaryButtonText: { color: "#FBF8F2", fontWeight: "900" },
 });

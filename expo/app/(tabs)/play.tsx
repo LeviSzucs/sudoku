@@ -425,7 +425,7 @@ export default function PlayHubScreen() {
           {({ pressed }) => (
             <View style={[styles.premiumHint, { opacity: pressed ? 0.92 : 1 }]}>
               <Sparkles size={14} color={C.gold} />
-              <Text style={styles.premiumHintText}>Premium extras coming soon: ad-free, stats, history, and cosmetics</Text>
+              <Text style={styles.premiumHintText}>Premium adds full history, deeper stats, friend challenge extras, and cosmetics</Text>
             </View>
           )}
         </Pressable>
