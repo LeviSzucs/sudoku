@@ -10,7 +10,7 @@ import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { PREMIUM_FAIRNESS_NOTE } from "@/constants/premium";
 import { PRODUCT_MONTHLY, PRODUCT_YEARLY } from "@/constants/purchases";
-import { LEGAL_LAST_UPDATED, PRIVACY_POLICY_VERSION, SUPPORT_EMAIL_LABEL, TERMS_VERSION } from "@/constants/legal";
+import { LEGAL_LAST_UPDATED, SUPPORT_EMAIL_LABEL } from "@/constants/legal";
 import { usePremiumStatus } from "@/hooks/usePremiumStatus";
 import { getCurrentOffering, getPurchaseDiagnostics, purchasePackage, restorePurchases, type CurrentOffering, type PurchaseDiagnostics, type PurchasePackage } from "@/lib/purchases";
 
@@ -80,8 +80,8 @@ const CONTENT: Record<InfoPage, {
   },
   terms: {
     eyebrow: "LEGAL",
-    title: "Terms of Use",
-    subtitle: `Version ${TERMS_VERSION} - Last updated ${LEGAL_LAST_UPDATED}`,
+    title: "Terms & Conditions",
+    subtitle: `Last updated ${LEGAL_LAST_UPDATED}`,
     icon: "legal",
     sections: [
       { title: "About SudoDuel", body: `${APP_NAME} is a competitive Sudoku puzzle game with solo puzzles, daily play, asynchronous duels, ranked progression, leaderboards, profile stats, avatars, friends, and feedback tools.` },
@@ -101,7 +101,7 @@ const CONTENT: Record<InfoPage, {
   privacy: {
     eyebrow: "LEGAL",
     title: "Privacy Policy",
-    subtitle: `Version ${PRIVACY_POLICY_VERSION} - Last updated ${LEGAL_LAST_UPDATED}`,
+    subtitle: `Last updated ${LEGAL_LAST_UPDATED}`,
     icon: "legal",
     sections: [
       { title: "What we collect", body: "SudoDuel may store your account identifier from the authentication provider, display name, username handle, avatar settings, user settings, friend relationships, feedback submissions, and support/report messages." },

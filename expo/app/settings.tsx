@@ -7,6 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import AvatarEditor from "@/components/AvatarEditor";
 import BrandMark from "@/components/BrandMark";
 import Card from "@/components/Card";
+import { formatAppVersionLabel } from "@/constants/appInfo";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { buttonShadow } from "@/constants/depth";
@@ -170,7 +171,7 @@ export default function SettingsScreen() {
           <BrandMark size={42} />
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>Settings</Text>
-            <Text style={styles.sub}>{APP_NAME} · v1.0.0</Text>
+            <Text style={styles.sub}>{APP_NAME}</Text>
           </View>
         </View>
 
@@ -205,9 +206,9 @@ export default function SettingsScreen() {
         <Section title="Legal">
           <Row icon={<Shield size={18} color={C.inkSoft} />} title="Terms & Conditions" detail="Terms of Use" onPress={() => router.push({ pathname: "/settings-info", params: { page: "terms" } })} />
           <Row icon={<Shield size={18} color={C.inkSoft} />} title="Privacy Policy" detail="Data and privacy practices" onPress={() => router.push({ pathname: "/settings-info", params: { page: "privacy" } })} />
-          <Pressable onPress={() => Alert.alert(APP_NAME, "Version 1.0.0\nSource build: PR84+")} onLongPress={() => { void openPushDiagnostics(); }} delayLongPress={700} style={styles.row}>
+          <Pressable onPress={() => Alert.alert(APP_NAME, formatAppVersionLabel())} onLongPress={() => { void openPushDiagnostics(); }} delayLongPress={700} style={styles.row}>
             <View style={styles.rowIcon}><Database size={18} color={C.inkSoft} /></View>
-            <View style={{ flex: 1 }}><Text style={styles.rowTitle}>App version</Text><Text style={styles.rowDetail}>v1.0.0 · Source build: PR84+</Text></View>
+            <View style={{ flex: 1 }}><Text style={styles.rowTitle}>App version</Text><Text style={styles.rowDetail}>{formatAppVersionLabel()}</Text></View>
             <Text style={styles.chevron}>›</Text>
           </Pressable>
         </Section>

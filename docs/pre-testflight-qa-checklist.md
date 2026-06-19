@@ -285,6 +285,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Premium diagnostics show API key presence, masked prefix, entitlement/offering IDs, package identifiers, and last safe RevenueCat error details without exposing the full key.
 - [ ] Premium diagnostics show storefront country, currency codes, numeric prices, and StoreKit price strings when available.
 - [ ] If UK pricing is expected, confirm the test device App Store storefront is set to the UK; prices must come from StoreKit/RevenueCat, not hardcoded app copy.
+- [ ] Solo screen does not show an overflowing or cramped Premium promo card at the bottom.
+- [ ] Premium promo copy does not imply paid gameplay advantages or paywalled Classic difficulties.
 - [ ] Premium diagnostics confirm whether the `react-native-purchases` module loaded, whether `configurePurchases()` was attempted and succeeded, and whether `getOfferings()` was attempted and succeeded.
 - [ ] Premium diagnostics show whether the module import was attempted, whether it imported successfully, and whether `configure`, `getOfferings`, `purchasePackage`, and `restorePurchases` are present on the imported module.
 - [ ] Premium diagnostics distinguish API key missing, module load failure, configure failure, offering with zero packages, and packages with missing price strings.
@@ -329,6 +331,10 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Keyboard does not block key forms.
 - [ ] Dark cards/buttons are readable.
 - [ ] Premium/settings/legal screens are not obvious placeholders except where intentionally coming soon.
+- [ ] Settings has no hardcoded or decorative footer copy such as build markers or "Made with care".
+- [ ] App version display is dynamic or hidden from normal users, while internal long-press diagnostics still work.
+- [ ] Terms & Conditions has no version, build, or developer subheader text.
+- [ ] Privacy Policy has no version, build, or developer subheader text.
 - [ ] Daily Sudoku card CTA stays inside the card.
 - [ ] Ranked Duel card text does not wrap awkwardly.
 - [ ] Home buttons/cards have consistent readable depth.
