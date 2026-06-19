@@ -5,6 +5,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Card from "@/components/Card";
+import { APP_VERSION } from "@/constants/appInfo";
 import { APP_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { SUPPORT_EMAIL_LABEL } from "@/constants/legal";
@@ -48,7 +49,7 @@ export default function SettingsFeedbackScreen() {
   const Icon = isProblemReport ? LifeBuoy : MessageSquare;
   const canSubmit = message.trim().length >= 3 && !isSubmitting;
 
-  const appVersion = useMemo(() => "1.0.0", []);
+  const appVersion = useMemo(() => APP_VERSION, []);
 
   const submit = async () => {
     if (!canSubmit) return;

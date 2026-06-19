@@ -66,8 +66,17 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Pause/resume works if present.
 - [ ] Completion saves an official result.
 - [ ] Failed/abandoned result behavior is correct.
-- [ ] Continue Puzzle works after leaving mid-puzzle.
-- [ ] Completed puzzle clears continue state.
+- [ ] Start Classic puzzle, enter a few numbers, leave and return: Continue appears and resumes the exact puzzle/session.
+- [ ] Complete Classic puzzle: Continue disappears.
+- [ ] Complete an Easy Classic puzzle, then check Medium: Medium must not show an older Continue puzzle.
+- [ ] Start Medium Classic, make progress, leave and return: exactly one Continue appears for that Medium puzzle.
+- [ ] Start Easy Classic while Medium is unfinished: the Medium continue is closed/abandoned and only Easy can be continued.
+- [ ] Fail Classic puzzle/game over: Continue disappears.
+- [ ] Complete Classic puzzle, force close and reopen: Continue remains absent.
+- [ ] Fail Classic puzzle, force close and reopen: Continue remains absent.
+- [ ] Missing or corrupt continue state is cleared and does not open a fallback puzzle.
+- [ ] Starting a new Classic puzzle starts fresh, not as a continuation.
+- [ ] There is never more than one Continue Puzzle across all Classic difficulties.
 
 ## D. Daily Sudoku
 
@@ -180,6 +189,11 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Save persists after restart.
 - [ ] Avatar renders across Profile, Ranks, Friends, Duels, and Results.
 - [ ] Opponent avatars use saved character customisation in Daily Duel, Ranked Duel, Friend Challenge, H2H, and leaderboards.
+- [ ] User A changes avatar to an obvious style, colour, accessory, or frame.
+- [ ] User B force closes and reopens the app.
+- [ ] User B starts a new Friend Challenge with User A and sees User A's exact saved avatar.
+- [ ] User A sees User B's exact saved avatar in the same social surfaces.
+- [ ] User A changes avatar again, and User B sees the updated avatar after refresh or a new challenge.
 - [ ] Legacy initials fallback still works.
 - [ ] Chip rows do not clip at screen edges.
 
@@ -216,7 +230,9 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] EAS/Expo project ID is present through `extra.eas.projectId`, `Constants.easConfig.projectId`, or UUID-shaped `EXPO_PUBLIC_EAS_PROJECT_ID`.
 - [ ] `EXPO_PUBLIC_PROJECT_ID` may be a Rork slug and must not be treated as a valid EAS UUID unless UUID-shaped.
 - [ ] Phone push requires `EXPO_PUBLIC_EAS_PROJECT_ID` or another real UUID-shaped project ID source.
-- [ ] TestFlight shows a graceful unavailable message, not raw Expo errors, when only an invalid Rork slug is present.
+- [ ] If Rork/EAS/APNs is not fully configured, TestFlight shows a calm unavailable message, not a raw Expo error.
+- [ ] In that parked state, Inbox notifications still load and remain fully usable.
+- [ ] Phone push is treated as pending Rork EAS/APNs setup for this build, not as a blocker for in-app notification QA.
 - [ ] Long-press Settings > Legal > App version to open Push Diagnostics in TestFlight; confirm the selected project ID source and UUID-shaped value.
 - [ ] Push token registers after permission is granted.
 - [ ] TestFlight device creates an active `push_tokens` row after opening Notifications with permission granted.
@@ -287,6 +303,17 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] RevenueCat offering `default` exists.
 - [ ] App Store Connect products `sudoduel_premium_monthly` and `sudoduel_premium_yearly` exist.
 - [ ] Premium screen loads monthly/yearly offerings and prices from the store in sandbox/TestFlight.
+- [ ] Premium active state hides Subscribe buttons and shows a clean active layout with the badge fully inside the card.
+- [ ] Premium active state shows App Store subscription management copy and keeps Restore purchases visible.
+- [ ] Long-press the Premium screen title to open internal Premium diagnostics for TestFlight purchase debugging.
+- [ ] Premium diagnostics show API key presence, masked prefix, entitlement/offering IDs, package identifiers, and last safe RevenueCat error details without exposing the full key.
+- [ ] Premium diagnostics show storefront country, currency codes, numeric prices, and StoreKit price strings when available.
+- [ ] If UK pricing is expected, confirm the test device App Store storefront is set to the UK; prices must come from StoreKit/RevenueCat, not hardcoded app copy.
+- [ ] Solo screen does not show an overflowing or cramped Premium promo card at the bottom.
+- [ ] Premium promo copy does not imply paid gameplay advantages or paywalled Classic difficulties.
+- [ ] Premium diagnostics confirm whether the `react-native-purchases` module loaded, whether `configurePurchases()` was attempted and succeeded, and whether `getOfferings()` was attempted and succeeded.
+- [ ] Premium diagnostics show whether the module import was attempted, whether it imported successfully, and whether `configure`, `getOfferings`, `purchasePackage`, and `restorePurchases` are present on the imported module.
+- [ ] Premium diagnostics distinguish API key missing, module load failure, configure failure, offering with zero packages, and packages with missing price strings.
 - [ ] Subscribe flow works in sandbox/TestFlight.
 - [ ] Restore purchases refreshes Premium status.
 - [ ] Logout/login preserves active Premium entitlement.
@@ -328,6 +355,10 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Keyboard does not block key forms.
 - [ ] Dark cards/buttons are readable.
 - [ ] Premium/settings/legal screens are not obvious placeholders except where intentionally coming soon.
+- [ ] Settings has no hardcoded or decorative footer copy such as build markers or "Made with care".
+- [ ] App version display is dynamic or hidden from normal users, while internal long-press diagnostics still work.
+- [ ] Terms & Conditions has no version, build, or developer subheader text.
+- [ ] Privacy Policy has no version, build, or developer subheader text.
 - [ ] Daily Sudoku card CTA stays inside the card.
 - [ ] Ranked Duel card text does not wrap awkwardly.
 - [ ] Home buttons/cards have consistent readable depth.

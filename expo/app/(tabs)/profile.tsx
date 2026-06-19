@@ -170,7 +170,6 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
-        <Text style={styles.footer}>v1.0.0 / Made with care</Text>
       </ScrollView>
       <BadgeModal badge={selectedBadge} onClose={() => setSelectedBadge(null)} />
     </SafeAreaView>
