@@ -18,6 +18,8 @@ export type PurchasePackage = {
     title?: string;
     description?: string;
     priceString?: string;
+    price?: number | null;
+    currencyCode?: string | null;
   };
   raw: unknown;
 };
@@ -54,6 +56,7 @@ export type PurchaseDiagnostics = {
   offeringId: string;
   expectedMonthlyProductId: string;
   expectedYearlyProductId: string;
+  storefrontCountryCode: string | null;
   configureAttempted: boolean;
   configureSucceeded: boolean;
   getOfferingsAttempted: boolean;
@@ -66,6 +69,8 @@ export type PurchaseDiagnostics = {
   packageIdentifiers: string[];
   productIdentifiers: string[];
   priceStrings: string[];
+  priceNumbers: string[];
+  currencyCodes: string[];
   packagesMissingPriceStrings: boolean;
   lastErrorCategory: string | null;
   lastErrorCode: string | null;
@@ -83,6 +88,7 @@ type PurchasesModule = {
   getOfferings: () => Promise<{ current?: unknown; all?: Record<string, unknown> }>;
   purchasePackage: (pkg: unknown) => Promise<{ customerInfo: CustomerInfoLike }>;
   restorePurchases: () => Promise<CustomerInfoLike>;
+  getStorefront?: () => Promise<{ countryCode?: string | null } | null>;
   addCustomerInfoUpdateListener?: (callback: (customerInfo: CustomerInfoLike) => void) => unknown;
   removeCustomerInfoUpdateListener?: (callback: (customerInfo: CustomerInfoLike) => void) => void;
   setLogLevel?: (level: string) => void;
@@ -342,6 +348,12 @@ function mapPackage(pkg: any): PurchasePackage {
       title: product.title,
       description: product.description,
       priceString: product.priceString ?? product.price_string,
+      price: typeof product.price === "number" ? product.price : null,
+      currencyCode: typeof product.currencyCode === "string"
+        ? product.currencyCode
+        : typeof product.currency_code === "string"
+          ? product.currency_code
+          : null,
     },
     raw: pkg,
   };
@@ -475,6 +487,7 @@ export async function getPurchaseDiagnostics(): Promise<PurchaseDiagnostics> {
     offeringId: REVENUECAT_OFFERING_ID,
     expectedMonthlyProductId: PRODUCT_MONTHLY,
     expectedYearlyProductId: PRODUCT_YEARLY,
+    storefrontCountryCode: null,
     configureAttempted: false,
     configureSucceeded: false,
     getOfferingsAttempted: false,
@@ -487,6 +500,8 @@ export async function getPurchaseDiagnostics(): Promise<PurchaseDiagnostics> {
     packageIdentifiers: [],
     productIdentifiers: [],
     priceStrings: [],
+    priceNumbers: [],
+    currencyCodes: [],
     packagesMissingPriceStrings: false,
     lastErrorCategory: lastRevenueCatError?.category ?? null,
     lastErrorCode: lastRevenueCatError?.code ?? null,
@@ -538,6 +553,10 @@ export async function getPurchaseDiagnostics(): Promise<PurchaseDiagnostics> {
   diagnostics.purchasesModuleHasRestorePurchases = purchaseDiagnosticState.moduleHasRestorePurchases;
   diagnostics.getOfferingsAttempted = true;
   try {
+    if (typeof loaded.data.getStorefront === "function") {
+      const storefront = await loaded.data.getStorefront();
+      diagnostics.storefrontCountryCode = storefront?.countryCode ?? null;
+    }
     const offerings = await loaded.data.getOfferings();
     purchaseDiagnosticState.getOfferingsSucceeded = true;
     purchaseDiagnosticState.lastGetOfferingsErrorMessage = null;
@@ -558,6 +577,13 @@ export async function getPurchaseDiagnostics(): Promise<PurchaseDiagnostics> {
     diagnostics.productIdentifiers = mapped?.availablePackages.map((pkg) => pkg.product.identifier) ?? [];
     diagnostics.priceStrings = (mapped?.availablePackages
       .map((pkg) => pkg.product.priceString)
+      .filter((value): value is string => typeof value === "string" && value.length > 0)) ?? [];
+    diagnostics.priceNumbers = (mapped?.availablePackages
+      .map((pkg) => pkg.product.price)
+      .filter((value): value is number => typeof value === "number")
+      .map((value) => String(value))) ?? [];
+    diagnostics.currencyCodes = (mapped?.availablePackages
+      .map((pkg) => pkg.product.currencyCode)
       .filter((value): value is string => typeof value === "string" && value.length > 0)) ?? [];
     diagnostics.packagesMissingPriceStrings = diagnostics.availablePackageCount > 0 && diagnostics.priceStrings.length === 0;
   } catch (error) {
