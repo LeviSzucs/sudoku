@@ -1,7 +1,7 @@
 import { Stack, router, useLocalSearchParams } from "expo-router";
-import { ChevronLeft, Crown, HelpCircle, Shield } from "lucide-react-native";
+import { ChevronLeft, HelpCircle, Shield } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import BrandMark from "@/components/BrandMark";
@@ -21,6 +21,7 @@ const PURCHASES_UNAVAILABLE_TITLE = "Purchases temporarily unavailable";
 const PURCHASES_UNAVAILABLE_BODY = "Premium purchases are not available right now. Please try again later.";
 const PURCHASES_UNAVAILABLE_HELP = "Your Free plan is still active. All Classic difficulties, Daily Sudoku, Daily Duel, Ranked Duel, achievements, and basic stats remain available.";
 const RESTORE_UNAVAILABLE_BODY = "Purchases cannot be restored right now. Please try again later.";
+const MANAGE_SUBSCRIPTION_URL = "https://apps.apple.com/account/subscriptions";
 
 type DiagnosticRow = { label: string; value: string };
 
@@ -216,6 +217,18 @@ export default function SettingsInfoScreen() {
     await premium.refresh();
     Alert.alert("Purchases restored", "Your Premium status has been refreshed.");
   }, [premium]);
+
+  const handleManageSubscription = useCallback(async () => {
+    try {
+      const supported = await Linking.canOpenURL(MANAGE_SUBSCRIPTION_URL);
+      if (supported) {
+        await Linking.openURL(MANAGE_SUBSCRIPTION_URL);
+        return;
+      }
+    } catch {}
+    Alert.alert("Manage subscription", "You can manage your subscription in App Store subscriptions.");
+  }, []);
+
   const premiumSubtitle = premium.isPremium
     ? "Current plan: Premium."
     : premium.paymentSystemImplemented
@@ -238,6 +251,13 @@ export default function SettingsInfoScreen() {
     return [
       { label: "Platform", value: String(purchaseDiagnostics.platform) },
       { label: "Purchases enabled", value: purchaseDiagnostics.purchasesEnabled ? "Yes" : "No" },
+      { label: "Purchases module import attempted", value: purchaseDiagnostics.purchasesModuleImportAttempted ? "Yes" : "No" },
+      { label: "Purchases module imported", value: purchaseDiagnostics.purchasesModuleImported ? "Yes" : "No" },
+      { label: "Purchases module loaded", value: purchaseDiagnostics.purchasesModuleLoaded ? "Yes" : "No" },
+      { label: "Module has configure", value: purchaseDiagnostics.purchasesModuleHasConfigure ? "Yes" : "No" },
+      { label: "Module has getOfferings", value: purchaseDiagnostics.purchasesModuleHasGetOfferings ? "Yes" : "No" },
+      { label: "Module has purchasePackage", value: purchaseDiagnostics.purchasesModuleHasPurchasePackage ? "Yes" : "No" },
+      { label: "Module has restorePurchases", value: purchaseDiagnostics.purchasesModuleHasRestorePurchases ? "Yes" : "No" },
       { label: "iOS API key present", value: purchaseDiagnostics.iosApiKeyPresent ? "Yes" : "No" },
       { label: "API key length", value: String(purchaseDiagnostics.iosApiKeyLength) },
       { label: "API key prefix", value: purchaseDiagnostics.iosApiKeyPrefix ?? "None" },
@@ -245,18 +265,28 @@ export default function SettingsInfoScreen() {
       { label: "Offering ID", value: purchaseDiagnostics.offeringId },
       { label: "Expected monthly product", value: purchaseDiagnostics.expectedMonthlyProductId },
       { label: "Expected yearly product", value: purchaseDiagnostics.expectedYearlyProductId },
+      { label: "Storefront country", value: purchaseDiagnostics.storefrontCountryCode ?? "None" },
+      { label: "configurePurchases() attempted", value: purchaseDiagnostics.configureAttempted ? "Yes" : "No" },
       { label: "configurePurchases() succeeded", value: purchaseDiagnostics.configureSucceeded ? "Yes" : "No" },
+      { label: "getOfferings() attempted", value: purchaseDiagnostics.getOfferingsAttempted ? "Yes" : "No" },
       { label: "getOfferings() succeeded", value: purchaseDiagnostics.getOfferingsSucceeded ? "Yes" : "No" },
       { label: "Current offering identifier", value: purchaseDiagnostics.currentOfferingIdentifier ?? "None" },
       { label: "All offering identifiers", value: purchaseDiagnostics.allOfferingIdentifiers.length ? purchaseDiagnostics.allOfferingIdentifiers.join(", ") : "None" },
       { label: "Selected offering identifier", value: purchaseDiagnostics.selectedOfferingIdentifier ?? "None" },
+      { label: "Selected offering has zero packages", value: purchaseDiagnostics.selectedOfferingHasZeroPackages ? "Yes" : "No" },
       { label: "Available package count", value: String(purchaseDiagnostics.availablePackageCount) },
       { label: "Package identifiers", value: purchaseDiagnostics.packageIdentifiers.length ? purchaseDiagnostics.packageIdentifiers.join(", ") : "None" },
       { label: "Product identifiers", value: purchaseDiagnostics.productIdentifiers.length ? purchaseDiagnostics.productIdentifiers.join(", ") : "None" },
+      { label: "Currency codes", value: purchaseDiagnostics.currencyCodes.length ? purchaseDiagnostics.currencyCodes.join(", ") : "None" },
+      { label: "Price numbers", value: purchaseDiagnostics.priceNumbers.length ? purchaseDiagnostics.priceNumbers.join(", ") : "None" },
       { label: "Price strings", value: purchaseDiagnostics.priceStrings.length ? purchaseDiagnostics.priceStrings.join(", ") : "None" },
+      { label: "Packages missing price strings", value: purchaseDiagnostics.packagesMissingPriceStrings ? "Yes" : "No" },
       { label: "Last error category", value: purchaseDiagnostics.lastErrorCategory ?? "None" },
       { label: "Last error code", value: purchaseDiagnostics.lastErrorCode ?? "None" },
       { label: "Last error message", value: purchaseDiagnostics.lastErrorMessage ?? "None" },
+      { label: "Last module load error", value: purchaseDiagnostics.lastModuleLoadErrorMessage ?? "None" },
+      { label: "Last configure error", value: purchaseDiagnostics.lastConfigureErrorMessage ?? "None" },
+      { label: "Last getOfferings error", value: purchaseDiagnostics.lastGetOfferingsErrorMessage ?? "None" },
     ];
   }, [purchaseDiagnostics]);
 
@@ -280,7 +310,7 @@ export default function SettingsInfoScreen() {
           {page === "premium" ? (
             <View style={[styles.planCard, styles.divider]}>
               <View style={styles.planHeader}>
-                <View>
+                <View style={styles.planHeaderText}>
                   <Text style={styles.planEyebrow}>PLAN STATUS</Text>
                   <Text style={styles.planTitle}>Current plan: {planLabel}</Text>
                 </View>
@@ -305,11 +335,23 @@ export default function SettingsInfoScreen() {
 
           {page === "premium" ? (
             <View style={[styles.purchaseBlock, styles.divider]}>
-              <Text style={styles.featureStripTitle}>Choose a plan</Text>
+              <Text style={styles.featureStripTitle}>{premium.isPremium ? "Manage your subscription" : "Choose a plan"}</Text>
               <Text style={styles.purchaseIntro}>
-                Subscribe to unlock Premium benefits. Prices are loaded securely from the App Store.
+                {premium.isPremium
+                  ? "Your subscription is managed through the App Store."
+                  : "Subscribe to unlock Premium benefits. Prices are loaded securely from the App Store."}
               </Text>
-              {isLoadingOffering ? (
+              {premium.isPremium ? (
+                <View style={styles.manageBlock}>
+                  <Pressable
+                    style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}
+                    onPress={() => { void handleManageSubscription(); }}
+                  >
+                    <Text style={styles.manageButtonText}>Manage subscription</Text>
+                  </Pressable>
+                  <Text style={styles.manageHelp}>If prices appear in dollars, check that the test device App Store storefront is set to the UK. Prices come directly from the App Store.</Text>
+                </View>
+              ) : isLoadingOffering ? (
                 <View style={styles.purchaseLoading}>
                   <ActivityIndicator color={C.gold} />
                   <Text style={styles.purchaseMuted}>Checking purchase availability...</Text>
@@ -417,10 +459,11 @@ const styles = StyleSheet.create({
   sectionTitle: { color: C.ink, fontSize: 16, fontWeight: "900" },
   body: { color: C.muted, fontSize: 14, fontWeight: "700", lineHeight: 20, marginTop: 6 },
   planCard: { paddingBottom: 16, marginBottom: 6 },
-  planHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  planHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
+  planHeaderText: { flex: 1, minWidth: 0 },
   planEyebrow: { color: C.gold, fontSize: 12, fontWeight: "900", letterSpacing: 1.1 },
   planTitle: { color: C.ink, fontSize: 24, fontWeight: "900", marginTop: 4 },
-  planBadge: { borderRadius: 999, borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, paddingHorizontal: 12, paddingVertical: 7 },
+  planBadge: { alignSelf: "flex-start", borderRadius: 999, borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, paddingHorizontal: 12, paddingVertical: 7, maxWidth: "45%" },
   planBadgePremium: { borderColor: C.gold, backgroundColor: C.goldSoft },
   planBadgeText: { color: C.muted, fontSize: 12, fontWeight: "900" },
   planBadgeTextPremium: { color: C.ink },
@@ -432,6 +475,10 @@ const styles = StyleSheet.create({
   purchaseLoading: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 12 },
   purchaseMuted: { color: C.muted, fontSize: 13, fontWeight: "700" },
   packageList: { gap: 10, marginTop: 12 },
+  manageBlock: { marginTop: 12, gap: 10 },
+  manageButton: { alignSelf: "flex-start", borderRadius: 14, backgroundColor: C.goldSoft, borderWidth: 1, borderColor: C.gold, paddingHorizontal: 14, paddingVertical: 10 },
+  manageButtonText: { color: C.ink, fontSize: 13, fontWeight: "900" },
+  manageHelp: { color: C.muted, fontSize: 12, fontWeight: "700", lineHeight: 18 },
   packageCard: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 18, borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, padding: 12 },
   packageTitle: { color: C.ink, fontSize: 16, fontWeight: "900" },
   packageSub: { color: C.muted, fontSize: 12, fontWeight: "700", marginTop: 3 },

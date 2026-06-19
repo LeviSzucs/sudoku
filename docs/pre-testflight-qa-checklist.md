@@ -295,9 +295,15 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] RevenueCat offering `default` exists.
 - [ ] App Store Connect products `sudoduel_premium_monthly` and `sudoduel_premium_yearly` exist.
 - [ ] Premium screen loads monthly/yearly offerings and prices from the store in sandbox/TestFlight.
+- [ ] Premium active state hides Subscribe buttons and shows a clean active layout with the badge fully inside the card.
+- [ ] Premium active state shows App Store subscription management copy and keeps Restore purchases visible.
 - [ ] Long-press the Premium screen title to open internal Premium diagnostics for TestFlight purchase debugging.
 - [ ] Premium diagnostics show API key presence, masked prefix, entitlement/offering IDs, package identifiers, and last safe RevenueCat error details without exposing the full key.
-- [ ] Premium diagnostics confirm whether `configurePurchases()` and `getOfferings()` succeeded when purchases are unavailable.
+- [ ] Premium diagnostics show storefront country, currency codes, numeric prices, and StoreKit price strings when available.
+- [ ] If UK pricing is expected, confirm the test device App Store storefront is set to the UK; prices must come from StoreKit/RevenueCat, not hardcoded app copy.
+- [ ] Premium diagnostics confirm whether the `react-native-purchases` module loaded, whether `configurePurchases()` was attempted and succeeded, and whether `getOfferings()` was attempted and succeeded.
+- [ ] Premium diagnostics show whether the module import was attempted, whether it imported successfully, and whether `configure`, `getOfferings`, `purchasePackage`, and `restorePurchases` are present on the imported module.
+- [ ] Premium diagnostics distinguish API key missing, module load failure, configure failure, offering with zero packages, and packages with missing price strings.
 - [ ] Subscribe flow works in sandbox/TestFlight.
 - [ ] Restore purchases refreshes Premium status.
 - [ ] Logout/login preserves active Premium entitlement.
