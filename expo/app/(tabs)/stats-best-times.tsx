@@ -5,8 +5,10 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Card from "@/components/Card";
+import PremiumGateCard from "@/components/PremiumGateCard";
 import { C } from "@/constants/colors";
 import type { Difficulty } from "@/constants/mockData";
+import { usePremiumStatus } from "@/hooks/usePremiumStatus";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import type { RecentResult } from "@/lib/playerProfile";
 import { formatTime } from "@/lib/sudoku";
@@ -43,6 +45,7 @@ function avg(values: number[]): string {
 
 export default function BestTimesScreen() {
   const insets = useSafeAreaInsets();
+  const premium = usePremiumStatus();
   const { profile } = usePlayerProfile();
   const [filter, setFilter] = useState<Filter>("All time");
   const results = useMemo(
@@ -90,13 +93,21 @@ export default function BestTimesScreen() {
         ))}
 
         <Text style={styles.section}>By mode</Text>
-        {MODES.map(({ label, modes }) => (
-          <TimeRow
-            key={label}
-            label={label}
-            value={best(results.filter((result) => modes.includes(result.mode)).map((result) => result.elapsed_seconds))}
+        {premium.canUseFeature("advanced_stats") ? (
+          MODES.map(({ label, modes }) => (
+            <TimeRow
+              key={label}
+              label={label}
+              value={best(results.filter((result) => modes.includes(result.mode)).map((result) => result.elapsed_seconds))}
+            />
+          ))
+        ) : (
+          <PremiumGateCard
+            title="Expanded best-time breakdowns"
+            body="Premium unlocks mode-by-mode time comparisons and richer timing trends while keeping your main best times free."
+            onPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })}
           />
-        ))}
+        )}
       </ScrollView>
     </SafeAreaView>
   );

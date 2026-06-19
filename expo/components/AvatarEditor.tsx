@@ -10,6 +10,8 @@ interface AvatarEditorProps {
   value: CharacterAvatarConfig & { initials: string; avatar_color: string; avatar_symbol?: string | null };
   onChange: (value: CharacterAvatarConfig & { initials: string; avatar_color: string; avatar_symbol?: string | null }) => void;
   error?: string | null;
+  hasPremiumCosmetics?: boolean;
+  onLockedPress?: (itemLabel: string, unlockRequirement?: string | null) => void;
 }
 
 const sections: { title: string; category: AvatarCategory; field: keyof CharacterAvatarConfig }[] = [
@@ -23,7 +25,7 @@ const sections: { title: string; category: AvatarCategory; field: keyof Characte
   { title: "Frame", category: "frame", field: "avatar_frame" },
 ];
 
-export default function AvatarEditor({ value, onChange, error }: AvatarEditorProps) {
+export default function AvatarEditor({ value, onChange, error, hasPremiumCosmetics = false, onLockedPress }: AvatarEditorProps) {
   const config = normalizeAvatarConfig(value, { initials: value.initials, color: value.avatar_color, symbol: value.avatar_symbol });
 
   const setField = (field: keyof CharacterAvatarConfig, nextValue: string | null) => {
@@ -66,15 +68,22 @@ export default function AvatarEditor({ value, onChange, error }: AvatarEditorPro
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.optionScroller} contentContainerStyle={styles.options}>
               {avatarItemsFor(section.category).map((item) => {
                 const active = selected === item.value;
+                const selectable = item.is_available || (item.unlock_type === "premium" && hasPremiumCosmetics);
+                const lockedLabel = item.unlock_type === "premium" ? "Premium" : item.unlock_requirement ?? "Locked";
                 return (
                   <Pressable
                     key={item.id}
-                    onPress={() => setField(section.field, item.value)}
-                    style={[styles.option, item.color ? styles.colorOption : null, active && styles.optionActive, !item.is_available && styles.optionLocked]}
+                    onPress={() => selectable ? setField(section.field, item.value) : onLockedPress?.(item.label, item.unlock_requirement)}
+                    style={[styles.option, item.color ? styles.colorOption : null, active && styles.optionActive, !selectable && styles.optionLocked]}
                   >
                     {item.color ? <View style={[styles.swatch, { backgroundColor: item.color }]} /> : null}
                     <Text style={[styles.optionText, active && styles.optionTextActive]}>{item.label}</Text>
-                    {!item.is_available ? <Lock size={12} color={active ? C.bgElevated : C.muted} /> : null}
+                    {!selectable ? (
+                      <View style={styles.lockedTag}>
+                        <Lock size={11} color={active ? C.bgElevated : C.muted} />
+                        <Text style={[styles.lockedTagText, active && styles.optionTextActive]}>{lockedLabel}</Text>
+                      </View>
+                    ) : null}
                   </Pressable>
                 );
               })}
@@ -105,6 +114,8 @@ const styles = StyleSheet.create({
   optionText: { color: C.ink, fontWeight: "800", fontSize: 12 },
   optionTextActive: { color: C.bgElevated },
   swatch: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: "rgba(21,23,28,0.14)" },
+  lockedTag: { flexDirection: "row", alignItems: "center", gap: 4 },
+  lockedTagText: { color: C.muted, fontSize: 11, fontWeight: "800" },
   futureNote: { color: C.muted, fontSize: 12, lineHeight: 17, marginTop: 14 },
   error: { color: C.danger, fontWeight: "700", marginTop: 8 },
 });

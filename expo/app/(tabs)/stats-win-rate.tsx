@@ -5,7 +5,9 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Card from "@/components/Card";
+import PremiumGateCard from "@/components/PremiumGateCard";
 import { C } from "@/constants/colors";
+import { usePremiumStatus } from "@/hooks/usePremiumStatus";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 
 const FILTERS = ["7 days", "30 days", "All time"] as const;
@@ -31,6 +33,7 @@ function gameStats(matches: { result_outcome?: string }[]): MatchStats {
 
 export default function WinRateStatsScreen() {
   const insets = useSafeAreaInsets();
+  const premium = usePremiumStatus();
   const { profile } = usePlayerProfile();
   const [filter, setFilter] = useState<Filter>("All time");
   const matches = useMemo(
@@ -76,24 +79,36 @@ export default function WinRateStatsScreen() {
           <Text style={styles.meta}>{overall.wins} wins - {overall.losses} losses - {overall.draws} draws</Text>
         </Card>
 
-        <View style={styles.grid}>
-          {breakdown.map(({ label, stats }) => <Mini key={label} title={label} value={rate(stats.wins, stats.played)} />)}
-          <Mini title="Matches" value={`${overall.played}`} />
-        </View>
-
-        <Text style={styles.section}>Breakdown by game</Text>
-        {breakdown.map(({ label, stats }) => <GameRow key={label} label={label} stats={stats} />)}
-
-        <Text style={styles.section}>Current form</Text>
-        <View style={styles.form}>
-          {form.length === 0 ? (
-            <Text style={styles.empty}>No recent duel matches yet.</Text>
-          ) : form.map((item, index) => (
-            <View key={`${item}-${index}`} style={[styles.formDot, item === "W" ? styles.win : item === "L" ? styles.loss : styles.draw]}>
-              <Text style={styles.formText}>{item}</Text>
+        {premium.canUseFeature("advanced_stats") ? (
+          <>
+            <View style={styles.grid}>
+              {breakdown.map(({ label, stats }) => <Mini key={label} title={label} value={rate(stats.wins, stats.played)} />)}
+              <Mini title="Matches" value={`${overall.played}`} />
             </View>
-          ))}
-        </View>
+
+            <Text style={styles.section}>Breakdown by game</Text>
+            {breakdown.map(({ label, stats }) => <GameRow key={label} label={label} stats={stats} />)}
+
+            <Text style={styles.section}>Current form</Text>
+            <View style={styles.form}>
+              {form.length === 0 ? (
+                <Text style={styles.empty}>No recent duel matches yet.</Text>
+              ) : form.map((item, index) => (
+                <View key={`${item}-${index}`} style={[styles.formDot, item === "W" ? styles.win : item === "L" ? styles.loss : styles.draw]}>
+                  <Text style={styles.formText}>{item}</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        ) : (
+          <View style={{ marginTop: 16 }}>
+            <PremiumGateCard
+              title="Advanced duel stats"
+              body="Premium unlocks mode-by-mode duel breakdowns, current form, and deeper competitive stat views. Your overall win rate remains visible for free."
+              onPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })}
+            />
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

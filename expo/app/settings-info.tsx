@@ -8,7 +8,7 @@ import BrandMark from "@/components/BrandMark";
 import Card from "@/components/Card";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
-import { PREMIUM_FAIRNESS_NOTE } from "@/constants/premium";
+import { FREE_FEATURES, LIVE_PREMIUM_FEATURES, PLANNED_PREMIUM_FEATURES, PREMIUM_FAIRNESS_NOTE } from "@/constants/premium";
 import { PRODUCT_MONTHLY, PRODUCT_YEARLY } from "@/constants/purchases";
 import { LEGAL_LAST_UPDATED, SUPPORT_EMAIL_LABEL } from "@/constants/legal";
 import { usePremiumStatus } from "@/hooks/usePremiumStatus";
@@ -38,8 +38,9 @@ const CONTENT: Record<InfoPage, {
     subtitle: "Current plan: Free.",
     icon: "premium",
     sections: [
-      { title: "Premium includes", body: "Ad-free play when ads are introduced, more Friend Challenge creation, advanced stats, full result history, head-to-head history, Premium themes, avatar items and frames, season recaps and rewards, and the puzzle archive." },
-      { title: "Free for everyone", body: "Unlimited Classic Sudoku, Easy, Medium, Hard, Expert, and Master difficulties, Daily Sudoku, Daily Duel, Ranked Duel fair access, accepting Friend Challenges, basic stats, achievements, basic profile and avatar customisation, and basic result history." },
+      { title: "Premium includes now", body: "Full results history, advanced stat views, head-to-head history, higher Friend Challenge creation, and Premium avatar cosmetics." },
+      { title: "Free for everyone", body: "Unlimited Classic Sudoku, all five Classic difficulties, Daily Sudoku, Daily Duel, Ranked Duel, accepting Friend Challenges, basic stats, achievements, avatar customisation, and recent results history." },
+      { title: "Planned for future updates", body: "Ad-free play when ads are introduced, Premium themes, season recaps, and the puzzle archive." },
       { title: "Fair play promise", body: PREMIUM_FAIRNESS_NOTE },
       { title: "Ads", body: "Free accounts may see occasional ads at natural breaks in a future version. Ads will never appear during active puzzles or before results are saved." },
       { title: "Payments", body: "Purchases are handled securely through the App Store. You can restore purchases at any time." },
@@ -132,6 +133,10 @@ function PageIcon({ type }: { type: "premium" | "help" | "legal" }) {
   if (type === "premium") return <BrandMark size={42} />;
   const Icon = type === "help" ? HelpCircle : Shield;
   return <View style={styles.icon}><Icon size={22} color={C.inkSoft} /></View>;
+}
+
+function featureList(features: { title: string; description: string }[]): string {
+  return features.map((feature) => `- ${feature.title}: ${feature.description}`).join("\n\n");
 }
 
 export default function SettingsInfoScreen() {
@@ -229,13 +234,15 @@ export default function SettingsInfoScreen() {
     Alert.alert("Manage subscription", "You can manage your subscription in App Store subscriptions.");
   }, []);
 
-  const premiumSubtitle = premium.isPremium
-    ? "Current plan: Premium."
-    : premium.paymentSystemImplemented
-      ? "Current plan: Free."
-      : "Current plan: Free.";
+  const premiumSubtitle = premium.isPremium ? "Current plan: Premium." : "Current plan: Free.";
   const hasMonthlyAndYearly = premiumPackages.some((pkg) => pkg.product.identifier === PRODUCT_MONTHLY)
     && premiumPackages.some((pkg) => pkg.product.identifier === PRODUCT_YEARLY);
+  const premiumSections = [
+    { title: "Premium includes now", body: featureList(LIVE_PREMIUM_FEATURES) },
+    { title: "Free for everyone", body: featureList(FREE_FEATURES.filter((feature) => feature.live !== false)) },
+    { title: "Planned for future updates", body: featureList(PLANNED_PREMIUM_FEATURES) },
+    ...content.sections.slice(3),
+  ];
 
   const openDiagnostics = useCallback(async () => {
     if (page !== "premium") return;
@@ -322,10 +329,8 @@ export default function SettingsInfoScreen() {
               </View>
               <Text style={styles.planBody}>
                 {premium.isPremium
-                  ? "Premium is active for this account."
-                  : premium.paymentSystemImplemented
-                    ? "All Classic difficulties are free, including Expert and Master. Premium adds extra convenience, deeper stats, history, and cosmetic options."
-                    : "All Classic difficulties are free, including Expert and Master. Premium adds extra convenience, deeper stats, history, and cosmetic options."}
+                  ? "Premium is active for this account. Your plan now includes full results history, advanced stat views, expanded head-to-head history, higher Friend Challenge creation, and Premium avatar cosmetics."
+                  : "All Classic difficulties are free, including Expert and Master. Premium adds live convenience features, deeper history, richer stats, higher Friend Challenge creation, and cosmetic extras."}
               </Text>
               <View style={styles.disabledCta}>
                 <Text style={styles.disabledCtaText}>{premium.isPremium ? "Premium active" : "Free plan active"}</Text>
@@ -397,8 +402,8 @@ export default function SettingsInfoScreen() {
             </View>
           ) : null}
 
-          {content.sections.map((section, index) => (
-            <View key={section.title} style={[styles.section, index < content.sections.length - 1 && styles.divider]}>
+          {(page === "premium" ? premiumSections : content.sections).map((section, index, sections) => (
+            <View key={section.title} style={[styles.section, index < sections.length - 1 && styles.divider]}>
               <Text style={styles.sectionTitle}>{section.title}</Text>
               <Text style={styles.body}>{section.body}</Text>
             </View>

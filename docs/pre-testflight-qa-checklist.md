@@ -268,11 +268,11 @@ Use this checklist before TestFlight builds and before adding another major feat
 ## L. Premium Foundation
 
 - [ ] Premium screen shows Current plan: Free.
-- [ ] Premium purchase flow is clearly marked as not implemented yet.
+- [ ] Premium screen shows Current plan: Premium immediately after purchase or restore.
 - [ ] Fairness note is visible.
-- [ ] Subscriptions/payment copy says payments are not implemented.
+- [ ] Free and Premium states show clean, non-technical purchase copy.
 - [ ] All Classic difficulties, including Expert and Master, are free.
-- [ ] Premium benefits focus on ad-free experience, stats, history, duel tools, and cosmetics.
+- [ ] Premium benefits focus on live stats, history, duel tools, and cosmetics, with ads/themes/archive clearly marked as future additions only.
 - [ ] Premium does not affect RP, leaderboard scores, matchmaking, or duel outcomes.
 - [ ] Premium does not imply Expert/Master are paywalled.
 - [ ] Daily Sudoku is not paywalled.
@@ -280,6 +280,14 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Ranked Duel is not paywalled.
 - [ ] Friend Challenge is not paywalled.
 - [ ] Leaderboards are not paywalled.
+- [ ] Free users can view only the latest 20 saved results in Results History.
+- [ ] Premium users can view full Results History after purchase or restore.
+- [ ] Free users see basic stats only; Premium users can view deeper puzzle-mode, duel breakdown, and head-to-head stat sections.
+- [ ] Free users can see recent head-to-head matches only; Premium users can view full rivalry history and comparison details.
+- [ ] Free users cannot select Premium-only avatar cosmetics.
+- [ ] Premium users can select Premium-only avatar cosmetics immediately after entitlement refresh.
+- [ ] Free users are limited to 3 Friend Challenge creations per day.
+- [ ] Premium users have the higher/unlimited Friend Challenge creation path.
 - [ ] No real ad SDK is integrated.
 - [ ] No tracking or App Tracking Transparency prompt is present.
 - [ ] Ad policy allows future ads only at natural result-screen breaks.
