@@ -535,14 +535,14 @@ export default function GameScreen() {
       ? `${challengeOutcome.title}. ${challengeOutcome.subtitle}.`
       : "This attempt has been recorded."
     : undefined;
+  const completionNeedsResolvedOutcome = effectiveMode === "friend_challenge" || effectiveMode === "ranked" || effectiveMode === "ranked_duel";
+  const completionCelebrationReady = !completionNeedsResolvedOutcome || !!challengeOutcome || !!officialSubmitError;
   const completionCelebrationKey = game.result
     ? [
+        MODE_LABEL[effectiveMode],
         game.result.puzzle_id,
         game.result.completed_at,
-        officialScore ?? game.score,
-        challengeOutcome?.title ?? "",
-        challengeOutcome?.subtitle ?? "",
-        MODE_LABEL[effectiveMode],
+        game.result.session_id ?? "",
       ].join("|")
     : null;
 
@@ -1015,6 +1015,7 @@ export default function GameScreen() {
 
       <CompletionModal
         visible={isFocused && game.completed}
+        celebrationReady={completionCelebrationReady}
         time={game.seconds}
         mistakes={game.mistakes}
         hintsUsed={game.hintsUsed}

@@ -44,21 +44,29 @@ function SudokuCellBase({
 }: Props) {
   const prefersReducedMotion = useReducedMotion();
   const scale = useSharedValue(1);
+  const emphasis = useSharedValue(1);
 
   useEffect(() => {
     if (prefersReducedMotion || placementPulseToken <= 0 || given || value === 0) {
       scale.value = 1;
+      emphasis.value = 1;
       return;
     }
-    scale.value = 1.12;
+    scale.value = 1.2;
+    emphasis.value = 0.86;
     scale.value = withTiming(1, {
-      duration: 120,
-      easing: Easing.out(Easing.quad),
+      duration: 150,
+      easing: Easing.out(Easing.cubic),
     });
-  }, [given, placementPulseToken, prefersReducedMotion, scale, value]);
+    emphasis.value = withTiming(1, {
+      duration: 160,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [emphasis, given, placementPulseToken, prefersReducedMotion, scale, value]);
 
   const valueAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
+    opacity: emphasis.value,
   }));
 
   let bg: string = "transparent";
