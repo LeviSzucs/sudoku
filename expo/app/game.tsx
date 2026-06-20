@@ -526,6 +526,16 @@ export default function GameScreen() {
       ? `${challengeOutcome.title}. ${challengeOutcome.subtitle}.`
       : "This attempt has been recorded."
     : undefined;
+  const completionCelebrationKey = game.result
+    ? [
+        game.result.puzzle_id,
+        game.result.completed_at,
+        officialScore ?? game.score,
+        challengeOutcome?.title ?? "",
+        challengeOutcome?.subtitle ?? "",
+        MODE_LABEL[effectiveMode],
+      ].join("|")
+    : null;
 
   useEffect(() => {
     if (!game.result || processedResultId?.startsWith(`${game.result.puzzle_id}:`) || isSubmittingResult) return;
@@ -996,6 +1006,7 @@ export default function GameScreen() {
         xpEarned={completionSummary?.xpEarned ?? 0}
         levelUpMessage={completionSummary?.didLevelUp ? `Level up! ${completionSummary.previousLevel} → ${completionSummary.newLevel}` : null}
         unlockedBadges={completionSummary?.unlockedBadges.map((badge) => ({ name: badge.name, icon: badge.icon })) ?? []}
+        celebrationKey={completionCelebrationKey}
         primaryLabel={completionPrimaryLabel(effectiveMode)}
         showLeaderboardEligibility={effectiveMode !== "ranked_duel"}
         onNext={handleCompletionNext}

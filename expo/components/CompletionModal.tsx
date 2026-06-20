@@ -1,7 +1,7 @@
 import { Flame, Home, RotateCw, Share2, X } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import Animated, { cancelAnimation, Easing, Extrapolation, interpolate, runOnJS, useAnimatedReaction, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming, type SharedValue } from "react-native-reanimated";
+import Animated, { cancelAnimation, Easing, Extrapolation, interpolate, runOnJS, useAnimatedReaction, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming, type SharedValue } from "react-native-reanimated";
 
 import { C } from "@/constants/colors";
 import { buttonShadow } from "@/constants/depth";
@@ -28,6 +28,7 @@ interface Props {
   unlockedBadges?: { name: string; icon: string }[];
   outcomeTitle?: string | null;
   outcomeSubtitle?: string | null;
+  celebrationKey?: string | null;
   primaryLabel?: string;
   showLeaderboardEligibility?: boolean;
   onNext: () => void;
@@ -55,6 +56,7 @@ export default function CompletionModal({
   unlockedBadges = [],
   outcomeTitle = null,
   outcomeSubtitle = null,
+  celebrationKey = null,
   primaryLabel = "Next puzzle",
   showLeaderboardEligibility = true,
   onNext,
@@ -67,7 +69,53 @@ export default function CompletionModal({
   const scoreProgress = useSharedValue(1);
   const celebrationProgress = useSharedValue(0);
   const scoreScale = useSharedValue(1);
-  const wasVisibleRef = useRef(false);
+  const titleScale = useSharedValue(1);
+  const titleOpacity = useSharedValue(1);
+  const titleGlow = useSharedValue(0);
+  const lastCelebrationKeyRef = useRef<string | null>(null);
+  const hapticTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const normalizedMode = mode.trim().toLowerCase();
+  const normalizedOutcome = (outcomeTitle ?? "").trim().toLowerCase().replace(/[\u2019]/g, "'");
+  const isCompetitiveMode = [
+    "friend",
+    "friend_challenge",
+    "friend h2h",
+    "friend_h2h",
+    "head to head",
+    "h2h",
+    "duel",
+    "daily duel",
+    "daily_duel",
+    "ranked",
+    "ranked duel",
+    "ranked_duel",
+  ].some((keyword) => normalizedMode.includes(keyword));
+  const isVictoryOutcome = /\b(?:you'?ve won|you won|victory|win)\b/.test(normalizedOutcome);
+  const isLossOutcome = /\b(?:you lost|lost|defeat|defeated)\b/.test(normalizedOutcome);
+  const isDrawOutcome = /\bdraw\b/.test(normalizedOutcome);
+  const celebrationTier: "victory" | "draw" | "loss" | "standard" = isCompetitiveMode && isVictoryOutcome
+    ? "victory"
+    : isCompetitiveMode && isDrawOutcome
+    ? "draw"
+    : isCompetitiveMode && isLossOutcome
+    ? "loss"
+    : "standard";
+  const celebrationTimelineMs = celebrationTier === "victory" ? 2350 : celebrationTier === "draw" ? 1650 : 1200;
+  const shouldPlaySuccessHaptic = celebrationTier === "victory" || celebrationTier === "standard";
+  const resolvedCelebrationKey = celebrationKey ?? [
+    mode,
+    difficulty,
+    score,
+    time,
+    mistakes,
+    hintsUsed,
+    undoCount,
+    outcomeTitle ?? "",
+    outcomeSubtitle ?? "",
+    xpEarned,
+    unlockedBadges.length,
+  ].join("|");
 
   useAnimatedReaction(
     () => Math.round(interpolate(scoreProgress.value, [0, 1], [0, score], Extrapolation.CLAMP)),
@@ -80,76 +128,185 @@ export default function CompletionModal({
   );
 
   useEffect(() => {
-    const opening = visible && !wasVisibleRef.current;
-    const closing = !visible && wasVisibleRef.current;
-    wasVisibleRef.current = visible;
-
-    if (opening) {
-      void hapticSuccess();
-      if (prefersReducedMotion) {
-        cancelAnimation(scoreProgress);
-        cancelAnimation(celebrationProgress);
-        cancelAnimation(scoreScale);
-        scoreProgress.value = 1;
-        celebrationProgress.value = 0;
-        scoreScale.value = 1;
-        setDisplayScore(score);
-        return;
+    return () => {
+      if (hapticTimeoutRef.current) {
+        clearTimeout(hapticTimeoutRef.current);
       }
+    };
+  }, []);
 
-      setDisplayScore(0);
-      scoreProgress.value = 0;
-      celebrationProgress.value = 0;
-      scoreScale.value = 0.96;
-
-      scoreScale.value = withTiming(1, {
-        duration: 320,
-        easing: Easing.out(Easing.cubic),
-      });
-      scoreProgress.value = withTiming(1, {
-        duration: 820,
-        easing: Easing.out(Easing.cubic),
-      });
-      celebrationProgress.value = withTiming(1, {
-        duration: 1200,
-        easing: Easing.out(Easing.cubic),
-      });
-      return;
+  useEffect(() => {
+    if (hapticTimeoutRef.current) {
+      clearTimeout(hapticTimeoutRef.current);
+      hapticTimeoutRef.current = null;
     }
 
-    if (closing) {
+    if (!visible) {
       cancelAnimation(scoreProgress);
       cancelAnimation(celebrationProgress);
       cancelAnimation(scoreScale);
+      cancelAnimation(titleScale);
+      cancelAnimation(titleOpacity);
+      cancelAnimation(titleGlow);
       scoreProgress.value = 1;
       celebrationProgress.value = 0;
       scoreScale.value = 1;
+      titleScale.value = 1;
+      titleOpacity.value = 1;
+      titleGlow.value = 0;
       setDisplayScore(score);
+      lastCelebrationKeyRef.current = null;
       return;
     }
 
-    if (visible) {
+    if (lastCelebrationKeyRef.current === resolvedCelebrationKey) {
       setDisplayScore(score);
       scoreProgress.value = 1;
+      return;
     }
-  }, [celebrationProgress, prefersReducedMotion, score, scoreProgress, scoreScale, visible]);
+
+    lastCelebrationKeyRef.current = resolvedCelebrationKey;
+
+    if (prefersReducedMotion) {
+      cancelAnimation(scoreProgress);
+      cancelAnimation(celebrationProgress);
+      cancelAnimation(scoreScale);
+      cancelAnimation(titleScale);
+      cancelAnimation(titleOpacity);
+      cancelAnimation(titleGlow);
+      scoreProgress.value = 1;
+      celebrationProgress.value = 0;
+      scoreScale.value = 1;
+      titleScale.value = 1;
+      titleOpacity.value = 1;
+      titleGlow.value = 0;
+      setDisplayScore(score);
+      if (shouldPlaySuccessHaptic) {
+        void hapticSuccess();
+      }
+      return;
+    }
+
+    setDisplayScore(0);
+    scoreProgress.value = 0;
+    celebrationProgress.value = 0;
+    scoreScale.value = celebrationTier === "victory" ? 0.9 : 0.96;
+    titleOpacity.value = 0;
+    titleScale.value = celebrationTier === "victory" ? 0.82 : celebrationTier === "draw" ? 0.94 : 0.98;
+    titleGlow.value = celebrationTier === "victory" ? 0.34 : celebrationTier === "draw" ? 0.14 : 0;
+
+    scoreScale.value = withTiming(1, {
+      duration: celebrationTier === "victory" ? 420 : 320,
+      easing: Easing.out(Easing.cubic),
+    });
+    scoreProgress.value = withTiming(1, {
+      duration: 820,
+      easing: Easing.out(Easing.cubic),
+    });
+    titleOpacity.value = withTiming(1, {
+      duration: celebrationTier === "victory" ? 220 : 180,
+      easing: Easing.out(Easing.cubic),
+    });
+    titleScale.value = celebrationTier === "victory"
+      ? withSpring(1, {
+          damping: 8,
+          stiffness: 180,
+          mass: 0.72,
+        })
+      : withTiming(1, {
+          duration: 200,
+          easing: Easing.out(Easing.cubic),
+        });
+    titleGlow.value = withTiming(0, {
+      duration: celebrationTier === "victory" ? 1600 : 900,
+      easing: Easing.out(Easing.cubic),
+    });
+    celebrationProgress.value = withTiming(1, {
+      duration: celebrationTimelineMs,
+      easing: Easing.out(Easing.cubic),
+    });
+
+    if (shouldPlaySuccessHaptic) {
+      hapticTimeoutRef.current = setTimeout(() => {
+        void hapticSuccess();
+        hapticTimeoutRef.current = null;
+      }, celebrationTier === "victory" ? 150 : 60);
+    }
+  }, [
+    celebrationProgress,
+    celebrationTier,
+    celebrationTimelineMs,
+    prefersReducedMotion,
+    resolvedCelebrationKey,
+    score,
+    scoreProgress,
+    scoreScale,
+    shouldPlaySuccessHaptic,
+    titleGlow,
+    titleOpacity,
+    titleScale,
+    visible,
+  ]);
 
   const scoreAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scoreScale.value }],
   }));
 
+  const titleAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+    transform: [{ scale: titleScale.value }],
+  }));
+
+  const titleGlowAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: titleGlow.value,
+    transform: [{ scale: interpolate(titleGlow.value, [0, 0.34], [1.02, 1.14], Extrapolation.CLAMP) }],
+  }));
+
   const particles = useMemo(
-    () => [
-      { x: -86, y: -12, size: 10, color: C.gold, rotate: -18, duration: 820 },
-      { x: -62, y: -42, size: 8, color: C.amber, rotate: 22, duration: 980 },
-      { x: -28, y: -58, size: 6, color: C.accent, rotate: -12, duration: 1080 },
-      { x: 18, y: -60, size: 8, color: C.gold, rotate: 26, duration: 1040 },
-      { x: 56, y: -46, size: 10, color: C.accent, rotate: -24, duration: 940 },
-      { x: 82, y: -10, size: 7, color: C.amber, rotate: 16, duration: 860 },
-      { x: -40, y: 18, size: 7, color: C.gold, rotate: -28, duration: 760 },
-      { x: 42, y: 16, size: 9, color: C.amber, rotate: 24, duration: 790 },
-    ],
-    []
+    () => {
+      if (celebrationTier === "loss") return [];
+      if (celebrationTier === "victory") {
+        return [
+          { x: -136, y: -42, size: 12, color: C.gold, rotate: -34, duration: 1580 },
+          { x: -112, y: -96, size: 9, color: C.amber, rotate: 28, duration: 1740 },
+          { x: -78, y: -126, size: 8, color: C.accent, rotate: -20, duration: 1860 },
+          { x: -26, y: -144, size: 10, color: C.gold, rotate: 42, duration: 1980 },
+          { x: 22, y: -150, size: 11, color: C.amber, rotate: -38, duration: 2010 },
+          { x: 74, y: -128, size: 9, color: C.accent, rotate: 32, duration: 1840 },
+          { x: 116, y: -90, size: 11, color: C.gold, rotate: -30, duration: 1700 },
+          { x: 142, y: -38, size: 8, color: C.amber, rotate: 26, duration: 1560 },
+          { x: -102, y: 18, size: 8, color: C.gold, rotate: -42, duration: 1420 },
+          { x: -56, y: 42, size: 10, color: C.amber, rotate: 34, duration: 1480 },
+          { x: -8, y: 54, size: 7, color: C.accent, rotate: -26, duration: 1600 },
+          { x: 42, y: 46, size: 10, color: C.gold, rotate: 30, duration: 1500 },
+          { x: 96, y: 22, size: 8, color: C.amber, rotate: -28, duration: 1430 },
+          { x: 0, y: -92, size: 6, color: C.card, rotate: 20, duration: 1880 },
+        ];
+      }
+      if (celebrationTier === "draw") {
+        return [
+          { x: -94, y: -26, size: 9, color: C.gold, rotate: -20, duration: 1080 },
+          { x: -60, y: -62, size: 7, color: C.amber, rotate: 18, duration: 1180 },
+          { x: -14, y: -86, size: 6, color: C.accent, rotate: -12, duration: 1260 },
+          { x: 28, y: -88, size: 8, color: C.gold, rotate: 20, duration: 1230 },
+          { x: 66, y: -60, size: 7, color: C.amber, rotate: -16, duration: 1160 },
+          { x: 92, y: -24, size: 8, color: C.gold, rotate: 14, duration: 1060 },
+          { x: -38, y: 22, size: 7, color: C.amber, rotate: -20, duration: 980 },
+          { x: 36, y: 20, size: 7, color: C.gold, rotate: 18, duration: 990 },
+        ];
+      }
+      return [
+        { x: -86, y: -12, size: 10, color: C.gold, rotate: -18, duration: 820 },
+        { x: -62, y: -42, size: 8, color: C.amber, rotate: 22, duration: 980 },
+        { x: -28, y: -58, size: 6, color: C.accent, rotate: -12, duration: 1080 },
+        { x: 18, y: -60, size: 8, color: C.gold, rotate: 26, duration: 1040 },
+        { x: 56, y: -46, size: 10, color: C.accent, rotate: -24, duration: 940 },
+        { x: 82, y: -10, size: 7, color: C.amber, rotate: 16, duration: 860 },
+        { x: -40, y: 18, size: 7, color: C.gold, rotate: -28, duration: 760 },
+        { x: 42, y: 16, size: 9, color: C.amber, rotate: 24, duration: 790 },
+      ];
+    },
+    [celebrationTier]
   );
 
   if (!visible) return null;
@@ -174,7 +331,12 @@ export default function CompletionModal({
             <Text style={{ fontSize: 30 }}>★</Text>
           </View>
           <Text style={styles.kicker}>{mode.toUpperCase()} · COMPLETE</Text>
-          <Text style={styles.title}>{outcomeTitle ?? "Puzzle complete"}</Text>
+          <View style={styles.titleWrap}>
+            {celebrationTier === "victory" ? <Animated.View pointerEvents="none" style={[styles.titleGlow, titleGlowAnimatedStyle]} /> : null}
+            <Animated.Text style={[styles.title, celebrationTier === "victory" ? styles.titleVictory : null, titleAnimatedStyle]}>
+              {outcomeTitle ?? "Puzzle complete"}
+            </Animated.Text>
+          </View>
           <Text style={styles.sub}>{completionCopy}</Text>
           {outcomeSubtitle ? <Text style={styles.outcomeSub}>{outcomeSubtitle}</Text> : null}
 
@@ -187,12 +349,13 @@ export default function CompletionModal({
 
           <View style={styles.scoreBox}>
             <Text style={styles.scoreLabel}>FINAL SCORE</Text>
-            {!prefersReducedMotion ? (
+            {!prefersReducedMotion && particles.length > 0 ? (
               <View pointerEvents="none" style={styles.celebrationLayer}>
                 {particles.map((particle, index) => (
                   <CelebrationParticle
                     key={`${particle.x}-${particle.y}-${index}`}
                     progress={celebrationProgress}
+                    timelineDuration={celebrationTimelineMs}
                     x={particle.x}
                     y={particle.y}
                     size={particle.size}
@@ -271,6 +434,7 @@ export default function CompletionModal({
 
 function CelebrationParticle({
   progress,
+  timelineDuration,
   x,
   y,
   size,
@@ -279,6 +443,7 @@ function CelebrationParticle({
   duration,
 }: {
   progress: SharedValue<number>;
+  timelineDuration: number;
   x: number;
   y: number;
   size: number;
@@ -287,7 +452,7 @@ function CelebrationParticle({
   duration: number;
 }) {
   const style = useAnimatedStyle(() => {
-    const localProgress = Math.min(progress.value / (duration / 1200), 1);
+    const localProgress = Math.min(progress.value / (duration / timelineDuration), 1);
     return {
       opacity: interpolate(localProgress, [0, 0.12, 0.7, 1], [0, 0.95, 0.35, 0], Extrapolation.CLAMP),
       transform: [
@@ -347,7 +512,23 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   kicker: { fontSize: 11, color: C.gold, fontWeight: "800", letterSpacing: 1.6 },
+  titleWrap: {
+    marginTop: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 40,
+    width: "100%",
+  },
+  titleGlow: {
+    position: "absolute",
+    width: "74%",
+    maxWidth: 240,
+    height: 44,
+    borderRadius: 999,
+    backgroundColor: C.goldSoft,
+  },
   title: { fontSize: 25, fontWeight: "700", color: C.ink, marginTop: 6, letterSpacing: -0.5, textAlign: "center" },
+  titleVictory: { color: C.accent },
   sub: { fontSize: 13, color: C.muted, marginTop: 4, textAlign: "center" },
   outcomeSub: { fontSize: 13, color: C.accent, marginTop: 4, textAlign: "center", fontWeight: "800" },
   stats: {
