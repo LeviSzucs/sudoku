@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
+import DuelResultReveal from "@/components/DuelResultReveal";
 import Pill from "@/components/Pill";
 import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
@@ -483,7 +484,20 @@ export default function VersusScreen() {
                   <Text style={styles.heroCTAText}>{dailyDuelLoading ? "Loading..." : dailyDuelCopy.button}</Text>
                 </View>
               ) : null}
-              {dailyDuelCopy.resultText ? <Text style={styles.duelStatusText}>{dailyDuelCopy.resultText}</Text> : null}
+              {dailyDuel?.status === "completed" && dailyDuelOutcome && dailyDuel.your_score !== null && dailyDuel.opponent_score !== null ? (
+                <View style={styles.heroRevealWrap}>
+                  <DuelResultReveal
+                    revealKey={`${dailyDuel.duel_id}:${dailyDuel.completed_at ?? ""}`}
+                    ready={true}
+                    verdict={dailyDuelOutcome}
+                    yourLabel="You"
+                    yourScore={dailyDuel.your_score}
+                    opponentLabel={dailyDuel.opponent_display_name ?? "Opponent"}
+                    opponentScore={dailyDuel.opponent_score}
+                    playHaptics={false}
+                  />
+                </View>
+              ) : dailyDuelCopy.resultText ? <Text style={styles.duelStatusText}>{dailyDuelCopy.resultText}</Text> : null}
             </View>
           )}
         </Pressable>
@@ -504,7 +518,7 @@ export default function VersusScreen() {
                 <Text style={styles.cardSub}>
                   {auth.isGuest ? "Sign up to play ranked matches" : rankedDuelCopy.sub}
                 </Text>
-                {rankedDuelCopy.resultText ? <Text style={styles.cardStatus}>{rankedDuelCopy.resultText}</Text> : null}
+                {rankedDuelCopy.resultText && rankedDuel?.status !== "completed" ? <Text style={styles.cardStatus}>{rankedDuelCopy.resultText}</Text> : null}
               </View>
             </View>
             <Pressable style={styles.rankedActionPill} onPress={startRankedDuel}>
@@ -516,6 +530,20 @@ export default function VersusScreen() {
               <Pressable style={styles.rankedCancelPill} onPress={() => void cancelRankedSearch()}>
                 <Text style={styles.rankedCancelText}>{rankedCancelLoading ? "Cancelling..." : "Cancel search"}</Text>
               </Pressable>
+            ) : null}
+            {rankedDuel?.status === "completed" && rankedDuelOutcome && rankedDuel.your_score !== null && rankedDuel.opponent_score !== null ? (
+              <View style={styles.heroRevealWrap}>
+                <DuelResultReveal
+                  revealKey={`${rankedDuel.ranked_duel_id}:${rankedDuel.completed_at ?? ""}`}
+                  ready={true}
+                  verdict={rankedDuelOutcome}
+                  yourLabel="You"
+                  yourScore={rankedDuel.your_score}
+                  opponentLabel={rankedDuel.opponent_display_name ?? "Opponent"}
+                  opponentScore={rankedDuel.opponent_score}
+                  playHaptics={false}
+                />
+              </View>
             ) : null}
           </Card>
 
@@ -740,6 +768,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "center",
     marginTop: 10,
+  },
+  heroRevealWrap: {
+    marginTop: 12,
   },
   iconTile: {
     width: 44,
