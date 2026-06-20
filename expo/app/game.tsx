@@ -15,7 +15,8 @@ import { C } from "@/constants/colors";
 import type { Difficulty } from "@/constants/mockData";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
-import { playSoundEffect, triggerHaptic } from "@/lib/appPreferences";
+import { getCachedAppPreferences, playSoundEffect, triggerHaptic } from "@/lib/appPreferences";
+import { tapLight } from "@/lib/haptics";
 import useSudokuGame, { type GameMode, type PuzzleResult, type SessionSnapshot } from "@/hooks/useSudokuGame";
 import { getDailyDateKey } from "@/lib/daily";
 import { logDevDiagnostic, measureAsync } from "@/lib/performanceDiagnostics";
@@ -167,12 +168,21 @@ export default function GameScreen() {
     return () => { cancelled = true; };
   }, [effectiveMode, difficulty, auth.isSignedIn, auth.user?.id, sessionIdParam, restorePuzzleId, restoreDifficulty, routePuzzleId, excludePuzzleId]);
 
+  const handleValidPlacement = useCallback(({ row, col }: { row: number; col: number; value: number; wasCorrect: boolean }) => {
+    if (getCachedAppPreferences().hapticsEnabled) {
+      void tapLight();
+    }
+    placementPulseTokenRef.current += 1;
+    setPlacementPulse({ row, col, token: placementPulseTokenRef.current });
+  }, []);
+
   const game = useSudokuGame({
     mode: effectiveMode,
     difficulty,
     puzzleId: routePuzzleId,
     restoreSnapshot,
     puzzleData,
+    onValidPlacement: handleValidPlacement,
   });
   const { recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchFriendChallenges, fetchRankedDuel } = usePlayerProfile();
   const [completionSummary, setCompletionSummary] = useState<ProfileUpdateSummary | null>(null);
@@ -187,9 +197,11 @@ export default function GameScreen() {
   const [isSubmittingFailedResult, setIsSubmittingFailedResult] = useState<boolean>(false);
   const [leaveOpen, setLeaveOpen] = useState<boolean>(false);
   const [rankedHintMessage, setRankedHintMessage] = useState<boolean>(false);
+  const [placementPulse, setPlacementPulse] = useState<{ row: number; col: number; token: number } | null>(null);
   const previousMistakesRef = useRef<number>(0);
   const completedFeedbackPlayedRef = useRef<boolean>(false);
   const gameOverFeedbackPlayedRef = useRef<boolean>(false);
+  const placementPulseTokenRef = useRef<number>(0);
   const navIsFocused = useIsFocused();
   const [isFocused, setIsFocused] = useState<boolean>(true);
   const renderCountRef = useRef<number>(0);
@@ -863,8 +875,8 @@ export default function GameScreen() {
             selected={game.selected}
             errors={game.errors}
             boardSize={boardSize}
+            placementPulse={placementPulse}
             onSelect={(r, c) => {
-              void triggerHaptic("selection");
               game.select(r, c);
             }}
           />
@@ -906,7 +918,6 @@ export default function GameScreen() {
       >
         <NumberPad
           onPressNumber={(n) => {
-            void triggerHaptic("selection");
             game.enterNumber(n);
           }}
           counts={game.counts}
