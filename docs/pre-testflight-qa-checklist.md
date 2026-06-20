@@ -141,6 +141,12 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Ranked profile updates after finalisation.
 - [ ] Ranked leaderboard updates after finalisation.
 - [ ] Profile Competitive Rank updates after finalisation.
+- [ ] Normal ranked game completes and awards RP.
+- [ ] Ranked completion uses server-derived elapsed time instead of trusting the client timer alone.
+- [ ] Re-submitting the same ranked session is rejected or safely reused without double-awarding RP.
+- [ ] Submitting a wrong final board is rejected.
+- [ ] Implausibly low ranked elapsed time is rejected or replaced by the server-derived duration.
+- [ ] Client-provided ranked score values cannot override the server-calculated score.
 - [ ] Repeat queue works after completed/cancelled/expired matches.
 - [ ] Completed/cancelled/expired matches do not block a new queue.
 - [ ] No Premium blocking.
@@ -335,6 +341,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Result detail opens.
 - [ ] Recent results do not duplicate.
 - [ ] Ranked Duel rows show RP change when available.
+- [ ] Ranked leaderboards only include valid server-eligible ranked results.
 - [ ] Daily Duel rows show duel outcome from `daily_duels`, not `game_results.won`.
 - [ ] Friend Challenge history/H2H shows correct outcomes.
 
