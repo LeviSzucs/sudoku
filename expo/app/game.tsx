@@ -1030,7 +1030,7 @@ export default function GameScreen() {
         officialError={officialSubmitError}
         xpEarned={completionSummary?.xpEarned ?? 0}
         levelUpMessage={completionSummary?.didLevelUp ? `Level up! ${completionSummary.previousLevel} → ${completionSummary.newLevel}` : null}
-        unlockedBadges={completionSummary?.unlockedBadges.map((badge) => ({ name: badge.name, icon: badge.icon })) ?? []}
+        unlockedBadges={completionSummary?.unlockedBadges.map((badge) => ({ badge_id: badge.badge_id, name: badge.name, icon: badge.icon })) ?? []}
         celebrationKey={completionCelebrationKey}
         primaryLabel={completionPrimaryLabel(effectiveMode)}
         showLeaderboardEligibility={effectiveMode !== "ranked_duel"}
