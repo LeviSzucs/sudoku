@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Haptics from "expo-haptics";
 
+import { error as hapticError, success as hapticSuccess, tapLight, warning as hapticWarning } from "@/lib/haptics";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 export type AppPreferences = {
@@ -84,19 +84,19 @@ export function getCachedAppPreferences(): AppPreferences {
 
 export async function triggerHaptic(event: HapticEvent): Promise<void> {
   if (!cachedPreferences.hapticsEnabled) return;
-  try {
-    if (event === "selection") {
-      await Haptics.selectionAsync();
-      return;
-    }
-    const feedback =
-      event === "success" ? Haptics.NotificationFeedbackType.Success :
-      event === "warning" ? Haptics.NotificationFeedbackType.Warning :
-      Haptics.NotificationFeedbackType.Error;
-    await Haptics.notificationAsync(feedback);
-  } catch {
-    // Some simulators/devices do not support haptics. Gameplay should continue.
+  if (event === "selection") {
+    await tapLight();
+    return;
   }
+  if (event === "success") {
+    await hapticSuccess();
+    return;
+  }
+  if (event === "warning") {
+    await hapticWarning();
+    return;
+  }
+  await hapticError();
 }
 
 export async function playSoundEffect(_event: SoundEvent): Promise<void> {
