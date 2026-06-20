@@ -36,6 +36,8 @@ export const AVATAR_ITEMS: AvatarItem[] = [
   { id: "bg_clay", label: "Clay", category: "background", value: "#B86246", color: "#B86246", unlock_type: "free", is_available: true },
   { id: "bg_gold", label: "Gold", category: "background", value: "#C8A45D", color: "#C8A45D", unlock_type: "free", is_available: true },
   { id: "bg_blue", label: "Blue", category: "background", value: "#4169A8", color: "#4169A8", unlock_type: "free", is_available: true },
+  { id: "bg_obsidian", label: "Obsidian", category: "background", value: "#15171C", color: "#15171C", unlock_type: "premium", unlock_requirement: "Premium", is_available: false },
+  { id: "bg_champagne", label: "Champagne", category: "background", value: "#E8D4A2", color: "#E8D4A2", unlock_type: "premium", unlock_requirement: "Premium", is_available: false },
 
   { id: "skin_light", label: "Tone 1", category: "skinTone", value: "#F0C7A1", color: "#F0C7A1", unlock_type: "free", is_available: true },
   { id: "skin_fair", label: "Tone 2", category: "skinTone", value: "#E5B184", color: "#E5B184", unlock_type: "free", is_available: true },
@@ -70,6 +72,8 @@ export const AVATAR_ITEMS: AvatarItem[] = [
   { id: "top_green", label: "Green", category: "topColor", value: "#3F7D58", color: "#3F7D58", unlock_type: "free", is_available: true },
   { id: "top_red", label: "Red", category: "topColor", value: "#C5483E", color: "#C5483E", unlock_type: "free", is_available: true },
   { id: "top_purple", label: "Purple", category: "topColor", value: "#7A4EAB", color: "#7A4EAB", unlock_type: "free", is_available: true },
+  { id: "top_ink", label: "Ink", category: "topColor", value: "#15171C", color: "#15171C", unlock_type: "premium", unlock_requirement: "Premium", is_available: false },
+  { id: "top_champagne", label: "Champagne", category: "topColor", value: "#E8D4A2", color: "#E8D4A2", unlock_type: "premium", unlock_requirement: "Premium", is_available: false },
 
   { id: "accessory_none", label: "None", category: "accessory", value: null, unlock_type: "free", is_available: true },
   { id: "accessory_glasses", label: "Glasses", category: "accessory", value: "glasses", unlock_type: "free", is_available: true },
@@ -80,6 +84,7 @@ export const AVATAR_ITEMS: AvatarItem[] = [
   { id: "frame_bronze", label: "Bronze", category: "frame", value: "bronze", unlock_type: "free", is_available: true },
   { id: "frame_silver", label: "Silver", category: "frame", value: "silver", unlock_type: "free", is_available: true },
   { id: "frame_gold", label: "Gold", category: "frame", value: "gold", unlock_type: "free", is_available: true },
+  { id: "frame_premium_crown", label: "Premium crown", category: "frame", value: "premium_crown", unlock_type: "premium", unlock_requirement: "Premium", is_available: false },
   { id: "frame_ranked_crown", label: "Ranked crown", category: "frame", value: "ranked_crown", unlock_type: "ranked", unlock_requirement: "Win 25 ranked duels", is_available: false },
 ];
 

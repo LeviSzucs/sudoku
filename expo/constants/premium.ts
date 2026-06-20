@@ -24,6 +24,8 @@ export interface PremiumFeature {
   description: string;
   category: PremiumFeatureCategory;
   status: PremiumFeatureStatus;
+  live?: boolean;
+  enforcement?: string;
 }
 
 export interface PremiumUsageState {
@@ -47,37 +49,66 @@ export const PREMIUM_V1_LIMITS = {
 } as const;
 
 export const FREE_FEATURES: PremiumFeature[] = [
-  { key: "classic_all_difficulties", title: "Unlimited Classic Sudoku", description: "Easy, Medium, Hard, Expert, and Master are playable for free.", category: "solo", status: "free" },
-  { title: "Daily Sudoku", description: "One shared solo puzzle each day.", category: "core", status: "free" },
-  { title: "Daily Duel", description: "Fair same-puzzle asynchronous duels.", category: "core", status: "free" },
-  { title: "Ranked Duel", description: "Competitive RP matchmaking stays open to everyone.", category: "core", status: "free" },
-  { title: "Accept Friend Challenges", description: "Receiving and playing friend challenges remains free.", category: "duel", status: "free" },
-  { title: "Limited Friend Challenge creation", description: `Free accounts include ${PREMIUM_V1_LIMITS.freeFriendChallengesPerDay} friend challenge creations per day.`, category: "duel", status: "free" },
-  { key: "basic_stats", title: "Basic stats", description: "Level, XP, streaks, best times, and rank overview.", category: "stats", status: "free" },
-  { key: "basic_achievements", title: "Basic achievements", description: "Launch achievements remain available without Premium.", category: "stats", status: "free" },
-  { key: "basic_avatar_customisation", title: "Basic profile and avatar customisation", description: "Core character avatar and profile options remain free.", category: "cosmetics", status: "free" },
-  { key: "basic_result_history", title: "Basic result history", description: `Free accounts include access to the latest ${PREMIUM_V1_LIMITS.freeResultHistoryLimit} results.`, category: "stats", status: "free" },
-  { title: "Future ads at natural breaks", description: "Free accounts may see occasional ads at natural breaks in a future version.", category: "experience", status: "free" },
+  { key: "classic_all_difficulties", title: "Unlimited Classic Sudoku", description: "Easy, Medium, Hard, Expert, and Master are playable for free.", category: "solo", status: "free", live: true, enforcement: "Classic mode list remains fully open." },
+  { title: "Daily Sudoku", description: "One shared solo puzzle each day.", category: "core", status: "free", live: true, enforcement: "Daily route remains free." },
+  { title: "Daily Duel", description: "Fair same-puzzle asynchronous duels.", category: "core", status: "free", live: true, enforcement: "Versus Daily Duel remains free." },
+  { title: "Ranked Duel", description: "Competitive RP matchmaking stays open to everyone.", category: "core", status: "free", live: true, enforcement: "Versus Ranked Duel remains free." },
+  { title: "Accept Friend Challenges", description: "Receiving and playing friend challenges remains free.", category: "duel", status: "free", live: true, enforcement: "Incoming and active challenges remain playable." },
+  { title: "Limited Friend Challenge creation", description: `Free accounts include ${PREMIUM_V1_LIMITS.freeFriendChallengesPerDay} friend challenge creations per day.`, category: "duel", status: "free", live: true, enforcement: "Friends challenge modal and send flow." },
+  { key: "basic_stats", title: "Basic stats", description: "Level, XP, streaks, best times, and rank overview.", category: "stats", status: "free", live: true, enforcement: "Profile summary cards remain free." },
+  { key: "basic_achievements", title: "Basic achievements", description: "Launch achievements remain available without Premium.", category: "stats", status: "free", live: true, enforcement: "Achievements screen remains free." },
+  { key: "basic_avatar_customisation", title: "Basic profile and avatar customisation", description: "Core character avatar and profile options remain free.", category: "cosmetics", status: "free", live: true, enforcement: "Free avatar items remain selectable." },
+  { key: "basic_result_history", title: "Basic result history", description: `Free accounts include access to the latest ${PREMIUM_V1_LIMITS.freeResultHistoryLimit} results.`, category: "stats", status: "free", live: true, enforcement: "Results screen shows the latest 20 saved results for Free users." },
+  { title: "Future ads at natural breaks", description: "Free accounts may see occasional ads at natural breaks in a future version.", category: "experience", status: "free", live: false, enforcement: "Ad policy only; no live ad SDK." },
 ];
 
-export const FUTURE_PREMIUM_FEATURES: PremiumFeature[] = [
-  { key: "ad_free", title: "Ad-free experience", description: "Remove occasional ad breaks for a cleaner Free-to-Premium upgrade path.", category: "experience", status: "future_premium" },
-  { key: "more_friend_challenges", title: "Higher Friend Challenge creation", description: "More or unlimited friend challenge creation while keeping each match fair.", category: "duel", status: "future_premium" },
-  { key: "advanced_stats", title: "Advanced stats", description: "Deeper solve trends, difficulty splits, and performance insights.", category: "stats", status: "future_premium" },
-  { key: "full_result_history", title: "Full result history", description: "Complete results history and richer filtering.", category: "stats", status: "future_premium" },
-  { key: "head_to_head_records", title: "Head-to-head history", description: "Expanded friend and rival comparison history.", category: "stats", status: "future_premium" },
-  { key: "duel_archive", title: "More challenge and duel tools", description: "Deeper access to fair challenge review tools where applicable.", category: "duel", status: "future_premium" },
-  { key: "premium_themes", title: "Premium themes", description: "Extra visual themes without changing gameplay outcomes.", category: "cosmetics", status: "future_premium" },
-  { key: "avatar_cosmetics", title: "Premium avatar items and frames", description: "Premium clothing, frames, and profile cosmetics.", category: "cosmetics", status: "future_premium" },
-  { key: "season_recaps", title: "Season recaps and rewards", description: "Cosmetic season identity, recaps, frames, and badges.", category: "cosmetics", status: "future_premium" },
-  { key: "puzzle_archive", title: "Puzzle archive", description: "Replay past Daily Sudoku boards for practice without affecting live competition.", category: "solo", status: "future_premium" },
+export const PREMIUM_FEATURES: PremiumFeature[] = [
+  { key: "ad_free", title: "Ad-free experience", description: "Remove occasional ad breaks when ads are introduced.", category: "experience", status: "future_premium", live: false, enforcement: "Planned only until ads exist." },
+  { key: "more_friend_challenges", title: "Higher Friend Challenge creation", description: "Unlimited or higher Friend Challenge creation while keeping every match fair.", category: "duel", status: "future_premium", live: true, enforcement: "Friends challenge modal and send flow." },
+  { key: "advanced_stats", title: "Advanced stats", description: "Detailed breakdowns and deeper stat views beyond the free profile summary.", category: "stats", status: "future_premium", live: true, enforcement: "Detailed stats screens such as Win Rate and puzzle splits." },
+  { key: "full_result_history", title: "Full result history", description: "Complete saved results history instead of the Free recent-history limit.", category: "stats", status: "future_premium", live: true, enforcement: "Results History screen." },
+  { key: "head_to_head_records", title: "Head-to-head history", description: "Expanded friend-vs-friend history and comparison details.", category: "stats", status: "future_premium", live: true, enforcement: "Friend head-to-head screen." },
+  { key: "duel_archive", title: "More challenge and duel tools", description: "Deeper challenge review tools and archives where applicable.", category: "duel", status: "future_premium", live: false, enforcement: "Planned for a later update." },
+  { key: "premium_themes", title: "Premium themes", description: "Extra visual themes without changing gameplay outcomes.", category: "cosmetics", status: "future_premium", live: false, enforcement: "Planned for a later update." },
+  { key: "avatar_cosmetics", title: "Premium avatar cosmetics", description: "Premium-only frames, colours, and profile cosmetics.", category: "cosmetics", status: "future_premium", live: true, enforcement: "Avatar editor locked cosmetic options." },
+  { key: "season_recaps", title: "Season recaps and rewards", description: "Cosmetic season identity, recaps, frames, and badges.", category: "cosmetics", status: "future_premium", live: false, enforcement: "Planned for a later update." },
+  { key: "puzzle_archive", title: "Puzzle archive", description: "Replay past Daily Sudoku boards for practice without affecting live competition.", category: "solo", status: "future_premium", live: false, enforcement: "Planned for a later update." },
+];
+
+export const LIVE_PREMIUM_FEATURES = PREMIUM_FEATURES.filter((feature) => feature.live);
+export const PLANNED_PREMIUM_FEATURES = PREMIUM_FEATURES.filter((feature) => !feature.live);
+export const LIVE_PREMIUM_FEATURE_KEYS = new Set<PremiumFeatureKey>(LIVE_PREMIUM_FEATURES.map((feature) => feature.key).filter((key): key is PremiumFeatureKey => Boolean(key)));
+const FREE_FEATURE_KEYS = new Set<PremiumFeatureKey>(FREE_FEATURES.map((feature) => feature.key).filter((key): key is PremiumFeatureKey => Boolean(key)));
+
+export const PREMIUM_FEATURE_MATRIX: Array<{
+  plan: "free" | "premium";
+  feature: PremiumFeatureKey;
+  live: boolean;
+  enforcement: string;
+}> = [
+  ...FREE_FEATURES
+    .filter((feature): feature is PremiumFeature & { key: PremiumFeatureKey } => Boolean(feature.key))
+    .map((feature) => ({
+      plan: "free" as const,
+      feature: feature.key,
+      live: Boolean(feature.live),
+      enforcement: feature.enforcement ?? "UI copy only",
+    })),
+  ...PREMIUM_FEATURES
+    .filter((feature): feature is PremiumFeature & { key: PremiumFeatureKey } => Boolean(feature.key))
+    .map((feature) => ({
+      plan: "premium" as const,
+      feature: feature.key,
+      live: Boolean(feature.live),
+      enforcement: feature.enforcement ?? "UI copy only",
+    })),
 ];
 
 export const PREMIUM_ENTITLEMENT_TYPE = "sudoduel_premium";
 export const PAYMENT_SYSTEM_IMPLEMENTED = false;
 export const PREMIUM_FAIRNESS_NOTE = "Premium never boosts Ranked RP, leaderboard scores, matchmaking, or duel outcomes.";
-export const PREMIUM_PURCHASES_NOTE = "Premium purchases are not available right now. Paid features will be clearly explained before they are offered.";
-export const PREMIUM_DEV_NOTE = "All Classic difficulties are free. Premium focuses on ad-free play, stats, history, cosmetics, and fair duel tools.";
+export const PREMIUM_PURCHASES_NOTE = "Paid features are clearly explained before purchase and do not affect competitive fairness.";
+export const PREMIUM_DEV_NOTE = "All Classic difficulties are free. Premium focuses on fuller history, deeper stats, cosmetic extras, and fair social tools.";
 
 export function planFromPremium(isPremium: boolean): PremiumPlan {
   return isPremium ? "premium" : "free";
@@ -118,6 +149,12 @@ export function shouldSuppressAds(plan: PremiumPlan): boolean {
   return plan === "premium";
 }
 
-export function canUsePremiumFeature(plan: PremiumPlan, _feature: PremiumFeatureKey): boolean {
+export function isPremiumFeatureLive(feature: PremiumFeatureKey): boolean {
+  return LIVE_PREMIUM_FEATURE_KEYS.has(feature);
+}
+
+export function canUsePremiumFeature(plan: PremiumPlan, feature: PremiumFeatureKey): boolean {
+  if (FREE_FEATURE_KEYS.has(feature)) return true;
+  if (!LIVE_PREMIUM_FEATURE_KEYS.has(feature)) return false;
   return plan === "premium";
 }

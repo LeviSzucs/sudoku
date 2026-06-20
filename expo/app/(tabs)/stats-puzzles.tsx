@@ -5,7 +5,9 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Card from "@/components/Card";
+import PremiumGateCard from "@/components/PremiumGateCard";
 import { C } from "@/constants/colors";
+import { usePremiumStatus } from "@/hooks/usePremiumStatus";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import type { RecentResult } from "@/lib/playerProfile";
 
@@ -34,6 +36,7 @@ function pct(count: number, total: number): string {
 
 export default function PuzzleStatsScreen() {
   const insets = useSafeAreaInsets();
+  const premium = usePremiumStatus();
   const { profile } = usePlayerProfile();
   const [filter, setFilter] = useState<Filter>("All time");
   const results = useMemo(
@@ -67,10 +70,18 @@ export default function PuzzleStatsScreen() {
         {Object.entries(byDifficulty).map(([label, count]) => <SplitRow key={label} label={label} count={count} total={total} />)}
 
         <Text style={styles.section}>By mode</Text>
-        {MODES.map(({ label, modes }) => {
-          const count = results.filter((result) => modes.includes(result.mode)).length;
-          return <SplitRow key={label} label={label} count={count} total={results.length} />;
-        })}
+        {premium.canUseFeature("advanced_stats") ? (
+          MODES.map(({ label, modes }) => {
+            const count = results.filter((result) => modes.includes(result.mode)).length;
+            return <SplitRow key={label} label={label} count={count} total={results.length} />;
+          })
+        ) : (
+          <PremiumGateCard
+            title="Mode splits and trend stats"
+            body="Premium unlocks deeper puzzle breakdowns, including solve distribution by mode and richer progress views over time."
+            onPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })}
+          />
+        )}
       </ScrollView>
     </SafeAreaView>
   );

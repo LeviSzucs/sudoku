@@ -6,8 +6,10 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
+import PremiumGateCard from "@/components/PremiumGateCard";
 import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
+import { usePremiumStatus } from "@/hooks/usePremiumStatus";
 import { usePlayerProfile, type FriendHeadToHeadSummary, type FriendHeadToHeadMatch } from "@/hooks/usePlayerProfile";
 import { formatTime } from "@/lib/sudoku";
 
@@ -41,6 +43,7 @@ function goBackSafely() {
 export default function FriendHeadToHeadScreen() {
   const { friendId } = useLocalSearchParams<{ friendId?: string }>();
   const insets = useSafeAreaInsets();
+  const premium = usePremiumStatus();
   const { fetchFriendHeadToHead } = usePlayerProfile();
   const [summary, setSummary] = useState<FriendHeadToHeadSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,6 +60,11 @@ export default function FriendHeadToHeadScreen() {
     void load();
     return () => { active = false; };
   }, [fetchFriendHeadToHead, friendId]);
+
+  const visibleMatches = premium.canUseFeature("head_to_head_records")
+    ? summary?.recent_completed_challenges ?? []
+    : (summary?.recent_completed_challenges ?? []).slice(0, 3);
+  const hiddenMatches = Math.max(0, (summary?.recent_completed_challenges?.length ?? 0) - visibleMatches.length);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -120,11 +128,19 @@ export default function FriendHeadToHeadScreen() {
 
             <View style={styles.section}>
               <SectionHeader title="Comparison" />
-              <View style={styles.grid}>
-                <MetricCard label="Avg score" you={formatScore(Math.round(summary.current_user_average_score))} friend={formatScore(Math.round(summary.friend_average_score))} friendName={summary.friend_display_name} />
-                <MetricCard label="Best score" you={formatScore(summary.current_user_best_score)} friend={formatScore(summary.friend_best_score)} friendName={summary.friend_display_name} />
-                <MetricCard label="Fastest win" you={formatOptionalTime(summary.current_user_fastest_win)} friend={formatOptionalTime(summary.friend_fastest_win)} friendName={summary.friend_display_name} />
-              </View>
+              {premium.canUseFeature("head_to_head_records") ? (
+                <View style={styles.grid}>
+                  <MetricCard label="Avg score" you={formatScore(Math.round(summary.current_user_average_score))} friend={formatScore(Math.round(summary.friend_average_score))} friendName={summary.friend_display_name} />
+                  <MetricCard label="Best score" you={formatScore(summary.current_user_best_score)} friend={formatScore(summary.friend_best_score)} friendName={summary.friend_display_name} />
+                  <MetricCard label="Fastest win" you={formatOptionalTime(summary.current_user_fastest_win)} friend={formatOptionalTime(summary.friend_fastest_win)} friendName={summary.friend_display_name} />
+                </View>
+              ) : (
+                <PremiumGateCard
+                  title="Full head-to-head comparison"
+                  body="Premium unlocks average score comparisons, fastest wins, and complete friend-vs-friend records."
+                  onPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })}
+                />
+              )}
             </View>
 
             <View style={styles.section}>
@@ -135,15 +151,24 @@ export default function FriendHeadToHeadScreen() {
                     <Trophy size={28} color={C.mutedSoft} />
                     <Text style={styles.emptyText}>Challenge {summary.friend_display_name} to start your head-to-head record.</Text>
                   </View>
-                ) : summary.recent_completed_challenges.map((match, index) => (
+                ) : visibleMatches.map((match, index) => (
                   <MatchRow
                     key={match.challenge_id}
                     match={match}
                     friendName={summary.friend_display_name}
-                    last={index === summary.recent_completed_challenges.length - 1}
+                    last={index === visibleMatches.length - 1}
                   />
                 ))}
               </Card>
+              {hiddenMatches > 0 ? (
+                <View style={{ marginTop: 12 }}>
+                  <PremiumGateCard
+                    title="See the rest of this rivalry"
+                    body={`${hiddenMatches} older head-to-head match${hiddenMatches === 1 ? "" : "es"} are available with Premium, alongside the full comparison view.`}
+                    onPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })}
+                  />
+                </View>
+              ) : null}
             </View>
           </>
         )}

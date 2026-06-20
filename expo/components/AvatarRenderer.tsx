@@ -18,7 +18,7 @@ const CREAM = "#FBF8F2";
 function frameColor(frame: string | null): string | null {
   if (frame === "bronze") return "#B86246";
   if (frame === "silver") return "#A8A294";
-  if (frame === "gold" || frame === "ranked_crown") return "#C8A45D";
+  if (frame === "gold" || frame === "ranked_crown" || frame === "premium_crown") return "#C8A45D";
   return null;
 }
 
@@ -139,11 +139,13 @@ export default function AvatarRenderer({
         {frame ? (
           <>
             <Circle cx="50" cy="50" r="47" stroke="#000000" strokeWidth="7" opacity="0.16" fill="none" />
-            <Circle cx="50" cy="50" r="46" stroke={frame} strokeWidth={avatar.avatar_frame === "ranked_crown" ? "6" : "5"} fill="none" />
+            <Circle cx="50" cy="50" r="46" stroke={frame} strokeWidth={avatar.avatar_frame === "ranked_crown" || avatar.avatar_frame === "premium_crown" ? "6" : "5"} fill="none" />
             <Circle cx="50" cy="50" r="39" stroke={frame} strokeWidth="1.4" opacity="0.5" fill="none" />
           </>
         ) : null}
-        {avatar.avatar_frame === "ranked_crown" ? <Polygon points="37,13 45,18 50,8 55,18 63,13 60,26 40,26" fill="#C8A45D" stroke={INK} strokeWidth="1.2" /> : null}
+        {avatar.avatar_frame === "ranked_crown" || avatar.avatar_frame === "premium_crown"
+          ? <Polygon points="37,13 45,18 50,8 55,18 63,13 60,26 40,26" fill="#C8A45D" stroke={INK} strokeWidth="1.2" />
+          : null}
       </Svg>
       {showInitialFallback ? <Text style={[styles.fallbackText, { fontSize: size * 0.34 }]}>{legacySymbol || avatar.avatar_initials}</Text> : null}
     </View>
