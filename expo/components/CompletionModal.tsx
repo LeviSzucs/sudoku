@@ -1,8 +1,11 @@
 import { Flame, Home, RotateCw, Share2, X } from "lucide-react-native";
-import React from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, { cancelAnimation, Easing, Extrapolation, interpolate, runOnJS, useAnimatedReaction, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming, type SharedValue } from "react-native-reanimated";
+
 import { C } from "@/constants/colors";
 import { buttonShadow } from "@/constants/depth";
+import { success as hapticSuccess } from "@/lib/haptics";
 import type { ScoreBreakdown } from "@/lib/scoring";
 import { formatTime } from "@/lib/sudoku";
 
@@ -59,6 +62,96 @@ export default function CompletionModal({
   onHome,
   onClose,
 }: Props) {
+  const prefersReducedMotion = useReducedMotion();
+  const [displayScore, setDisplayScore] = useState<number>(score);
+  const scoreProgress = useSharedValue(1);
+  const celebrationProgress = useSharedValue(0);
+  const scoreScale = useSharedValue(1);
+  const wasVisibleRef = useRef(false);
+
+  useAnimatedReaction(
+    () => Math.round(interpolate(scoreProgress.value, [0, 1], [0, score], Extrapolation.CLAMP)),
+    (next, previous) => {
+      if (next !== previous) {
+        runOnJS(setDisplayScore)(next);
+      }
+    },
+    [score]
+  );
+
+  useEffect(() => {
+    const opening = visible && !wasVisibleRef.current;
+    const closing = !visible && wasVisibleRef.current;
+    wasVisibleRef.current = visible;
+
+    if (opening) {
+      void hapticSuccess();
+      if (prefersReducedMotion) {
+        cancelAnimation(scoreProgress);
+        cancelAnimation(celebrationProgress);
+        cancelAnimation(scoreScale);
+        scoreProgress.value = 1;
+        celebrationProgress.value = 0;
+        scoreScale.value = 1;
+        setDisplayScore(score);
+        return;
+      }
+
+      setDisplayScore(0);
+      scoreProgress.value = 0;
+      celebrationProgress.value = 0;
+      scoreScale.value = 0.96;
+
+      scoreScale.value = withTiming(1, {
+        duration: 320,
+        easing: Easing.out(Easing.cubic),
+      });
+      scoreProgress.value = withTiming(1, {
+        duration: 820,
+        easing: Easing.out(Easing.cubic),
+      });
+      celebrationProgress.value = withTiming(1, {
+        duration: 1200,
+        easing: Easing.out(Easing.cubic),
+      });
+      return;
+    }
+
+    if (closing) {
+      cancelAnimation(scoreProgress);
+      cancelAnimation(celebrationProgress);
+      cancelAnimation(scoreScale);
+      scoreProgress.value = 1;
+      celebrationProgress.value = 0;
+      scoreScale.value = 1;
+      setDisplayScore(score);
+      return;
+    }
+
+    if (visible) {
+      setDisplayScore(score);
+      scoreProgress.value = 1;
+    }
+  }, [celebrationProgress, prefersReducedMotion, score, scoreProgress, scoreScale, visible]);
+
+  const scoreAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scoreScale.value }],
+  }));
+
+  const particles = useMemo(
+    () => [
+      { x: -86, y: -12, size: 10, color: C.gold, rotate: -18, duration: 820 },
+      { x: -62, y: -42, size: 8, color: C.amber, rotate: 22, duration: 980 },
+      { x: -28, y: -58, size: 6, color: C.accent, rotate: -12, duration: 1080 },
+      { x: 18, y: -60, size: 8, color: C.gold, rotate: 26, duration: 1040 },
+      { x: 56, y: -46, size: 10, color: C.accent, rotate: -24, duration: 940 },
+      { x: 82, y: -10, size: 7, color: C.amber, rotate: 16, duration: 860 },
+      { x: -40, y: 18, size: 7, color: C.gold, rotate: -28, duration: 760 },
+      { x: 42, y: 16, size: 9, color: C.amber, rotate: 24, duration: 790 },
+    ],
+    []
+  );
+
   if (!visible) return null;
 
   const completionCopy = mistakes === 0 && hintsUsed === 0
@@ -94,7 +187,23 @@ export default function CompletionModal({
 
           <View style={styles.scoreBox}>
             <Text style={styles.scoreLabel}>FINAL SCORE</Text>
-            <Text style={styles.scoreValue}>{score.toLocaleString()}</Text>
+            {!prefersReducedMotion ? (
+              <View pointerEvents="none" style={styles.celebrationLayer}>
+                {particles.map((particle, index) => (
+                  <CelebrationParticle
+                    key={`${particle.x}-${particle.y}-${index}`}
+                    progress={celebrationProgress}
+                    x={particle.x}
+                    y={particle.y}
+                    size={particle.size}
+                    color={particle.color}
+                    rotate={particle.rotate}
+                    duration={particle.duration}
+                  />
+                ))}
+              </View>
+            ) : null}
+            <Animated.Text style={[styles.scoreValue, scoreAnimatedStyle]}>{displayScore.toLocaleString()}</Animated.Text>
             {scoreBreakdown ? (
               <View style={styles.breakdown}>
                 <BreakdownLine label="Base" value={scoreBreakdown.baseScore ?? 0} />
@@ -160,6 +269,39 @@ export default function CompletionModal({
   );
 }
 
+function CelebrationParticle({
+  progress,
+  x,
+  y,
+  size,
+  color,
+  rotate,
+  duration,
+}: {
+  progress: SharedValue<number>;
+  x: number;
+  y: number;
+  size: number;
+  color: string;
+  rotate: number;
+  duration: number;
+}) {
+  const style = useAnimatedStyle(() => {
+    const localProgress = Math.min(progress.value / (duration / 1200), 1);
+    return {
+      opacity: interpolate(localProgress, [0, 0.12, 0.7, 1], [0, 0.95, 0.35, 0], Extrapolation.CLAMP),
+      transform: [
+        { translateX: interpolate(localProgress, [0, 1], [0, x], Extrapolation.CLAMP) },
+        { translateY: interpolate(localProgress, [0, 1], [0, y], Extrapolation.CLAMP) },
+        { scale: interpolate(localProgress, [0, 0.12, 1], [0.3, 1, 0.72], Extrapolation.CLAMP) },
+        { rotate: `${interpolate(localProgress, [0, 1], [0, rotate], Extrapolation.CLAMP)}deg` },
+      ],
+    };
+  });
+
+  return <Animated.View style={[styles.particle, style, { width: size, height: size, borderRadius: size / 2.2, backgroundColor: color }]} />;
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ alignItems: "center", flex: 1 }}>
@@ -220,9 +362,24 @@ const styles = StyleSheet.create({
   },
   statLabel: { fontSize: 10, color: C.muted, fontWeight: "700", letterSpacing: 1.2 },
   statValue: { fontSize: 18, fontWeight: "700", color: C.ink, marginTop: 3 },
-  scoreBox: { marginTop: 14, alignItems: "center" },
+  scoreBox: { marginTop: 14, alignItems: "center", position: "relative", overflow: "visible" },
   scoreLabel: { fontSize: 10, color: C.muted, fontWeight: "800", letterSpacing: 1.6 },
   scoreValue: { fontSize: 38, fontWeight: "800", color: C.ink, letterSpacing: -1, marginTop: 4 },
+  celebrationLayer: {
+    position: "absolute",
+    top: 10,
+    left: "50%",
+    width: 0,
+    height: 0,
+  },
+  particle: {
+    position: "absolute",
+    shadowColor: C.ink,
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
   breakdown: { width: "100%", minWidth: 220, marginTop: 8, gap: 3 },
   breakdownLine: { flexDirection: "row", justifyContent: "space-between", gap: 16 },
   breakdownLabel: { color: C.muted, fontSize: 11, fontWeight: "800" },
