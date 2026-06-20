@@ -232,6 +232,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Premium opens.
 - [ ] Terms & Conditions opens.
 - [ ] Privacy Policy opens.
+- [ ] Life Layer QA entry is hidden when internal QA tools are disabled.
+- [ ] Life Layer QA entry appears only in internal QA-enabled builds.
 - [ ] Logout works.
 
 ## K2. Notifications
@@ -389,6 +391,19 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Daily Sudoku card CTA stays inside the card.
 - [ ] Ranked Duel card text does not wrap awkwardly.
 - [ ] Home buttons/cards have consistent readable depth.
+
+## O2. Internal Life Layer QA
+
+- [ ] With internal QA tools enabled, Life Layer QA screen opens from Settings.
+- [ ] Badge: single unlock preview animates once and fires one medium haptic.
+- [ ] Badge: multiple unlocks preview staggers cleanly and does not spam haptics.
+- [ ] Duel: win preview reveals scores and verdict once.
+- [ ] Duel: loss preview stays restrained and does not show win treatment.
+- [ ] Duel: draw preview stays moderate.
+- [ ] Streak ambient flame preview is subtle and not distracting.
+- [ ] Streak ignite preview fires once and does not affect real streak data.
+- [ ] Rank promotion preview appears once, dismisses cleanly, and does not affect RP.
+- [ ] Life Layer previews do not create real badges, streaks, results, sessions, RP, or challenge changes.
 
 ## P. Error / Loading States
 
