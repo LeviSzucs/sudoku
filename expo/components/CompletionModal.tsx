@@ -7,6 +7,7 @@ import AnimatedUnlockSurface from "@/components/AnimatedUnlockSurface";
 import { C } from "@/constants/colors";
 import { buttonShadow } from "@/constants/depth";
 import { success as hapticSuccess, tapMedium } from "@/lib/haptics";
+import type { RankPromotionSummary } from "@/lib/playerProfile";
 import type { ScoreBreakdown } from "@/lib/scoring";
 import { formatTime } from "@/lib/sudoku";
 
@@ -27,6 +28,7 @@ interface Props {
   officialError?: string | null;
   xpEarned?: number;
   levelUpMessage?: string | null;
+  rankPromotion?: RankPromotionSummary | null;
   unlockedBadges?: { badge_id: string; name: string; icon: string }[];
   outcomeTitle?: string | null;
   outcomeSubtitle?: string | null;
@@ -56,6 +58,7 @@ export default function CompletionModal({
   officialError = null,
   xpEarned = 0,
   levelUpMessage = null,
+  rankPromotion = null,
   unlockedBadges = [],
   outcomeTitle = null,
   outcomeSubtitle = null,
@@ -78,7 +81,9 @@ export default function CompletionModal({
   const lastCelebrationKeyRef = useRef<string | null>(null);
   const hapticTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const badgeHapticTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const promotionHapticTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastBadgeAnimationKeyRef = useRef<string | null>(null);
+  const lastPromotionAnimationKeyRef = useRef<string | null>(null);
 
   const normalizedMode = mode.trim().toLowerCase();
   const normalizedOutcome = (outcomeTitle ?? "").trim().toLowerCase().replace(/[\u2019]/g, "'");
@@ -107,7 +112,8 @@ export default function CompletionModal({
     ? "loss"
     : "standard";
   const celebrationTimelineMs = celebrationTier === "victory" ? 2350 : celebrationTier === "draw" ? 1650 : 1200;
-  const shouldPlaySuccessHaptic = celebrationTier === "victory" || celebrationTier === "standard";
+  const hasRankPromotion = Boolean(rankPromotion);
+  const shouldPlaySuccessHaptic = (celebrationTier === "victory" || celebrationTier === "standard") && !hasRankPromotion;
   const resolvedCelebrationKey = celebrationKey ?? [
     mode,
     difficulty,
@@ -131,8 +137,12 @@ export default function CompletionModal({
     ? `You solved the ${difficulty} puzzle with hints.`
     : `You solved the ${difficulty} puzzle.`;
   const badgeAnimationBaseDelayMs = celebrationTier === "victory" ? 380 : 300;
+  const promotionAnimationDelayMs = celebrationTier === "victory" ? 360 : 280;
   const badgeAnimationKey = visible && celebrationReady && unlockedBadges.length > 0
     ? [celebrationKey ?? resolvedCelebrationKey, unlockedBadges.map((badge) => badge.badge_id).join(",")].join("|")
+    : null;
+  const promotionAnimationKey = visible && celebrationReady && rankPromotion
+    ? [celebrationKey ?? resolvedCelebrationKey, rankPromotion.newRankLabel].join("|")
     : null;
 
   useAnimatedReaction(
@@ -152,6 +162,9 @@ export default function CompletionModal({
       }
       if (badgeHapticTimeoutRef.current) {
         clearTimeout(badgeHapticTimeoutRef.current);
+      }
+      if (promotionHapticTimeoutRef.current) {
+        clearTimeout(promotionHapticTimeoutRef.current);
       }
     };
   }, []);
@@ -176,9 +189,32 @@ export default function CompletionModal({
   }, [badgeAnimationBaseDelayMs, badgeAnimationKey]);
 
   useEffect(() => {
+    if (promotionHapticTimeoutRef.current) {
+      clearTimeout(promotionHapticTimeoutRef.current);
+      promotionHapticTimeoutRef.current = null;
+    }
+
+    if (!promotionAnimationKey) {
+      lastPromotionAnimationKeyRef.current = null;
+      return;
+    }
+    if (lastPromotionAnimationKeyRef.current === promotionAnimationKey) return;
+
+    lastPromotionAnimationKeyRef.current = promotionAnimationKey;
+    promotionHapticTimeoutRef.current = setTimeout(() => {
+      void hapticSuccess();
+      promotionHapticTimeoutRef.current = null;
+    }, promotionAnimationDelayMs + 180);
+  }, [promotionAnimationDelayMs, promotionAnimationKey]);
+
+  useEffect(() => {
     if (hapticTimeoutRef.current) {
       clearTimeout(hapticTimeoutRef.current);
       hapticTimeoutRef.current = null;
+    }
+    if (promotionHapticTimeoutRef.current) {
+      clearTimeout(promotionHapticTimeoutRef.current);
+      promotionHapticTimeoutRef.current = null;
     }
 
     if (!visible) {
@@ -442,6 +478,22 @@ export default function CompletionModal({
 
           {showOfficialRewards && levelUpMessage ? <Text style={styles.levelUpText}>{levelUpMessage}</Text> : null}
 
+          {showOfficialRewards && rankPromotion ? (
+            <AnimatedUnlockSurface
+              animateKey={promotionAnimationKey}
+              delayMs={promotionAnimationDelayMs}
+              borderRadius={20}
+              style={styles.promotionCardWrap}
+              disabled={!promotionAnimationKey}
+            >
+              <View style={styles.promotionCard}>
+                <Text style={styles.promotionKicker}>RANK PROMOTION</Text>
+                <Text style={styles.promotionTitle}>Promoted to {rankPromotion.newRankLabel}</Text>
+                <Text style={styles.promotionSub}>Up from {rankPromotion.previousRankLabel}</Text>
+              </View>
+            </AnimatedUnlockSurface>
+          ) : null}
+
           {showOfficialRewards && unlockedBadges.length > 0 ? (
             <View style={styles.badgeRow}>
               {unlockedBadges.slice(0, 3).map((badge, index) => (
@@ -634,6 +686,21 @@ const styles = StyleSheet.create({
   errorDetail: { fontSize: 11, color: C.muted, fontWeight: "700", marginTop: 2, textAlign: "center" },
   xpText: { fontSize: 13, color: C.accent, fontWeight: "800", marginTop: 6 },
   levelUpText: { fontSize: 13, color: C.gold, fontWeight: "800", marginTop: 8 },
+  promotionCardWrap: { width: "100%", marginTop: 10 },
+  promotionCard: {
+    width: "100%",
+    borderRadius: 20,
+    backgroundColor: C.goldSoft,
+    borderWidth: 1,
+    borderColor: "#E3C98A",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    alignItems: "center",
+    gap: 4,
+  },
+  promotionKicker: { fontSize: 11, color: C.gold, fontWeight: "900", letterSpacing: 1.6 },
+  promotionTitle: { fontSize: 20, color: C.ink, fontWeight: "900", textAlign: "center", letterSpacing: -0.4 },
+  promotionSub: { fontSize: 12, color: C.inkSoft, fontWeight: "700", textAlign: "center" },
   badgeRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 10 },
   badgeChipWrap: { borderRadius: 999 },
   badgeChip: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: C.goldSoft, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999 },
