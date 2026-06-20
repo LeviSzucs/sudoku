@@ -11,6 +11,7 @@ import { formatAppVersionLabel } from "@/constants/appInfo";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { buttonShadow } from "@/constants/depth";
+import { SHOW_INTERNAL_QA_TOOLS } from "@/constants/internal";
 import { SHOW_DEVELOPER_TOOLS } from "@/constants/developer";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
@@ -202,6 +203,9 @@ export default function SettingsScreen() {
           <Row icon={<HelpCircle size={18} color={C.inkSoft} />} title="Help & FAQ" detail="Answers and gameplay basics" onPress={() => router.push({ pathname: "/settings-info", params: { page: "help" } })} />
           <Row icon={<LifeBuoy size={18} color={C.inkSoft} />} title="Support" detail="Contact and account requests" onPress={() => router.push({ pathname: "/settings-info", params: { page: "support" } })} />
           <Row icon={<MessageSquare size={18} color={C.inkSoft} />} title="Send feedback" detail="Tell us what to improve" onPress={() => router.push({ pathname: "/settings-feedback", params: { category: "feedback" } })} />
+          {SHOW_INTERNAL_QA_TOOLS ? (
+            <Row icon={<FlaskConical size={18} color={C.inkSoft} />} title="Life Layer QA" detail="Internal animation previews" onPress={() => router.push("/life-layer-qa")} />
+          ) : null}
           <Row icon={<LifeBuoy size={18} color={C.inkSoft} />} title="Report a problem" detail="Bug reports and issues" onPress={() => router.push({ pathname: "/settings-feedback", params: { category: "problem" } })} last />
         </Section>
 
