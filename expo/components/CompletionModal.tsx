@@ -11,6 +11,7 @@ import { formatTime } from "@/lib/sudoku";
 
 interface Props {
   visible: boolean;
+  celebrationReady?: boolean;
   time: number;
   mistakes: number;
   hintsUsed: number;
@@ -39,6 +40,7 @@ interface Props {
 
 export default function CompletionModal({
   visible,
+  celebrationReady = true,
   time,
   mistakes,
   hintsUsed,
@@ -116,6 +118,15 @@ export default function CompletionModal({
     xpEarned,
     unlockedBadges.length,
   ].join("|");
+  const isWaitingForCompetitiveOutcome = isCompetitiveMode && !celebrationReady;
+  const displayTitle = isWaitingForCompetitiveOutcome ? "Finalising result..." : outcomeTitle ?? "Puzzle complete";
+  const completionCopy = isWaitingForCompetitiveOutcome
+    ? "Checking the final duel outcome."
+    : mistakes === 0 && hintsUsed === 0
+    ? `You solved the ${difficulty} puzzle cleanly.`
+    : mistakes === 0 && hintsUsed > 0
+    ? `You solved the ${difficulty} puzzle with hints.`
+    : `You solved the ${difficulty} puzzle.`;
 
   useAnimatedReaction(
     () => Math.round(interpolate(scoreProgress.value, [0, 1], [0, score], Extrapolation.CLAMP)),
@@ -159,6 +170,24 @@ export default function CompletionModal({
       return;
     }
 
+    if (!celebrationReady) {
+      cancelAnimation(scoreProgress);
+      cancelAnimation(celebrationProgress);
+      cancelAnimation(scoreScale);
+      cancelAnimation(titleScale);
+      cancelAnimation(titleOpacity);
+      cancelAnimation(titleGlow);
+      scoreProgress.value = 1;
+      celebrationProgress.value = 0;
+      scoreScale.value = 1;
+      titleScale.value = 1;
+      titleOpacity.value = 1;
+      titleGlow.value = 0;
+      setDisplayScore(score);
+      lastCelebrationKeyRef.current = null;
+      return;
+    }
+
     if (lastCelebrationKeyRef.current === resolvedCelebrationKey) {
       setDisplayScore(score);
       scoreProgress.value = 1;
@@ -182,7 +211,10 @@ export default function CompletionModal({
       titleGlow.value = 0;
       setDisplayScore(score);
       if (shouldPlaySuccessHaptic) {
-        void hapticSuccess();
+        hapticTimeoutRef.current = setTimeout(() => {
+          void hapticSuccess();
+          hapticTimeoutRef.current = null;
+        }, celebrationTier === "victory" ? 220 : 180);
       }
       return;
     }
@@ -230,9 +262,10 @@ export default function CompletionModal({
       hapticTimeoutRef.current = setTimeout(() => {
         void hapticSuccess();
         hapticTimeoutRef.current = null;
-      }, celebrationTier === "victory" ? 150 : 60);
+      }, celebrationTier === "victory" ? 220 : 180);
     }
   }, [
+    celebrationReady,
     celebrationProgress,
     celebrationTier,
     celebrationTimelineMs,
@@ -310,12 +343,6 @@ export default function CompletionModal({
   );
 
   if (!visible) return null;
-
-  const completionCopy = mistakes === 0 && hintsUsed === 0
-    ? `You solved the ${difficulty} puzzle cleanly.`
-    : mistakes === 0 && hintsUsed > 0
-    ? `You solved the ${difficulty} puzzle with hints.`
-    : `You solved the ${difficulty} puzzle.`;
   const leaderboardLabel = leaderboardEligible ? "Leaderboard eligible: Yes" : "Leaderboard eligible: No";
   const personalStatsSaved = officialStatus === "guest" || officialStatus === "saved";
   const showOfficialPending = officialStatus === "pending";
@@ -334,11 +361,11 @@ export default function CompletionModal({
           <View style={styles.titleWrap}>
             {celebrationTier === "victory" ? <Animated.View pointerEvents="none" style={[styles.titleGlow, titleGlowAnimatedStyle]} /> : null}
             <Animated.Text style={[styles.title, celebrationTier === "victory" ? styles.titleVictory : null, titleAnimatedStyle]}>
-              {outcomeTitle ?? "Puzzle complete"}
+              {displayTitle}
             </Animated.Text>
           </View>
           <Text style={styles.sub}>{completionCopy}</Text>
-          {outcomeSubtitle ? <Text style={styles.outcomeSub}>{outcomeSubtitle}</Text> : null}
+          {celebrationReady && outcomeSubtitle ? <Text style={styles.outcomeSub}>{outcomeSubtitle}</Text> : null}
 
           <View style={styles.stats}>
             <Stat label="Time" value={formatTime(time)} />
@@ -349,7 +376,7 @@ export default function CompletionModal({
 
           <View style={styles.scoreBox}>
             <Text style={styles.scoreLabel}>FINAL SCORE</Text>
-            {!prefersReducedMotion && particles.length > 0 ? (
+            {!prefersReducedMotion && celebrationReady && particles.length > 0 ? (
               <View pointerEvents="none" style={styles.celebrationLayer}>
                 {particles.map((particle, index) => (
                   <CelebrationParticle
