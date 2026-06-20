@@ -39,6 +39,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 
 - [ ] Home loads.
 - [ ] Streak card displays correctly.
+- [ ] Streak flame has a subtle ambient flicker and does not feel distracting.
 - [ ] Daily Sudoku card opens today's puzzle.
 - [ ] Daily Duel card opens the correct flow.
 - [ ] Continue Puzzle appears only with a valid saved puzzle.
@@ -87,6 +88,9 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Failed attempt saves final result and blocks retry.
 - [ ] Daily stats/streak update correctly.
 - [ ] Failed Daily attempt does not extend solved streak.
+- [ ] A genuine streak increase triggers the streak flame ignite once.
+- [ ] Navigating away and back does not replay the same streak ignite.
+- [ ] Reopening the app does not replay the same streak ignite just because the streak count loads.
 - [ ] Replay/duplicate handling is sane.
 - [ ] Completion CTA goes to the correct place.
 - [ ] Daily leaderboard includes completed Daily attempts for the assigned puzzle.
@@ -258,6 +262,12 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] In-app notification read state works.
 - [ ] Notification deep links open the relevant Friends/Duel screen where safe.
 - [ ] App still works without push permission.
+
+## K3. Streak Motion
+
+- [ ] Streak stats screen shows the same subtle flame treatment as Home where appropriate.
+- [ ] Reduced-motion devices still show the streak clearly without broken or busy animation.
+- [ ] Streak count remains accurate while the ambient flame animation runs.
 - [ ] `send-push-notifications` Edge Function is deployed and invoked by a secure schedule or backend webhook.
 - [ ] Push deployment setup follows `docs/deploy-push-notifications.md`.
 - [ ] Edge Function uses `SUPABASE_SERVICE_ROLE_KEY` only in the server runtime.

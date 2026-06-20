@@ -3,13 +3,12 @@ import { useRouter } from "expo-router";
 import {
   ChevronRight,
   Crown,
-  Flame,
   Play,
   Sparkles,
   Swords,
   Trophy,
 } from "lucide-react-native";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -17,6 +16,7 @@ import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
 import Pill from "@/components/Pill";
 import SectionHeader from "@/components/SectionHeader";
+import StreakFlame from "@/components/StreakFlame";
 import { PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { buttonShadow, premiumShadow } from "@/constants/depth";
@@ -39,8 +39,15 @@ function isContinueSessionMode(mode: string): boolean {
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { profile, activeSessions, classicContinueSession, startPuzzleSession, getInProgressDailySession, getCompletedDailyResult } = usePlayerProfile();
+  const { profile, activeSessions, classicContinueSession, startPuzzleSession, getInProgressDailySession, getCompletedDailyResult, lastStreakIncreaseKey, clearLastStreakIncrease } = usePlayerProfile();
   const auth = useAuth();
+  const [streakIgniteKey, setStreakIgniteKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!lastStreakIncreaseKey) return;
+    setStreakIgniteKey(lastStreakIncreaseKey);
+    clearLastStreakIncrease();
+  }, [clearLastStreakIncrease, lastStreakIncreaseKey]);
 
   const today = new Date();
   const dateStr = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -174,7 +181,7 @@ export default function HomeScreen() {
         <Card style={styles.streakCard}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
             <View style={styles.streakIcon}>
-              <Flame color={streak > 0 ? C.streak : C.mutedSoft} size={26} fill={streak > 0 ? C.streak : "none"} strokeWidth={1.5} />
+              <StreakFlame active={streak > 0} size={26} igniteKey={streakIgniteKey} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.streakNumber}>

@@ -710,6 +710,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<ProfileUpdateSummary | null>(null);
+  const [lastStreakIncreaseKey, setLastStreakIncreaseKey] = useState<string | null>(null);
   const [activeSessions, setActiveSessions] = useState<PuzzleSessionRow[]>([]);
   const [activeGuestSessions, setActiveGuestSessions] = useState<GuestSessionEntry[]>([]);
   const loadedProfileKeyRef = useRef<string | null>(null);
@@ -1693,6 +1694,15 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     const summary: ProfileUpdateSummary = existingResult ? { xpEarned: existingResult.xp_earned, didLevelUp: false, previousLevel: profile.account_level, newLevel: profile.account_level, unlockedBadges: [], updatedProfile: profile } : applyPuzzleResult(profile, result, outcome);
     if (!existingResult) persist(summary.updatedProfile);
     setLastUpdate(summary);
+    if (!existingResult && summary.updatedProfile.current_streak > profile.current_streak) {
+      const recent = summary.updatedProfile.recent_results[0];
+      setLastStreakIncreaseKey([
+        recent?.result_id ?? "local",
+        recent?.session_id ?? sessionId ?? "session",
+        recent?.completed_at ?? result.completed_at ?? "completed",
+        String(summary.updatedProfile.current_streak),
+      ].join("|"));
+    }
     if (existingResult) {
       void closeSessionForPuzzle(result.puzzle_id, sessionId ?? undefined);
       return summary;
@@ -1858,6 +1868,14 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }
     const summary = summaryFromOfficialPayload(payload, previousProfile);
     setLastUpdate(summary);
+    if (summary.updatedProfile.current_streak > previousProfile.current_streak) {
+      setLastStreakIncreaseKey([
+        payload.result_id ?? "official",
+        payload.session_id ?? sessionId,
+        payload.completed_at ?? result.completed_at ?? "completed",
+        String(summary.updatedProfile.current_streak),
+      ].join("|"));
+    }
     setProfile(summary.updatedProfile);
     setActiveSessions((prev) => prev.filter((session) => session.session_id !== sessionId));
     await loadBackendProfile();
@@ -2916,6 +2934,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
   const simulateRankedLoss = useCallback((): ProfileUpdateSummary => recordPuzzleResult(createSimulatedResult("ranked", "loss"), "loss"), [recordPuzzleResult]);
   const resetLocalProfile = useCallback(() => { const next = createInitialPlayerProfile(!auth.isSignedIn); persist(next); setLastUpdate(null); }, [auth.isSignedIn, persist]);
   const clearLastUpdate = useCallback(() => setLastUpdate(null), []);
+  const clearLastStreakIncrease = useCallback(() => setLastStreakIncreaseKey(null), []);
 
   const repairCompletedSessions = useCallback(async (): Promise<SaveResult> => {
     if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Repair requires a signed-in user." };
@@ -2944,7 +2963,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
   const profileSetupRequired = auth.isSignedIn && isLoaded && (!profile.profile_setup_completed || !profile.username_handle);
 
   return useMemo(() => ({
-    profile, isLoaded, loadError, lastUpdate,
+    profile, isLoaded, loadError, lastUpdate, lastStreakIncreaseKey,
     activeSessions: visibleActiveSessions,
     classicContinueSession,
     diagnostics, hasActiveSession, profileSetupRequired,
@@ -2954,11 +2973,11 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel, cancelRankedDuel,
     refreshProfile: loadBackendProfile,
     resetLocalProfile, checkUsernameAvailable, completeProfileSetup, updateDisplayName, updateAvatar, updateNotificationSettings, updatePrivacySettings,
-    repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, testDailyResultQuery, clearLastUpdate,
+    repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, testDailyResultQuery, clearLastUpdate, clearLastStreakIncrease,
     upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
   }), [
     activeGuestSessions, activeSessions, auth.isSignedIn,
-    checkUsernameAvailable, classicContinueSession, clearLastUpdate, completeProfileSetup, diagnostics, hasActiveSession, isLoaded, lastUpdate, loadBackendProfile, loadError, profile, profileSetupRequired, visibleActiveSessions,
+    checkUsernameAvailable, classicContinueSession, clearLastStreakIncrease, clearLastUpdate, completeProfileSetup, diagnostics, hasActiveSession, isLoaded, lastStreakIncreaseKey, lastUpdate, loadBackendProfile, loadError, profile, profileSetupRequired, visibleActiveSessions,
     recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, fetchRankedLeaderboard,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,

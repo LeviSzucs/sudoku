@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Card from "@/components/Card";
+import StreakFlame from "@/components/StreakFlame";
 import { C } from "@/constants/colors";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import type { RecentResult } from "@/lib/playerProfile";
@@ -119,6 +120,9 @@ export default function StreakStatsScreen() {
           <Pressable style={styles.backButton} onPress={() => router.replace("/(tabs)/profile")}>
             <ChevronLeft color={C.ink} size={20} />
           </Pressable>
+          <View style={styles.flameBadge}>
+            <StreakFlame active={streaks.current > 0} size={22} />
+          </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>Streak</Text>
             <Text style={styles.sub}>Successful Daily solves</Text>
@@ -186,6 +190,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
   header: { flexDirection: "row", alignItems: "center", gap: 12 },
   backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
+  flameBadge: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.streakSoft, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
   title: { fontSize: 30, fontWeight: "900", color: C.ink },
   sub: { color: C.muted, fontWeight: "700", marginTop: 4 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 18 },
