@@ -151,6 +151,9 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Submitting a wrong final board is rejected.
 - [ ] Implausibly low ranked elapsed time is rejected or replaced by the server-derived duration.
 - [ ] Client-provided ranked score values cannot override the server-calculated score.
+- [ ] Ranked RP gain within the same tier/division does not show a promotion celebration.
+- [ ] A genuine ranked promotion shows a one-time promotion celebration with the correct new rank label.
+- [ ] Reopening the same ranked result does not replay the same promotion endlessly.
 - [ ] Repeat queue works after completed/cancelled/expired matches.
 - [ ] Completed/cancelled/expired matches do not block a new queue.
 - [ ] No Premium blocking.

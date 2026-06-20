@@ -98,8 +98,18 @@ export interface ProfileUpdateSummary {
   didLevelUp: boolean;
   previousLevel: number;
   newLevel: number;
+  rankPromotion: RankPromotionSummary | null;
   unlockedBadges: AchievementBadge[];
   updatedProfile: PlayerProfile;
+}
+
+export interface RankPromotionSummary {
+  previousTier: string;
+  previousDivision: string;
+  newTier: string;
+  newDivision: string;
+  previousRankLabel: string;
+  newRankLabel: string;
 }
 
 export const RANKS: { tier: string; division: string; min: number }[] = [
@@ -136,6 +146,33 @@ export function getRankFromRp(rp: number): { tier: string; division: string; nex
   for (const rank of RANKS) if (safeRp >= rank.min) current = rank;
   const next = RANKS[RANKS.indexOf(current) + 1];
   return { tier: current.tier, division: current.division, nextMin: next?.min ?? null, currentMin: current.min };
+}
+
+export function formatRankLabel(tier: string, division: string): string {
+  return division ? `${tier} ${division}` : tier;
+}
+
+export function getRankPosition(tier: string, division: string): number {
+  return RANKS.findIndex((rank) => rank.tier === tier && rank.division === division);
+}
+
+export function getRankPromotionSummary(
+  previousTier: string,
+  previousDivision: string,
+  newTier: string,
+  newDivision: string
+): RankPromotionSummary | null {
+  const previousPosition = getRankPosition(previousTier, previousDivision);
+  const newPosition = getRankPosition(newTier, newDivision);
+  if (previousPosition < 0 || newPosition < 0 || newPosition <= previousPosition) return null;
+  return {
+    previousTier,
+    previousDivision,
+    newTier,
+    newDivision,
+    previousRankLabel: formatRankLabel(previousTier, previousDivision),
+    newRankLabel: formatRankLabel(newTier, newDivision),
+  };
 }
 
 export function initialsFromName(name: string): string {
@@ -492,6 +529,8 @@ function progressBadges(profile: PlayerProfile, nowIso: string): { badges: Achie
 export function applyPuzzleResult(profile: PlayerProfile, result: PuzzleResult, outcome?: RankOutcome): ProfileUpdateSummary {
   const normalized = normalizeProfile(profile);
   const previousLevel = normalized.account_level;
+  const previousRankTier = normalized.rank_tier;
+  const previousRankDivision = normalized.rank_division;
   const didWin = outcome === "win" || !["ranked", "ranked_duel", "duel", "daily_duel", "friend_challenge"].includes(result.mode);
   const xpEarnedBase = calculateMasteryXp(result, didWin);
   const completedDay = dateKey(result.completed_at);
@@ -534,7 +573,17 @@ export function applyPuzzleResult(profile: PlayerProfile, result: PuzzleResult, 
   };
   const badgeResult = progressBadges(updated, result.completed_at);
   updated.badges_unlocked = badgeResult.badges;
-  return { xpEarned, didLevelUp: updated.account_level > previousLevel, previousLevel, newLevel: updated.account_level, unlockedBadges: badgeResult.unlocked, updatedProfile: updated };
+  return {
+    xpEarned,
+    didLevelUp: updated.account_level > previousLevel,
+    previousLevel,
+    newLevel: updated.account_level,
+    rankPromotion: isRanked
+      ? getRankPromotionSummary(previousRankTier, previousRankDivision, updated.rank_tier, updated.rank_division)
+      : null,
+    unlockedBadges: badgeResult.unlocked,
+    updatedProfile: updated,
+  };
 }
 
 export function createSimulatedResult(mode: GameMode = "classic", outcome?: RankOutcome): PuzzleResult {

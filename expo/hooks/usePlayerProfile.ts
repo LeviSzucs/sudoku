@@ -7,7 +7,7 @@ import type { PuzzleResult, SessionSnapshot } from "@/hooks/useSudokuGame";
 import { getDailyDateKey, getDailyDateWindow } from "@/lib/daily";
 import { logDevDiagnostic, measureAsync } from "@/lib/performanceDiagnostics";
 import { normalizeAvatarConfig, type CharacterAvatarConfig } from "@/lib/avatar";
-import { applyPuzzleResult, createInitialPlayerProfile, createSimulatedResult, getRankFromRp, initialsFromName, normalizeProfile, type AchievementBadge, type BadgeCategory, type DuelMatchSummary, type PlayerProfile, type ProfileSettings, type ProfileUpdateSummary, type RankOutcome, type RecentResult } from "@/lib/playerProfile";
+import { applyPuzzleResult, createInitialPlayerProfile, createSimulatedResult, getRankFromRp, getRankPromotionSummary, initialsFromName, normalizeProfile, type AchievementBadge, type BadgeCategory, type DuelMatchSummary, type PlayerProfile, type ProfileSettings, type ProfileUpdateSummary, type RankOutcome, type RecentResult } from "@/lib/playerProfile";
 import { startPuzzleSession as insertPuzzleSession, type StartPuzzleSessionInput } from "@/lib/puzzleSessions";
 import type { ScoreBreakdown } from "@/lib/scoring";
 import { fetchDailyPuzzle } from "@/lib/sudoku";
@@ -1691,7 +1691,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
   const recordPuzzleResult = useCallback((result: PuzzleResult, outcome?: RankOutcome, options?: RecordPuzzleResultOptions): ProfileUpdateSummary => {
     const sessionId = options?.sessionId ?? result.session_id ?? null;
     const existingResult = sessionId ? profile.recent_results.find((recent) => recent.session_id === sessionId) : undefined;
-    const summary: ProfileUpdateSummary = existingResult ? { xpEarned: existingResult.xp_earned, didLevelUp: false, previousLevel: profile.account_level, newLevel: profile.account_level, unlockedBadges: [], updatedProfile: profile } : applyPuzzleResult(profile, result, outcome);
+    const summary: ProfileUpdateSummary = existingResult ? { xpEarned: existingResult.xp_earned, didLevelUp: false, previousLevel: profile.account_level, newLevel: profile.account_level, rankPromotion: null, unlockedBadges: [], updatedProfile: profile } : applyPuzzleResult(profile, result, outcome);
     if (!existingResult) persist(summary.updatedProfile);
     setLastUpdate(summary);
     if (!existingResult && summary.updatedProfile.current_streak > profile.current_streak) {
@@ -1801,6 +1801,9 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       didLevelUp: nextProfile.account_level > previousLevel,
       previousLevel,
       newLevel: nextProfile.account_level,
+      rankPromotion: (payload.mode === "ranked" || payload.mode === "ranked_duel")
+        ? getRankPromotionSummary(previousProfile.rank_tier, previousProfile.rank_division, nextProfile.rank_tier, nextProfile.rank_division)
+        : null,
       unlockedBadges,
       updatedProfile: nextProfile,
     };
