@@ -3,9 +3,10 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { cancelAnimation, Easing, Extrapolation, interpolate, runOnJS, useAnimatedReaction, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming, type SharedValue } from "react-native-reanimated";
 
+import AnimatedUnlockSurface from "@/components/AnimatedUnlockSurface";
 import { C } from "@/constants/colors";
 import { buttonShadow } from "@/constants/depth";
-import { success as hapticSuccess } from "@/lib/haptics";
+import { success as hapticSuccess, tapMedium } from "@/lib/haptics";
 import type { ScoreBreakdown } from "@/lib/scoring";
 import { formatTime } from "@/lib/sudoku";
 
@@ -26,7 +27,7 @@ interface Props {
   officialError?: string | null;
   xpEarned?: number;
   levelUpMessage?: string | null;
-  unlockedBadges?: { name: string; icon: string }[];
+  unlockedBadges?: { badge_id: string; name: string; icon: string }[];
   outcomeTitle?: string | null;
   outcomeSubtitle?: string | null;
   celebrationKey?: string | null;
@@ -76,6 +77,8 @@ export default function CompletionModal({
   const titleGlow = useSharedValue(0);
   const lastCelebrationKeyRef = useRef<string | null>(null);
   const hapticTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const badgeHapticTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastBadgeAnimationKeyRef = useRef<string | null>(null);
 
   const normalizedMode = mode.trim().toLowerCase();
   const normalizedOutcome = (outcomeTitle ?? "").trim().toLowerCase().replace(/[\u2019]/g, "'");
@@ -127,6 +130,10 @@ export default function CompletionModal({
     : mistakes === 0 && hintsUsed > 0
     ? `You solved the ${difficulty} puzzle with hints.`
     : `You solved the ${difficulty} puzzle.`;
+  const badgeAnimationBaseDelayMs = celebrationTier === "victory" ? 380 : 300;
+  const badgeAnimationKey = visible && celebrationReady && unlockedBadges.length > 0
+    ? [celebrationKey ?? resolvedCelebrationKey, unlockedBadges.map((badge) => badge.badge_id).join(",")].join("|")
+    : null;
 
   useAnimatedReaction(
     () => Math.round(interpolate(scoreProgress.value, [0, 1], [0, score], Extrapolation.CLAMP)),
@@ -143,8 +150,30 @@ export default function CompletionModal({
       if (hapticTimeoutRef.current) {
         clearTimeout(hapticTimeoutRef.current);
       }
+      if (badgeHapticTimeoutRef.current) {
+        clearTimeout(badgeHapticTimeoutRef.current);
+      }
     };
   }, []);
+
+  useEffect(() => {
+    if (badgeHapticTimeoutRef.current) {
+      clearTimeout(badgeHapticTimeoutRef.current);
+      badgeHapticTimeoutRef.current = null;
+    }
+
+    if (!badgeAnimationKey) {
+      lastBadgeAnimationKeyRef.current = null;
+      return;
+    }
+    if (lastBadgeAnimationKeyRef.current === badgeAnimationKey) return;
+
+    lastBadgeAnimationKeyRef.current = badgeAnimationKey;
+    badgeHapticTimeoutRef.current = setTimeout(() => {
+      void tapMedium();
+      badgeHapticTimeoutRef.current = null;
+    }, badgeAnimationBaseDelayMs + 140);
+  }, [badgeAnimationBaseDelayMs, badgeAnimationKey]);
 
   useEffect(() => {
     if (hapticTimeoutRef.current) {
@@ -415,11 +444,19 @@ export default function CompletionModal({
 
           {showOfficialRewards && unlockedBadges.length > 0 ? (
             <View style={styles.badgeRow}>
-              {unlockedBadges.slice(0, 3).map((badge) => (
-                <View key={badge.name} style={styles.badgeChip}>
+              {unlockedBadges.slice(0, 3).map((badge, index) => (
+                <AnimatedUnlockSurface
+                  key={badge.badge_id}
+                  animateKey={badgeAnimationKey ? `${badgeAnimationKey}:${badge.badge_id}` : null}
+                  delayMs={badgeAnimationBaseDelayMs + index * 100}
+                  borderRadius={999}
+                  style={styles.badgeChipWrap}
+                >
+                  <View style={styles.badgeChip}>
                   <Text style={styles.badgeIcon}>{badge.icon}</Text>
                   <Text style={styles.badgeText}>{badge.name}</Text>
-                </View>
+                  </View>
+                </AnimatedUnlockSurface>
               ))}
               {unlockedBadges.length > 3 ? <Text style={styles.moreBadges}>+{unlockedBadges.length - 3} more unlocked</Text> : null}
             </View>
@@ -598,6 +635,7 @@ const styles = StyleSheet.create({
   xpText: { fontSize: 13, color: C.accent, fontWeight: "800", marginTop: 6 },
   levelUpText: { fontSize: 13, color: C.gold, fontWeight: "800", marginTop: 8 },
   badgeRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 10 },
+  badgeChipWrap: { borderRadius: 999 },
   badgeChip: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: C.goldSoft, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999 },
   badgeIcon: { fontSize: 12, color: C.ink, fontWeight: "900" },
   badgeText: { fontSize: 11, color: C.ink, fontWeight: "800" },
