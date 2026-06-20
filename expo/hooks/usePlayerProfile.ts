@@ -1822,7 +1822,10 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     await verifyOwnedInProgressSession(sessionId);
 
     const previousProfile = profile;
-    const { data, error } = await measureAsync("official result submit duration", () => supabase.rpc("submit_puzzle_result", {
+    const resultRpc = result.mode === "ranked" || result.mode === "ranked_duel"
+      ? "submit_ranked_puzzle_result"
+      : "submit_puzzle_result";
+    const { data, error } = await measureAsync("official result submit duration", () => supabase.rpc(resultRpc, {
       p_session_id: sessionId,
       p_final_board: finalBoard,
       p_elapsed_seconds: result.elapsed_seconds,
@@ -1886,7 +1889,10 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     await verifyOwnedInProgressSession(sessionId);
 
     const previousProfile = profile;
-    const { data, error } = await measureAsync("failed result submit duration", () => supabase.rpc("submit_failed_puzzle_result", {
+    const resultRpc = result.mode === "ranked" || result.mode === "ranked_duel"
+      ? "submit_ranked_failed_puzzle_result"
+      : "submit_failed_puzzle_result";
+    const { data, error } = await measureAsync("failed result submit duration", () => supabase.rpc(resultRpc, {
       p_session_id: sessionId,
       p_elapsed_seconds: result.elapsed_seconds,
       p_mistakes: result.mistakes,

@@ -193,6 +193,7 @@ interface Options {
   restoreSnapshot?: SessionSnapshot;
   /** Raw puzzle data fetched from backend (preferred over difficulty lookup). */
   puzzleData?: RawPuzzleData;
+  onValidPlacement?: (placement: { row: number; col: number; value: number; wasCorrect: boolean }) => void;
 }
 
 /** Synchronous fallback for when puzzleData is not provided. */
@@ -251,7 +252,7 @@ function cellBlockReason({
   return null;
 }
 
-export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnapshot, puzzleData }: Options): UseSudokuGame {
+export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnapshot, puzzleData, onValidPlacement }: Options): UseSudokuGame {
   // ── Resolve puzzle data ───────────────────────────────────────────
   const givens: Board = useMemo(
     () => puzzleData?.givens ?? getFallbackGivens(difficulty),
@@ -543,6 +544,7 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
         const nextMistakes = wasCorrect ? mistakes : mistakes + 1;
         setBoard(nextBoard);
         setNotes((prev) => clearRelatedNotesAfterPlacement(prev, r, c, n));
+        onValidPlacement?.({ row: r, col: c, value: n, wasCorrect });
 
         if (!wasCorrect) {
           setErrors((prev) => new Set(prev).add(`${r},${c}`));
@@ -571,7 +573,7 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
         completePuzzle(nextBoard, secondsRef.current, nextMistakes, hintsUsed, undoCount, moveCountRef.current, [...moveHistory, move]);
       });
     },
-    [selected, paused, completed, gameOver, notesMode, pushHistory, board, mistakes, completePuzzle, hintsUsed, undoCount, addMove, notes, givens, solution, moveHistory]
+    [selected, paused, completed, gameOver, notesMode, pushHistory, board, mistakes, completePuzzle, hintsUsed, undoCount, addMove, notes, givens, solution, moveHistory, onValidPlacement]
   );
 
   const erase = useCallback(() => {

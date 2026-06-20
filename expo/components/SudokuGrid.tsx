@@ -13,6 +13,7 @@ interface Props {
   selected: { r: number; c: number } | null;
   errors: Set<string>;
   boardSize: number;
+  placementPulse: { row: number; col: number; token: number } | null;
   onSelect: (r: number, c: number) => void;
 }
 
@@ -24,7 +25,7 @@ function isPeer(a: { r: number; c: number }, r: number, c: number): boolean {
   return Math.floor(a.r / 3) === Math.floor(r / 3) && Math.floor(a.c / 3) === Math.floor(c / 3);
 }
 
-function SudokuGridBase({ initial, board, notes, selected, errors, boardSize, onSelect }: Props) {
+function SudokuGridBase({ initial, board, notes, selected, errors, boardSize, placementPulse, onSelect }: Props) {
   const renderCountRef = useRef<number>(0);
   renderCountRef.current += 1;
   const cellSize = boardSize / 9;
@@ -72,6 +73,7 @@ function SudokuGridBase({ initial, board, notes, selected, errors, boardSize, on
                 sameValue={sameValue}
                 hasError={hasError}
                 size={cellSize}
+                placementPulseToken={placementPulse?.row === r && placementPulse?.col === c ? placementPulse.token : 0}
                 onSelect={onSelect}
               />
             );

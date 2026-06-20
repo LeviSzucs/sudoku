@@ -1,5 +1,6 @@
-import React, { memo } from "react";
+import React, { memo, useEffect } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
 import { C } from "@/constants/colors";
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
   sameValue: boolean;
   hasError: boolean;
   size: number;
+  placementPulseToken: number;
   onSelect: (r: number, c: number) => void;
 }
 
@@ -37,8 +39,28 @@ function SudokuCellBase({
   sameValue,
   hasError,
   size,
+  placementPulseToken,
   onSelect,
 }: Props) {
+  const prefersReducedMotion = useReducedMotion();
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    if (prefersReducedMotion || placementPulseToken <= 0 || given || value === 0) {
+      scale.value = 1;
+      return;
+    }
+    scale.value = 1.12;
+    scale.value = withTiming(1, {
+      duration: 120,
+      easing: Easing.out(Easing.quad),
+    });
+  }, [given, placementPulseToken, prefersReducedMotion, scale, value]);
+
+  const valueAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
   let bg: string = "transparent";
   if (selected) bg = C.cellSelected;
   else if (sameValue) bg = C.cellSame;
@@ -66,21 +88,24 @@ function SudokuCellBase({
       }}
     >
       {value !== 0 ? (
-        <Text
+        <Animated.Text
           allowFontScaling={false}
-          style={{
-            fontFamily: mono,
-            fontSize: Math.round(size * 0.5),
-            lineHeight: Math.round(size * 0.55),
-            fontWeight: given ? "800" : "700",
-            color: hasError ? C.danger : given ? C.ink : "#2B256D",
-            textAlign: "center",
-            fontVariant: ["tabular-nums"],
-            includeFontPadding: false,
-          }}
+          style={[
+            {
+              fontFamily: mono,
+              fontSize: Math.round(size * 0.5),
+              lineHeight: Math.round(size * 0.55),
+              fontWeight: given ? "800" : "700",
+              color: hasError ? C.danger : given ? C.ink : "#2B256D",
+              textAlign: "center",
+              fontVariant: ["tabular-nums"],
+              includeFontPadding: false,
+            },
+            valueAnimatedStyle,
+          ]}
         >
           {value}
-        </Text>
+        </Animated.Text>
       ) : notes.length > 0 ? (
         <View style={styles.notesGrid}>
           {[0, 1, 2].map((nr) => (
@@ -132,6 +157,7 @@ export default memo(SudokuCellBase, (prev, next) => (
   prev.sameValue === next.sameValue &&
   prev.hasError === next.hasError &&
   prev.size === next.size &&
+  prev.placementPulseToken === next.placementPulseToken &&
   prev.onSelect === next.onSelect &&
   notesEqual(prev.notes, next.notes)
 ));
