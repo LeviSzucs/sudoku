@@ -6,6 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
+import DuelResultReveal from "@/components/DuelResultReveal";
 import PremiumGateCard from "@/components/PremiumGateCard";
 import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
@@ -152,13 +153,14 @@ export default function FriendHeadToHeadScreen() {
                     <Text style={styles.emptyText}>Challenge {summary.friend_display_name} to start your head-to-head record.</Text>
                   </View>
                 ) : visibleMatches.map((match, index) => (
-                  <MatchRow
-                    key={match.challenge_id}
-                    match={match}
-                    friendName={summary.friend_display_name}
-                    last={index === visibleMatches.length - 1}
-                  />
-                ))}
+                    <MatchRow
+                      key={match.challenge_id}
+                      match={match}
+                      friendName={summary.friend_display_name}
+                      animateReveal={index === 0}
+                      last={index === visibleMatches.length - 1}
+                    />
+                  ))}
               </Card>
               {hiddenMatches > 0 ? (
                 <View style={{ marginTop: 12 }}>
@@ -196,7 +198,17 @@ function MetricCard({ label, you, friend, friendName }: { label: string; you: st
   );
 }
 
-function MatchRow({ match, friendName, last }: { match: FriendHeadToHeadMatch; friendName: string; last: boolean }) {
+function MatchRow({
+  match,
+  friendName,
+  last,
+  animateReveal,
+}: {
+  match: FriendHeadToHeadMatch;
+  friendName: string;
+  last: boolean;
+  animateReveal: boolean;
+}) {
   return (
     <View style={[styles.matchRow, !last && styles.rowBorder]}>
       <View style={styles.matchTop}>
@@ -206,9 +218,36 @@ function MatchRow({ match, friendName, last }: { match: FriendHeadToHeadMatch; f
         </View>
         <Text style={[styles.outcomePill, match.outcome === "won" ? styles.winPill : match.outcome === "lost" ? styles.lossPill : styles.drawPill]}>{outcomeLabel(match.outcome)}</Text>
       </View>
+      {animateReveal ? (
+        <DuelResultReveal
+          revealKey={`${match.challenge_id}:${match.completed_at}`}
+          ready={true}
+          verdict={match.outcome === "won" ? "win" : match.outcome === "lost" ? "loss" : "draw"}
+          yourLabel="You"
+          yourScore={match.current_user_score}
+          opponentLabel={friendName}
+          opponentScore={match.friend_score}
+          playHaptics={true}
+          compact={true}
+        />
+      ) : null}
       <View style={styles.resultCompare}>
-        <ResultMini label="You" score={match.current_user_score} seconds={match.current_user_elapsed_seconds} mistakes={match.current_user_mistakes} hints={match.current_user_hints_used} undos={match.current_user_undo_count} />
-        <ResultMini label={friendName} score={match.friend_score} seconds={match.friend_elapsed_seconds} mistakes={match.friend_mistakes} hints={match.friend_hints_used} undos={match.friend_undo_count} />
+        <ResultMini
+          label="You"
+          score={animateReveal ? null : match.current_user_score}
+          seconds={match.current_user_elapsed_seconds}
+          mistakes={match.current_user_mistakes}
+          hints={match.current_user_hints_used}
+          undos={match.current_user_undo_count}
+        />
+        <ResultMini
+          label={friendName}
+          score={animateReveal ? null : match.friend_score}
+          seconds={match.friend_elapsed_seconds}
+          mistakes={match.friend_mistakes}
+          hints={match.friend_hints_used}
+          undos={match.friend_undo_count}
+        />
       </View>
     </View>
   );
@@ -218,7 +257,7 @@ function ResultMini({ label, score, seconds, mistakes, hints, undos }: { label: 
   return (
     <View style={styles.resultMini}>
       <Text style={styles.resultMiniLabel}>{label}</Text>
-      <Text style={styles.resultMiniScore}>{formatScore(score)}</Text>
+      {score !== null ? <Text style={styles.resultMiniScore}>{formatScore(score)}</Text> : null}
       <Text style={styles.resultMiniSub}>{formatOptionalTime(seconds)}</Text>
       <Text style={styles.resultMiniSub}>{mistakes ?? 0}M / {hints ?? 0}H / {undos ?? 0}U</Text>
     </View>
