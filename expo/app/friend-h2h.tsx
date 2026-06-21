@@ -109,7 +109,7 @@ export default function FriendHeadToHeadScreen() {
                   avatar_top_color={summary.friend_avatar_top_color}
                   avatar_accessory={summary.friend_avatar_accessory}
                   avatar_frame={summary.friend_avatar_frame}
-                  variant="lg"
+                  variant="xl"
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.friendName}>{summary.friend_display_name}</Text>
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   kicker: { fontSize: 11, color: C.muted, fontWeight: "700", letterSpacing: 1.6 },
   title: { color: C.ink, fontSize: 28, fontWeight: "900", marginTop: 2 },
   section: { marginTop: 24 },
-  friendHeader: { flexDirection: "row", alignItems: "center", gap: 14 },
+  friendHeader: { flexDirection: "row", alignItems: "center", gap: 16 },
   friendName: { color: C.ink, fontSize: 20, fontWeight: "900" },
   friendHandle: { color: C.muted, fontWeight: "800", marginTop: 3 },
   recordRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 14, marginTop: 20 },

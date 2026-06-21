@@ -286,7 +286,7 @@ export default function LeaderboardsScreen() {
                         initials={entry.user.initials}
                         color={entry.user.avatarColor}
                         symbol={entry.user.avatar_symbol}
-                        variant={place === 1 ? "lg" : "md"}
+                        variant={place === 1 ? "xl" : "lg"}
                       />
                       <Text style={styles.podiumName} numberOfLines={1}>
                         {entry.user.username}
@@ -346,7 +346,7 @@ export default function LeaderboardsScreen() {
                     initials={entry.user.initials}
                     color={entry.user.avatarColor}
                     symbol={entry.user.avatar_symbol}
-                    variant="sm"
+                    variant="md"
                   />
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={styles.name}>{entry.user.username}</Text>
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   podiumInfo: {
-    height: 114,
+    height: 142,
     alignItems: "center",
     justifyContent: "flex-end",
     width: "100%",
@@ -431,14 +431,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: C.ink,
-    marginTop: 8,
+    marginTop: 10,
     maxWidth: "100%",
+    textAlign: "center",
   },
   podiumScore: {
     fontSize: 12,
     color: C.muted,
     marginTop: 1,
-    marginBottom: 8,
+    marginBottom: 10,
     fontWeight: "600",
   },
   podiumBlock: {
@@ -469,7 +470,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 13,
     paddingHorizontal: 16,
   },
   currentUserRow: {
@@ -484,7 +485,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: "700",
     color: C.ink,
   },
   metaText: {

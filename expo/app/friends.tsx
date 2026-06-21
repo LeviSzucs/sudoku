@@ -436,7 +436,7 @@ function EmptyRow({ text }: { text: string }) {
 function UserRow({ user, last, action, working, challengeWorking, onPress, onChallenge, onHistory }: { user: FriendUser; last: boolean; action?: string | null; working?: boolean; challengeWorking?: boolean; onPress?: () => void; onChallenge?: () => void; onHistory?: () => void }) {
   return (
     <View style={[styles.userRow, !last && styles.rowBorder]}>
-      <Avatar {...user} initials={user.initials} color={user.avatar_color} symbol={user.avatar_symbol} variant="md" />
+      <Avatar {...user} initials={user.initials} color={user.avatar_color} symbol={user.avatar_symbol} variant={onChallenge ? "lg" : "md"} />
       <View style={styles.userInfo}>
         <Text style={styles.rowTitle}>{user.display_name}</Text>
         <Text style={styles.rowSub}>@{user.username_handle}</Text>
@@ -539,7 +539,7 @@ function ChallengeRow({ challenge, currentUserId, last, working, onAccept, onDec
           avatar_top_color={challenge.friend_avatar_top_color}
           avatar_accessory={challenge.friend_avatar_accessory}
           avatar_frame={challenge.friend_avatar_frame}
-          variant="md"
+          variant="lg"
         />
         <View style={{ flex: 1 }}>
           <Text style={styles.rowTitle}>{challenge.friend_display_name}</Text>
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
   searchButton: { minHeight: 46, minWidth: 86, borderRadius: 14, backgroundColor: C.ink, alignItems: "center", justifyContent: "center", paddingHorizontal: 14 },
   searchButtonText: { color: "#FBF8F2", fontWeight: "900" },
   helper: { color: C.muted, fontSize: 12, fontWeight: "700", marginTop: 9 },
-  userRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },
+  userRow: { flexDirection: "row", alignItems: "center", gap: 14, padding: 14 },
   userInfo: { flex: 1, minWidth: 0 },
   row: { flexDirection: "row", alignItems: "center", gap: 10, padding: 16 },
   rowBorder: { borderBottomWidth: 1, borderBottomColor: C.border },
@@ -598,7 +598,7 @@ const styles = StyleSheet.create({
   rowSub: { color: C.muted, fontWeight: "700", fontSize: 12, marginTop: 2 },
   emptyRow: { alignItems: "center", justifyContent: "center", padding: 22, gap: 8 },
   emptyText: { color: C.muted, fontWeight: "700", textAlign: "center", marginTop: 10 },
-  friendActions: { alignItems: "stretch", gap: 8, minWidth: 108 },
+  friendActions: { alignItems: "stretch", gap: 8, minWidth: 116 },
   addButton: { minHeight: 38, borderRadius: 999, backgroundColor: C.accent, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 13 },
   challengeButton: { minHeight: 38, minWidth: 108, borderRadius: 999, backgroundColor: C.ink, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 13 },
   historyButton: { minHeight: 34, minWidth: 108, borderRadius: 999, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 12 },
@@ -609,7 +609,7 @@ const styles = StyleSheet.create({
   acceptButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: C.success },
   declineButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border },
   challengeRow: { padding: 14, gap: 12 },
-  challengeHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  challengeHeader: { flexDirection: "row", alignItems: "center", gap: 14 },
   challengeSubstatus: { color: C.muted, fontSize: 12, fontWeight: "800", marginTop: 5 },
   challengeActions: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   acceptTextButton: { minHeight: 36, borderRadius: 999, backgroundColor: C.accent, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 14 },

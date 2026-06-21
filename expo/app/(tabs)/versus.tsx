@@ -443,37 +443,41 @@ export default function VersusScreen() {
 
               <View style={styles.vsRow}>
                 <View style={styles.vsPlayer}>
-                  <Avatar
-                    {...profile}
-                    initials={profile.initials}
-                    color={profile.avatar_color}
-                    symbol={profile.avatar_symbol}
-                    variant="lg"
-                  />
-                  <Text style={styles.vsName}>{profile.display_name ?? profile.username}</Text>
+                  <View style={styles.vsAvatarShell}>
+                    <Avatar
+                      {...profile}
+                      initials={profile.initials}
+                      color={profile.avatar_color}
+                      symbol={profile.avatar_symbol}
+                      variant="xl"
+                    />
+                  </View>
+                  <Text style={styles.vsName} numberOfLines={1}>{profile.display_name ?? profile.username}</Text>
                   <Text style={styles.vsRank}>{formatRank(profile.rank_tier, profile.rank_division)}</Text>
                 </View>
                 <View style={styles.vsCenter}>
                   <Text style={styles.vsLabel}>VS</Text>
                 </View>
                 <View style={styles.vsPlayer}>
-                  <Avatar
-                    initials={dailyDuel?.opponent_initials ?? "?"}
-                    color={dailyDuel?.opponent_avatar_color ?? "#3F7D58"}
-                    symbol={dailyDuel?.opponent_avatar_symbol}
-                    avatar_style_version={dailyDuel?.opponent_avatar_style_version}
-                    avatar_bg_color={dailyDuel?.opponent_avatar_bg_color}
-                    avatar_initials={dailyDuel?.opponent_avatar_initials}
-                    avatar_skin_tone={dailyDuel?.opponent_avatar_skin_tone}
-                    avatar_hair_style={dailyDuel?.opponent_avatar_hair_style}
-                    avatar_hair_color={dailyDuel?.opponent_avatar_hair_color}
-                    avatar_top_style={dailyDuel?.opponent_avatar_top_style}
-                    avatar_top_color={dailyDuel?.opponent_avatar_top_color}
-                    avatar_accessory={dailyDuel?.opponent_avatar_accessory}
-                    avatar_frame={dailyDuel?.opponent_avatar_frame}
-                    variant="lg"
-                  />
-                  <Text style={styles.vsName}>{dailyDuel?.opponent_display_name ?? "Opponent"}</Text>
+                  <View style={[styles.vsAvatarShell, !dailyDuel?.opponent_user_id && styles.vsAvatarShellMuted]}>
+                    <Avatar
+                      initials={dailyDuel?.opponent_initials ?? "?"}
+                      color={dailyDuel?.opponent_avatar_color ?? "#3F7D58"}
+                      symbol={dailyDuel?.opponent_avatar_symbol}
+                      avatar_style_version={dailyDuel?.opponent_avatar_style_version}
+                      avatar_bg_color={dailyDuel?.opponent_avatar_bg_color}
+                      avatar_initials={dailyDuel?.opponent_avatar_initials}
+                      avatar_skin_tone={dailyDuel?.opponent_avatar_skin_tone}
+                      avatar_hair_style={dailyDuel?.opponent_avatar_hair_style}
+                      avatar_hair_color={dailyDuel?.opponent_avatar_hair_color}
+                      avatar_top_style={dailyDuel?.opponent_avatar_top_style}
+                      avatar_top_color={dailyDuel?.opponent_avatar_top_color}
+                      avatar_accessory={dailyDuel?.opponent_avatar_accessory}
+                      avatar_frame={dailyDuel?.opponent_avatar_frame}
+                      variant="xl"
+                    />
+                  </View>
+                  <Text style={styles.vsName} numberOfLines={1}>{dailyDuel?.opponent_display_name ?? "Opponent"}</Text>
                   <Text style={styles.vsRank}>{dailyDuel?.opponent_user_id ? dailyDuel.opponent_rank_tier ?? "Unranked" : dailyDuelCopy.opponentSub}</Text>
                 </View>
               </View>
@@ -519,6 +523,54 @@ export default function VersusScreen() {
                   {auth.isGuest ? "Sign up to play ranked matches" : rankedDuelCopy.sub}
                 </Text>
                 {rankedDuelCopy.resultText && rankedDuel?.status !== "completed" ? <Text style={styles.cardStatus}>{rankedDuelCopy.resultText}</Text> : null}
+              </View>
+            </View>
+            <View style={styles.rankedFaceoff}>
+              <View style={styles.rankedFaceoffPlayer}>
+                <View style={styles.rankedAvatarShell}>
+                  <Avatar
+                    {...profile}
+                    initials={profile.initials}
+                    color={profile.avatar_color}
+                    symbol={profile.avatar_symbol}
+                    variant="lg"
+                  />
+                </View>
+                <Text style={styles.rankedFaceoffName} numberOfLines={1}>
+                  {profile.display_name ?? profile.username}
+                </Text>
+                <Text style={styles.rankedFaceoffSub}>
+                  {formatRank(profile.rank_tier, profile.rank_division)}
+                </Text>
+              </View>
+              <View style={styles.rankedFaceoffCenter}>
+                <Text style={styles.rankedFaceoffVs}>VS</Text>
+              </View>
+              <View style={styles.rankedFaceoffPlayer}>
+                <View style={[styles.rankedAvatarShell, !rankedDuel?.opponent_user_id && styles.rankedAvatarShellMuted]}>
+                  <Avatar
+                    initials={rankedDuel?.opponent_initials ?? "?"}
+                    color={rankedDuel?.opponent_avatar_color ?? "#645B78"}
+                    symbol={rankedDuel?.opponent_avatar_symbol}
+                    avatar_style_version={rankedDuel?.opponent_avatar_style_version}
+                    avatar_bg_color={rankedDuel?.opponent_avatar_bg_color}
+                    avatar_initials={rankedDuel?.opponent_avatar_initials}
+                    avatar_skin_tone={rankedDuel?.opponent_avatar_skin_tone}
+                    avatar_hair_style={rankedDuel?.opponent_avatar_hair_style}
+                    avatar_hair_color={rankedDuel?.opponent_avatar_hair_color}
+                    avatar_top_style={rankedDuel?.opponent_avatar_top_style}
+                    avatar_top_color={rankedDuel?.opponent_avatar_top_color}
+                    avatar_accessory={rankedDuel?.opponent_avatar_accessory}
+                    avatar_frame={rankedDuel?.opponent_avatar_frame}
+                    variant="lg"
+                  />
+                </View>
+                <Text style={styles.rankedFaceoffName} numberOfLines={1}>
+                  {rankedDuel?.opponent_display_name ?? "Opponent"}
+                </Text>
+                <Text style={styles.rankedFaceoffSub}>
+                  {rankedDuel?.opponent_rank_tier ?? (rankedDuel?.status === "waiting_for_opponent" ? "Searching..." : "Queue ready")}
+                </Text>
               </View>
             </View>
             <Pressable style={styles.rankedActionPill} onPress={startRankedDuel}>
@@ -724,11 +776,24 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     gap: 8,
+    minWidth: 0,
+  },
+  vsAvatarShell: {
+    padding: 6,
+    borderRadius: 999,
+    backgroundColor: "#FBF8F214",
+    borderWidth: 1,
+    borderColor: "#FBF8F224",
+  },
+  vsAvatarShellMuted: {
+    backgroundColor: "#FBF8F20D",
+    borderColor: "#FBF8F218",
   },
   vsName: {
     color: "#FBF8F2",
     fontSize: 14,
     fontWeight: "700",
+    maxWidth: "100%",
   },
   vsRank: {
     color: "#FBF8F2AA",
@@ -781,7 +846,7 @@ const styles = StyleSheet.create({
   },
   rankedCardTop: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 14,
   },
   rankedCardText: {
@@ -828,6 +893,52 @@ const styles = StyleSheet.create({
     color: C.inkSoft,
     fontWeight: "900",
     fontSize: 13,
+    textAlign: "center",
+  },
+  rankedFaceoff: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 16,
+    marginBottom: 2,
+  },
+  rankedFaceoffPlayer: {
+    flex: 1,
+    alignItems: "center",
+    minWidth: 0,
+  },
+  rankedAvatarShell: {
+    padding: 4,
+    borderRadius: 999,
+    backgroundColor: C.bgElevated,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  rankedAvatarShellMuted: {
+    opacity: 0.78,
+  },
+  rankedFaceoffCenter: {
+    paddingHorizontal: 4,
+  },
+  rankedFaceoffVs: {
+    color: C.amber,
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+    fontFamily: "Georgia",
+  },
+  rankedFaceoffName: {
+    color: C.ink,
+    fontSize: 13,
+    fontWeight: "800",
+    marginTop: 8,
+    maxWidth: "100%",
+  },
+  rankedFaceoffSub: {
+    color: C.muted,
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 2,
     textAlign: "center",
   },
   cardTitle: {
