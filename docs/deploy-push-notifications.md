@@ -61,10 +61,20 @@ group by user_id, platform, is_active
 order by user_id, platform;
 ```
 
-2. Create a safe self-test notification for the currently signed-in user:
+2. Create a safe self-test notification.
+
+Authenticated app/client self-test for the currently signed-in user:
 
 ```sql
 select public.create_notification_self_test();
+```
+
+Supabase SQL Editor or service-role admin self-test for a specific user:
+
+```sql
+select public.create_notification_admin_test_for_user(
+  '6c90ea5a-ac2b-4660-accd-b03c2a35ebf0'
+);
 ```
 
 3. Confirm the notification and queued deliveries exist before push send runs:
