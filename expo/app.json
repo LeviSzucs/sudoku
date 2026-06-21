@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.sudoduel.app",
+      "bundleIdentifier": "com.leviszucs.sudoduel",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -28,7 +28,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.sudoduel.app"
+      "package": "com.leviszucs.sudoduel"
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
