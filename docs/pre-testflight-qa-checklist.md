@@ -273,6 +273,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Friend Challenge completed creates result-ready notifications for both players.
 - [ ] Daily Duel matched creates match-ready notifications for both players.
 - [ ] Ranked Duel matched creates match-ready notifications for both players.
+- [ ] Each in-app notification that should push immediately creates `pending` `push_notification_deliveries` rows for the user's active devices.
 - [ ] Disabled preferences suppress matching in-app notification types.
 - [ ] No duplicate spam notifications appear for the same event.
 - [ ] In-app notification read state works.
@@ -284,7 +285,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Streak stats screen shows the same subtle flame treatment as Home where appropriate.
 - [ ] Reduced-motion devices still show the streak clearly without broken or busy animation.
 - [ ] Streak count remains accurate while the ambient flame animation runs.
-- [ ] `send-push-notifications` Edge Function is deployed and invoked by a secure schedule or backend webhook.
+- [ ] `send-push-notifications` Edge Function is deployed and invoked by a secure schedule, webhook, or manual trigger.
 - [ ] Push deployment setup follows `docs/deploy-push-notifications.md`.
 - [ ] Edge Function uses `SUPABASE_SERVICE_ROLE_KEY` only in the server runtime.
 - [ ] `PUSH_DELIVERY_SECRET` is configured if invoking the function over HTTP.
@@ -560,9 +561,28 @@ group by status
 order by status;
 ```
 
+### Pending Push Deliveries Ready To Send
+
+```sql
+select pnd.delivery_id, pnd.notification_id, pnd.user_id, pnd.token_id,
+       pnd.status, pnd.created_at, pnd.attempted_at,
+       an.type, an.title,
+       left(pt.expo_push_token, 24) as token_preview
+from public.push_notification_deliveries pnd
+join public.app_notifications an
+  on an.notification_id = pnd.notification_id
+join public.push_tokens pt
+  on pt.token_id = pnd.token_id
+where pnd.status = 'pending'
+order by pnd.created_at desc
+limit 50;
+```
+
 ### Pending Push Delivery Reservation Check
 
-Run only from a trusted SQL/admin context. This reserves rows for delivery, so do not run it repeatedly during normal QA unless you intend to invoke the Edge Function afterwards.
+Run only from a trusted SQL/admin context. This reserves already-queued `pending`
+rows for delivery, so do not run it repeatedly during normal QA unless you intend
+to invoke the Edge Function straight afterwards.
 
 ```sql
 select *
@@ -643,6 +663,25 @@ Run only from the Supabase SQL editor if trigger setup was deployed after real f
 
 ```sql
 select public.repair_notification_events(now() - interval '30 days');
+```
+
+### Repair Missing Push Delivery Rows
+
+Run only from the Supabase SQL editor if `app_notifications` exist but `push_notification_deliveries`
+are missing because the push fan-out trigger was deployed later:
+
+```sql
+select public.repair_push_notification_deliveries(now() - interval '30 days');
+```
+
+### Create A Safe Notification Self-Test
+
+Creates one in-app notification for the current signed-in user and should
+immediately fan it out into pending push delivery rows for that user's active
+devices:
+
+```sql
+select public.create_notification_self_test();
 ```
 
 ### Notification RLS Enabled

@@ -2,7 +2,7 @@
 
 Supabase Edge Function for SudoDuel phone push delivery.
 
-This function sends Expo push notifications for existing rows in `public.app_notifications`.
+This function sends Expo push notifications for already-queued rows in `public.push_notification_deliveries`.
 It must run server-side only. The mobile app must not call Expo push delivery directly.
 
 ## Required environment variables
@@ -29,12 +29,38 @@ curl -X POST \
 
 The function:
 
-- reserves unsent notification/token pairs atomically,
+- reserves queued `pending` delivery rows atomically,
 - honours `notification_preferences`,
 - sends to all active devices for the user,
 - records each attempt in `push_notification_deliveries`,
 - deactivates Expo tokens rejected as `DeviceNotRegistered`,
 - never creates app notifications itself.
+
+## Pipeline overview
+
+1. Social or duel triggers create rows in `public.app_notifications`.
+2. An `after insert` trigger immediately fans each notification out into `pending`
+   rows in `public.push_notification_deliveries` for all active devices that still
+   have push enabled for that notification type.
+3. This Edge Function reserves those `pending` rows, marks them `sending`, and
+   updates them to `sent`, `failed`, or `skipped`.
+
+If `app_notifications` exist but no delivery rows exist, the SQL migration that
+adds the push fan-out trigger has not been applied yet.
+
+## Manual self-test
+
+Create a safe test notification for the currently signed-in user:
+
+```sql
+select public.create_notification_self_test();
+```
+
+Backfill missing pending delivery rows for recent notifications, if needed:
+
+```sql
+select public.repair_push_notification_deliveries(now() - interval '30 days');
+```
 
 ## Notes
 
