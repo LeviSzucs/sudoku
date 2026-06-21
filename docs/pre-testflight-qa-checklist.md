@@ -304,7 +304,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Fairness note is visible.
 - [ ] Free and Premium states show clean, non-technical purchase copy.
 - [ ] All Classic difficulties, including Expert and Master, are free.
-- [ ] Premium benefits focus on live stats, history, duel tools, and cosmetics, with ads/themes/archive clearly marked as future additions only.
+- [ ] Premium screen clearly explains the current free-first launch approach.
+- [ ] Premium is framed as future/supporter/cosmetic-focused rather than a core gameplay paywall.
 - [ ] Premium does not affect RP, leaderboard scores, matchmaking, or duel outcomes.
 - [ ] Premium does not imply Expert/Master are paywalled.
 - [ ] Daily Sudoku is not paywalled.
@@ -312,13 +313,10 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Ranked Duel is not paywalled.
 - [ ] Friend Challenge is not paywalled.
 - [ ] Leaderboards are not paywalled.
-- [ ] Free users can view only the latest 20 saved results in Results History.
-- [ ] Premium users can view full Results History after purchase or restore.
-- [ ] Free users see basic stats only; Premium users can view deeper puzzle-mode, duel breakdown, and head-to-head stat sections.
-- [ ] Free users can see recent head-to-head matches only; Premium users can view full rivalry history and comparison details.
-- [ ] Free users cannot select Premium-only avatar cosmetics.
-- [ ] Premium users can select Premium-only avatar cosmetics immediately after entitlement refresh.
-- [ ] Free users are limited to 3 Friend Challenge creations per day.
+- [ ] Free-first launch mode leaves current result history, advanced stats, head-to-head views, and current avatar options accessible without a Premium blocker.
+- [ ] Premium/payment architecture remains intact even though current launch gating is relaxed.
+- [ ] Restore purchases still behaves safely and refreshes Premium status.
+- [ ] Free users can create up to 10 Friend Challenges in the current limit window.
 - [ ] Premium users have the higher/unlimited Friend Challenge creation path.
 - [ ] No real ad SDK is integrated.
 - [ ] No tracking or App Tracking Transparency prompt is present.
@@ -327,7 +325,6 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Premium plan is treated as ad-free by policy.
 - [ ] `user_entitlements` RLS is enabled.
 - [ ] Current user has no active Premium entitlement unless intentionally configured for QA.
-- [ ] Friend Challenge creation limits are documented as Free: 10 per day and Premium: higher/unlimited.
 - [ ] Free users can create up to 10 Friend Challenges in the current limit window.
 - [ ] Free users see no Premium clutter in the Friend Challenge modal before hitting the limit.
 - [ ] Free users only see Friend Challenge limit copy after hitting the 10-challenge free allowance.
@@ -335,8 +332,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Premium users can create Friend Challenges beyond the Free limit.
 - [ ] Friend Challenge accept, complete, and result flows still work after limit checks.
 - [ ] Friend Challenge difficulty selection still works for Easy, Medium, Hard, Expert, and Master.
-- [ ] Free result history limit is documented as latest 20 results.
-- [ ] Friend Challenge limits, stats limits, history limits, and ad-free behaviour must be retested once payments are integrated.
+- [ ] Any future Premium gating plan for history, stats, avatar cosmetics, and supporter perks is documented for post-launch review rather than hard-blocking launch players.
+- [ ] Friend Challenge limits and ad-free behaviour can still be retested later if monetisation rules change after launch learning.
 - [ ] RevenueCat public iOS API key is configured for purchase-enabled builds.
 - [ ] RevenueCat entitlement `premium` exists.
 - [ ] RevenueCat offering `default` exists.

@@ -8,7 +8,7 @@ import BrandMark from "@/components/BrandMark";
 import Card from "@/components/Card";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
-import { FREE_FEATURES, LIVE_PREMIUM_FEATURES, PLANNED_PREMIUM_FEATURES, PREMIUM_FAIRNESS_NOTE } from "@/constants/premium";
+import { FREE_FEATURES, FREE_FIRST_LAUNCH_MODE, FREE_FIRST_LAUNCH_NOTE, LIVE_PREMIUM_FEATURES, PLANNED_PREMIUM_FEATURES, PREMIUM_FAIRNESS_NOTE } from "@/constants/premium";
 import { PRODUCT_MONTHLY, PRODUCT_YEARLY } from "@/constants/purchases";
 import { LEGAL_LAST_UPDATED, SUPPORT_EMAIL_LABEL } from "@/constants/legal";
 import { usePremiumStatus } from "@/hooks/usePremiumStatus";
@@ -38,9 +38,9 @@ const CONTENT: Record<InfoPage, {
     subtitle: "Current plan: Free.",
     icon: "premium",
     sections: [
-      { title: "Premium includes now", body: "Full results history, advanced stat views, head-to-head history, higher Friend Challenge creation, and Premium avatar cosmetics." },
-      { title: "Free for everyone", body: "Unlimited Classic Sudoku, all five Classic difficulties, Daily Sudoku, Daily Duel, Ranked Duel, accepting Friend Challenges, basic stats, achievements, avatar customisation, and recent results history." },
-      { title: "Planned for future updates", body: "Ad-free play when ads are introduced, Premium themes, season recaps, and the puzzle archive." },
+      { title: "Free-first launch", body: FREE_FIRST_LAUNCH_NOTE },
+      { title: "What stays free", body: "Unlimited Classic Sudoku, all five Classic difficulties, Daily Sudoku, Daily Duel, Friend Challenges, Ranked Duel, leaderboards, public profiles, achievements, core stats, current avatar customisation, and full social identity surfaces remain open at launch." },
+      { title: "Premium direction", body: "Premium stays ready for future supporter perks, cosmetic extras, richer convenience tools, ad-free play when ads arrive, and carefully chosen upgrades that do not affect competitive fairness." },
       { title: "Fair play promise", body: PREMIUM_FAIRNESS_NOTE },
       { title: "Ads", body: "Free accounts may see occasional ads at natural breaks in a future version. Ads will never appear during active puzzles or before results are saved." },
       { title: "Payments", body: "Purchases are handled securely through the App Store. You can restore purchases at any time." },
@@ -237,12 +237,20 @@ export default function SettingsInfoScreen() {
   const premiumSubtitle = premium.isPremium ? "Current plan: Premium." : "Current plan: Free.";
   const hasMonthlyAndYearly = premiumPackages.some((pkg) => pkg.product.identifier === PRODUCT_MONTHLY)
     && premiumPackages.some((pkg) => pkg.product.identifier === PRODUCT_YEARLY);
-  const premiumSections = [
-    { title: "Premium includes now", body: featureList(LIVE_PREMIUM_FEATURES) },
-    { title: "Free for everyone", body: featureList(FREE_FEATURES.filter((feature) => feature.live !== false)) },
-    { title: "Planned for future updates", body: featureList(PLANNED_PREMIUM_FEATURES) },
-    ...content.sections.slice(3),
-  ];
+  const premiumSections = FREE_FIRST_LAUNCH_MODE
+    ? [
+        { title: "Free-first launch", body: FREE_FIRST_LAUNCH_NOTE },
+        { title: "Open for everyone now", body: featureList(FREE_FEATURES.filter((feature) => feature.live !== false)) },
+        { title: "Premium supporter direction", body: "Premium infrastructure remains active for future cosmetics, supporter perks, and convenience features as SudoDuel grows." },
+        { title: "Future Premium ideas", body: featureList(PLANNED_PREMIUM_FEATURES) },
+        ...content.sections.slice(3),
+      ]
+    : [
+        { title: "Premium includes now", body: featureList(LIVE_PREMIUM_FEATURES) },
+        { title: "Free for everyone", body: featureList(FREE_FEATURES.filter((feature) => feature.live !== false)) },
+        { title: "Planned for future updates", body: featureList(PLANNED_PREMIUM_FEATURES) },
+        ...content.sections.slice(3),
+      ];
 
   const openDiagnostics = useCallback(async () => {
     if (page !== "premium") return;
@@ -329,22 +337,28 @@ export default function SettingsInfoScreen() {
               </View>
               <Text style={styles.planBody}>
                 {premium.isPremium
-                  ? "Premium is active for this account. Your plan now includes full results history, advanced stat views, expanded head-to-head history, higher Friend Challenge creation, and Premium avatar cosmetics."
-                  : "All Classic difficulties are free, including Expert and Master. Premium adds live convenience features, deeper history, richer stats, higher Friend Challenge creation, and cosmetic extras."}
+                  ? FREE_FIRST_LAUNCH_MODE
+                    ? "Premium is active for this account. SudoDuel is currently launching free-first, so core play and social features remain open to everyone while Premium stays ready for supporter perks and future cosmetic extras."
+                    : "Premium is active for this account. Your plan now includes full results history, advanced stat views, expanded head-to-head history, higher Friend Challenge creation, and Premium avatar cosmetics."
+                  : FREE_FIRST_LAUNCH_MODE
+                    ? "All Classic difficulties are free, including Expert and Master. SudoDuel is currently launching free-first, so core play, social features, leaderboards, public profiles, and current avatar options remain open while Premium supporter perks continue to take shape."
+                    : "All Classic difficulties are free, including Expert and Master. Premium adds live convenience features, deeper history, richer stats, higher Friend Challenge creation, and cosmetic extras."}
               </Text>
               <View style={styles.disabledCta}>
-                <Text style={styles.disabledCtaText}>{premium.isPremium ? "Premium active" : "Free plan active"}</Text>
+                <Text style={styles.disabledCtaText}>{premium.isPremium ? "Premium active" : FREE_FIRST_LAUNCH_MODE ? "Free-first launch" : "Free plan active"}</Text>
               </View>
             </View>
           ) : null}
 
           {page === "premium" ? (
             <View style={[styles.purchaseBlock, styles.divider]}>
-              <Text style={styles.featureStripTitle}>{premium.isPremium ? "Manage your subscription" : "Choose a plan"}</Text>
+              <Text style={styles.featureStripTitle}>{premium.isPremium ? "Manage your subscription" : FREE_FIRST_LAUNCH_MODE ? "Support SudoDuel" : "Choose a plan"}</Text>
               <Text style={styles.purchaseIntro}>
                 {premium.isPremium
                   ? "Your subscription is managed through the App Store."
-                  : "Subscribe to unlock Premium benefits. Prices are loaded securely from the App Store."}
+                  : FREE_FIRST_LAUNCH_MODE
+                    ? "SudoDuel is launching free-first. If you choose to subscribe, prices are loaded securely from the App Store and help support future cosmetics and Premium perks."
+                    : "Subscribe to unlock Premium benefits. Prices are loaded securely from the App Store."}
               </Text>
               {premium.isPremium ? (
                 <View style={styles.manageBlock}>

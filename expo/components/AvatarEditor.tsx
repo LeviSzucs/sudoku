@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 
 import Avatar from "@/components/Avatar";
 import { C } from "@/constants/colors";
+import { FREE_FIRST_LAUNCH_MODE } from "@/constants/premium";
 import { avatarItemsFor, normalizeAvatarConfig, type AvatarCategory, type CharacterAvatarConfig } from "@/lib/avatar";
 
 interface AvatarEditorProps {
@@ -93,7 +94,11 @@ export default function AvatarEditor({ value, onChange, error, hasPremiumCosmeti
         );
       })}
 
-      <Text style={styles.futureNote}>Locked cosmetics preview future rewards and Premium items.</Text>
+      <Text style={styles.futureNote}>
+        {FREE_FIRST_LAUNCH_MODE
+          ? "SudoDuel is in free-first launch mode, so current avatar customisation stays open while more supporter cosmetics take shape."
+          : "Locked cosmetics preview future rewards and Premium items."}
+      </Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );
