@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import { Crown, Trophy } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -45,6 +46,7 @@ function secondsToTime(totalSeconds: number): string {
 
 export default function LeaderboardsScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("daily");
   const auth = useAuth();
   const { profile, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, fetchRankedLeaderboard, fetchFriends } = usePlayerProfile();
@@ -203,6 +205,10 @@ export default function LeaderboardsScreen() {
     return { title: isLoadingRanked ? "Loading ranked leaderboard" : "No ranked players yet", sub: isLoadingRanked ? "Checking season standings" : "Play Ranked Duel to enter the season standings.", icon: <Trophy size={36} color={C.mutedSoft} strokeWidth={1.5} /> };
   })();
 
+  const openPlayerProfile = (userId: string) => {
+    router.push({ pathname: "/player/[id]", params: { id: userId } });
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
@@ -280,7 +286,7 @@ export default function LeaderboardsScreen() {
                 const bg = place === 1 ? C.gold : place === 2 ? C.mutedSoft : "#C8835A";
                 return (
                   <View key={entry.id} style={styles.podiumCol}>
-                    <View style={styles.podiumInfo}>
+                    <Pressable style={styles.podiumInfo} onPress={() => openPlayerProfile(entry.user.id)}>
                       <Avatar
                         {...entry.user}
                         initials={entry.user.initials}
@@ -294,7 +300,7 @@ export default function LeaderboardsScreen() {
                       <Text style={styles.podiumScore} numberOfLines={1}>
                         {entry.score.toLocaleString()}
                       </Text>
-                    </View>
+                    </Pressable>
                     <View
                       style={[
                         styles.podiumBlock,
@@ -341,25 +347,27 @@ export default function LeaderboardsScreen() {
                   >
                     {entry.rank}
                   </Text>
-                  <Avatar
-                    {...entry.user}
-                    initials={entry.user.initials}
-                    color={entry.user.avatarColor}
-                    symbol={entry.user.avatar_symbol}
-                    variant="md"
-                  />
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.name}>{entry.user.username}</Text>
-                    {tab === "daily" ? (
-                      <Text style={styles.metaText}>{entry.time} - {entry.mistakes ?? 0}M {entry.hints ?? 0}H {entry.undos ?? 0}U</Text>
-                    ) : null}
-                    {tab === "weekly" || tab === "friends" ? (
-                      <Text style={styles.metaText}>{entry.puzzlesCompleted ?? 0} solves - best score {(entry.bestScore ?? 0).toLocaleString()}</Text>
-                    ) : null}
-                    {tab === "ranked" ? (
-                      <Text style={styles.metaText}>{entry.tier ?? "Bronze III"} - {entry.wins ?? 0}W {entry.losses ?? 0}L {entry.draws ?? 0}D</Text>
-                    ) : null}
-                  </View>
+                  <Pressable style={styles.rowIdentity} onPress={() => openPlayerProfile(entry.user.id)}>
+                    <Avatar
+                      {...entry.user}
+                      initials={entry.user.initials}
+                      color={entry.user.avatarColor}
+                      symbol={entry.user.avatar_symbol}
+                      variant="md"
+                    />
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={styles.name}>{entry.user.username}</Text>
+                      {tab === "daily" ? (
+                        <Text style={styles.metaText}>{entry.time} - {entry.mistakes ?? 0}M {entry.hints ?? 0}H {entry.undos ?? 0}U</Text>
+                      ) : null}
+                      {tab === "weekly" || tab === "friends" ? (
+                        <Text style={styles.metaText}>{entry.puzzlesCompleted ?? 0} solves - best score {(entry.bestScore ?? 0).toLocaleString()}</Text>
+                      ) : null}
+                      {tab === "ranked" ? (
+                        <Text style={styles.metaText}>{entry.tier ?? "Bronze III"} - {entry.wins ?? 0}W {entry.losses ?? 0}L {entry.draws ?? 0}D</Text>
+                      ) : null}
+                    </View>
+                  </Pressable>
                   <Text style={styles.score}>{entry.score.toLocaleString()}</Text>
                 </View>
               ))}
@@ -472,6 +480,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 13,
     paddingHorizontal: 16,
+  },
+  rowIdentity: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    minWidth: 0,
   },
   currentUserRow: {
     backgroundColor: C.accentSoft,

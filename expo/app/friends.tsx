@@ -219,6 +219,13 @@ export default function FriendsScreen() {
     });
   }, []);
 
+  const openPlayerProfile = useCallback((userId: string) => {
+    router.push({
+      pathname: "/player/[id]",
+      params: { id: userId },
+    });
+  }, []);
+
   const openChallengeModal = useCallback((friend: FriendUser) => {
     if (!challengeCreation.allowed) {
       Alert.alert("Friend Challenge", challengeCreation.reason ?? "You cannot create a new Friend Challenge right now.");
@@ -270,14 +277,15 @@ export default function FriendsScreen() {
             <SectionHeader title="Search results" />
             <Card padded={false}>
               {results.map((user, index) => (
-                <UserRow
-                  key={user.user_id}
-                  user={user}
-                  last={index === results.length - 1}
-                  action={statusText(user.relationship_status)}
-                  working={workingId === user.user_id}
-                  onPress={user.relationship_status === "none" ? () => addFriend(user) : undefined}
-                />
+              <UserRow
+                key={user.user_id}
+                user={user}
+                last={index === results.length - 1}
+                action={statusText(user.relationship_status)}
+                working={workingId === user.user_id}
+                onPress={user.relationship_status === "none" ? () => addFriend(user) : undefined}
+                onProfile={() => openPlayerProfile(user.user_id)}
+              />
               ))}
             </Card>
           </View>
@@ -297,6 +305,7 @@ export default function FriendsScreen() {
                 working={workingId === request.request_id}
                 onAccept={() => respond(request, "accepted")}
                 onDecline={() => respond(request, "declined")}
+                onProfile={() => openPlayerProfile(request.user_id)}
               />
             ))}
           </Card>
@@ -316,6 +325,7 @@ export default function FriendsScreen() {
                 challengeWorking={workingId === `challenge:${friend.user_id}`}
                 onChallenge={() => openChallengeModal(friend)}
                 onHistory={() => openHistory(friend)}
+                onProfile={() => openPlayerProfile(friend.user_id)}
               />
             ))}
           </Card>
@@ -335,6 +345,7 @@ export default function FriendsScreen() {
                 working={workingId === challenge.challenge_id}
                 onAccept={() => acceptChallenge(challenge)}
                 onDecline={() => declineChallenge(challenge)}
+                onProfile={() => openPlayerProfile(challenge.friend_user_id)}
               />
             ))}
           </Card>
@@ -354,6 +365,7 @@ export default function FriendsScreen() {
                 working={workingId === challenge.challenge_id}
                 onPlay={challenge.current_user_session_id && challenge.status !== "pending" && !currentUserCompletedChallenge(challenge, auth.user?.id ?? null) ? () => playChallenge(challenge) : undefined}
                 onCancel={challenge.direction === "outgoing" && ["pending", "accepted"].includes(challenge.status) ? () => cancelChallenge(challenge) : undefined}
+                onProfile={() => openPlayerProfile(challenge.friend_user_id)}
               />
             ))}
           </Card>
@@ -371,6 +383,7 @@ export default function FriendsScreen() {
                 last={index === friends.length - 1}
                 action="Friends"
                 onHistory={() => openHistory(friend)}
+                onProfile={() => openPlayerProfile(friend.user_id)}
               />
             ))}
           </Card>
@@ -387,6 +400,7 @@ export default function FriendsScreen() {
                 challenge={challenge}
                 currentUserId={auth.user?.id ?? null}
                 last={index === completedChallenges.length - 1}
+                onProfile={() => openPlayerProfile(challenge.friend_user_id)}
               />
             ))}
           </Card>
@@ -433,14 +447,16 @@ function EmptyRow({ text }: { text: string }) {
   return <View style={styles.emptyRow}><Users size={24} color={C.mutedSoft} /><Text style={styles.emptyText}>{text}</Text></View>;
 }
 
-function UserRow({ user, last, action, working, challengeWorking, onPress, onChallenge, onHistory }: { user: FriendUser; last: boolean; action?: string | null; working?: boolean; challengeWorking?: boolean; onPress?: () => void; onChallenge?: () => void; onHistory?: () => void }) {
+function UserRow({ user, last, action, working, challengeWorking, onPress, onChallenge, onHistory, onProfile }: { user: FriendUser; last: boolean; action?: string | null; working?: boolean; challengeWorking?: boolean; onPress?: () => void; onChallenge?: () => void; onHistory?: () => void; onProfile?: () => void }) {
   return (
     <View style={[styles.userRow, !last && styles.rowBorder]}>
-      <Avatar {...user} initials={user.initials} color={user.avatar_color} symbol={user.avatar_symbol} variant={onChallenge ? "lg" : "md"} />
-      <View style={styles.userInfo}>
-        <Text style={styles.rowTitle}>{user.display_name}</Text>
-        <Text style={styles.rowSub}>@{user.username_handle}</Text>
-      </View>
+      <Pressable style={styles.identityBlock} onPress={onProfile} disabled={!onProfile}>
+        <Avatar {...user} initials={user.initials} color={user.avatar_color} symbol={user.avatar_symbol} variant={onChallenge ? "lg" : "md"} />
+        <View style={styles.userInfo}>
+          <Text style={styles.rowTitle}>{user.display_name}</Text>
+          <Text style={styles.rowSub}>@{user.username_handle}</Text>
+        </View>
+      </Pressable>
       {onChallenge || onHistory ? (
         <View style={styles.friendActions}>
           {onHistory ? (
@@ -464,14 +480,16 @@ function UserRow({ user, last, action, working, challengeWorking, onPress, onCha
   );
 }
 
-function RequestRow({ request, last, working, onAccept, onDecline }: { request: FriendRequestEntry; last: boolean; working: boolean; onAccept: () => void; onDecline: () => void }) {
+function RequestRow({ request, last, working, onAccept, onDecline, onProfile }: { request: FriendRequestEntry; last: boolean; working: boolean; onAccept: () => void; onDecline: () => void; onProfile?: () => void }) {
   return (
     <View style={[styles.userRow, !last && styles.rowBorder]}>
-      <Avatar {...request} initials={request.initials} color={request.avatar_color} symbol={request.avatar_symbol} variant="md" />
-      <View style={{ flex: 1 }}>
-        <Text style={styles.rowTitle}>{request.display_name}</Text>
-        <Text style={styles.rowSub}>@{request.username_handle}</Text>
-      </View>
+      <Pressable style={styles.identityBlock} onPress={onProfile} disabled={!onProfile}>
+        <Avatar {...request} initials={request.initials} color={request.avatar_color} symbol={request.avatar_symbol} variant="md" />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.rowTitle}>{request.display_name}</Text>
+          <Text style={styles.rowSub}>@{request.username_handle}</Text>
+        </View>
+      </Pressable>
       <View style={styles.requestActions}>
         <Pressable style={styles.acceptButton} onPress={onAccept} disabled={working}>
           <Check size={17} color="#FBF8F2" />
@@ -484,7 +502,7 @@ function RequestRow({ request, last, working, onAccept, onDecline }: { request: 
   );
 }
 
-function ChallengeRow({ challenge, currentUserId, last, working, onAccept, onDecline, onCancel, onPlay }: { challenge: FriendChallengeEntry; currentUserId: string | null; last: boolean; working?: boolean; onAccept?: () => void; onDecline?: () => void; onCancel?: () => void; onPlay?: () => void }) {
+function ChallengeRow({ challenge, currentUserId, last, working, onAccept, onDecline, onCancel, onPlay, onProfile }: { challenge: FriendChallengeEntry; currentUserId: string | null; last: boolean; working?: boolean; onAccept?: () => void; onDecline?: () => void; onCancel?: () => void; onPlay?: () => void; onProfile?: () => void }) {
   const currentIsChallenger = currentUserId === challenge.challenger_id;
   const yourScore = currentIsChallenger ? challenge.challenger_score : challenge.challenged_score;
   const friendScore = currentIsChallenger ? challenge.challenged_score : challenge.challenger_score;
@@ -525,27 +543,29 @@ function ChallengeRow({ challenge, currentUserId, last, working, onAccept, onDec
   return (
     <View style={[styles.challengeRow, !last && styles.rowBorder]}>
       <View style={styles.challengeHeader}>
-        <Avatar
-          initials={challenge.friend_initials}
-          color={challenge.friend_avatar_color}
-          symbol={challenge.friend_avatar_symbol}
-          avatar_style_version={challenge.friend_avatar_style_version}
-          avatar_bg_color={challenge.friend_avatar_bg_color}
-          avatar_initials={challenge.friend_avatar_initials}
-          avatar_skin_tone={challenge.friend_avatar_skin_tone}
-          avatar_hair_style={challenge.friend_avatar_hair_style}
-          avatar_hair_color={challenge.friend_avatar_hair_color}
-          avatar_top_style={challenge.friend_avatar_top_style}
-          avatar_top_color={challenge.friend_avatar_top_color}
-          avatar_accessory={challenge.friend_avatar_accessory}
-          avatar_frame={challenge.friend_avatar_frame}
-          variant="lg"
-        />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.rowTitle}>{challenge.friend_display_name}</Text>
-          <Text style={styles.rowSub}>@{challenge.friend_username_handle} / {challenge.difficulty}</Text>
-          <Text style={styles.challengeSubstatus}>{displayStatus.sub}</Text>
-        </View>
+        <Pressable style={styles.identityBlock} onPress={onProfile} disabled={!onProfile}>
+          <Avatar
+            initials={challenge.friend_initials}
+            color={challenge.friend_avatar_color}
+            symbol={challenge.friend_avatar_symbol}
+            avatar_style_version={challenge.friend_avatar_style_version}
+            avatar_bg_color={challenge.friend_avatar_bg_color}
+            avatar_initials={challenge.friend_avatar_initials}
+            avatar_skin_tone={challenge.friend_avatar_skin_tone}
+            avatar_hair_style={challenge.friend_avatar_hair_style}
+            avatar_hair_color={challenge.friend_avatar_hair_color}
+            avatar_top_style={challenge.friend_avatar_top_style}
+            avatar_top_color={challenge.friend_avatar_top_color}
+            avatar_accessory={challenge.friend_avatar_accessory}
+            avatar_frame={challenge.friend_avatar_frame}
+            variant="lg"
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowTitle}>{challenge.friend_display_name}</Text>
+            <Text style={styles.rowSub}>@{challenge.friend_username_handle} / {challenge.difficulty}</Text>
+            <Text style={styles.challengeSubstatus}>{displayStatus.sub}</Text>
+          </View>
+        </Pressable>
         <Text style={styles.statusPill}>{displayStatus.label}</Text>
       </View>
       {challenge.status === "completed" ? (
@@ -591,6 +611,7 @@ const styles = StyleSheet.create({
   searchButtonText: { color: "#FBF8F2", fontWeight: "900" },
   helper: { color: C.muted, fontSize: 12, fontWeight: "700", marginTop: 9 },
   userRow: { flexDirection: "row", alignItems: "center", gap: 14, padding: 14 },
+  identityBlock: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 14 },
   userInfo: { flex: 1, minWidth: 0 },
   row: { flexDirection: "row", alignItems: "center", gap: 10, padding: 16 },
   rowBorder: { borderBottomWidth: 1, borderBottomColor: C.border },

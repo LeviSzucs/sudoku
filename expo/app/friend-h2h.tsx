@@ -94,7 +94,7 @@ export default function FriendHeadToHeadScreen() {
         ) : (
           <>
             <Card>
-              <View style={styles.friendHeader}>
+              <Pressable style={styles.friendHeader} onPress={() => router.push({ pathname: "/player/[id]", params: { id: summary.friend_user_id } })}>
                 <Avatar
                   initials={summary.friend_initials}
                   color={summary.friend_avatar_color}
@@ -115,7 +115,7 @@ export default function FriendHeadToHeadScreen() {
                   <Text style={styles.friendName}>{summary.friend_display_name}</Text>
                   <Text style={styles.friendHandle}>@{summary.friend_username_handle}</Text>
                 </View>
-              </View>
+              </Pressable>
               <View style={styles.recordRow}>
                 <RecordBox label="You" value={summary.current_user_wins} />
                 <Text style={styles.recordDash}>-</Text>

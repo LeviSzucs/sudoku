@@ -164,6 +164,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Weekly leaderboard loads.
 - [ ] Friends leaderboard loads.
 - [ ] Ranked leaderboard loads.
+- [ ] Tapping a podium avatar/name opens that player's public profile.
+- [ ] Tapping a leaderboard row avatar/name opens that player's public profile.
 - [ ] Current user appears correctly where eligible.
 - [ ] Current user highlighting is correct.
 - [ ] RP/rank display matches Profile and Versus.
@@ -186,6 +188,10 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Result History opens.
 - [ ] Settings opens.
 - [ ] Profile subpage back buttons return to Profile.
+- [ ] Public player profile route opens with a large framed avatar hero.
+- [ ] Public profile shows rank/stats only when the player's privacy settings allow them.
+- [ ] Public profile hides recent results when the player has disabled public recent results.
+- [ ] Public profile shows a calm private-state message when `public_profile` is off.
 
 ## J. Avatar Builder
 
@@ -233,6 +239,15 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Terms & Conditions opens.
 - [ ] Privacy Policy opens.
 - [ ] Logout works.
+
+## K1. Public Social Profiles
+
+- [ ] Tapping a friend avatar/name opens that player's public profile.
+- [ ] Tapping a Friend Challenge avatar/name opens that player's public profile.
+- [ ] Tapping a Daily Duel or Ranked Duel opponent avatar/name opens that player's public profile when a real opponent exists.
+- [ ] Public profile does not expose email, auth metadata, or private settings fields.
+- [ ] Public profile recent results only appear when `show_recent_results_publicly` is enabled.
+- [ ] Public profile stats only appear when `show_stats_publicly` is enabled.
 
 ## K2. Notifications
 

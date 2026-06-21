@@ -220,6 +220,11 @@ export default function VersusScreen() {
   const [rankedDuelLoading, setRankedDuelLoading] = useState(false);
   const [rankedCancelLoading, setRankedCancelLoading] = useState(false);
 
+  const openPlayerProfile = useCallback((userId: string | null | undefined) => {
+    if (!userId) return;
+    router.push({ pathname: "/player/[id]", params: { id: userId } });
+  }, [router]);
+
   const duelResults = profile.recent_results.filter(
     (r) => r.mode === "duel" || r.mode === "daily_duel" || r.mode === "ranked" || r.mode === "ranked_duel"
   );
@@ -458,7 +463,7 @@ export default function VersusScreen() {
                 <View style={styles.vsCenter}>
                   <Text style={styles.vsLabel}>VS</Text>
                 </View>
-                <View style={styles.vsPlayer}>
+                <Pressable style={styles.vsPlayer} onPress={() => openPlayerProfile(dailyDuel?.opponent_user_id)} disabled={!dailyDuel?.opponent_user_id}>
                   <View style={[styles.vsAvatarShell, !dailyDuel?.opponent_user_id && styles.vsAvatarShellMuted]}>
                     <Avatar
                       initials={dailyDuel?.opponent_initials ?? "?"}
@@ -479,7 +484,7 @@ export default function VersusScreen() {
                   </View>
                   <Text style={styles.vsName} numberOfLines={1}>{dailyDuel?.opponent_display_name ?? "Opponent"}</Text>
                   <Text style={styles.vsRank}>{dailyDuel?.opponent_user_id ? dailyDuel.opponent_rank_tier ?? "Unranked" : dailyDuelCopy.opponentSub}</Text>
-                </View>
+                </Pressable>
               </View>
 
               {dailyDuel?.status !== "completed" ? (
@@ -546,7 +551,7 @@ export default function VersusScreen() {
               <View style={styles.rankedFaceoffCenter}>
                 <Text style={styles.rankedFaceoffVs}>VS</Text>
               </View>
-              <View style={styles.rankedFaceoffPlayer}>
+              <Pressable style={styles.rankedFaceoffPlayer} onPress={() => openPlayerProfile(rankedDuel?.opponent_user_id)} disabled={!rankedDuel?.opponent_user_id}>
                 <View style={[styles.rankedAvatarShell, !rankedDuel?.opponent_user_id && styles.rankedAvatarShellMuted]}>
                   <Avatar
                     initials={rankedDuel?.opponent_initials ?? "?"}
@@ -571,7 +576,7 @@ export default function VersusScreen() {
                 <Text style={styles.rankedFaceoffSub}>
                   {rankedDuel?.opponent_rank_tier ?? (rankedDuel?.status === "waiting_for_opponent" ? "Searching..." : "Queue ready")}
                 </Text>
-              </View>
+              </Pressable>
             </View>
             <Pressable style={styles.rankedActionPill} onPress={startRankedDuel}>
               <Text style={styles.rankedActionText} numberOfLines={1}>

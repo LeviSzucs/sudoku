@@ -47,6 +47,7 @@ function RootLayoutNav() {
         <Stack.Screen name="achievements" options={{ headerShown: false, presentation: "card" }} />
         <Stack.Screen name="friends" options={{ headerShown: false, presentation: "card" }} />
         <Stack.Screen name="friend-h2h" options={{ headerShown: false, presentation: "card" }} />
+        <Stack.Screen name="player/[id]" options={{ headerShown: false, presentation: "card" }} />
         <Stack.Screen name="results" options={{ headerShown: false, presentation: "card" }} />
         <Stack.Screen name="settings" options={{ headerShown: false, presentation: "card" }} />
         <Stack.Screen name="settings-feedback" options={{ headerShown: false, presentation: "card" }} />
