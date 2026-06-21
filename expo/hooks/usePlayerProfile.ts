@@ -159,6 +159,53 @@ export interface FriendsWeeklyLeaderboardEntry extends WeeklyLeaderboardEntry {
   is_current_user: boolean;
 }
 
+export interface PublicPlayerProfileSummary extends PublicAvatarConfig {
+  user_id: string;
+  username: string;
+  display_name: string | null;
+  username_handle: string | null;
+  initials: string;
+  avatar_color: string;
+  public_profile: boolean;
+  show_stats_publicly: boolean;
+  show_recent_results_publicly: boolean;
+  rank_tier: string | null;
+  current_streak: number | null;
+  longest_streak: number | null;
+  puzzles_completed: number | null;
+  duels_played: number | null;
+  duels_won: number | null;
+  ranked_played: number | null;
+  ranked_won: number | null;
+  best_easy_time: number | null;
+  best_medium_time: number | null;
+  best_hard_time: number | null;
+  best_expert_time: number | null;
+  best_master_time: number | null;
+}
+
+export interface PublicPlayerRecentResult {
+  result_id: string;
+  session_id: string | null;
+  puzzle_id: string | null;
+  mode: string;
+  difficulty: string;
+  won: boolean | null;
+  elapsed_seconds: number;
+  mistakes: number;
+  hints_used: number;
+  undo_count: number;
+  final_score: number;
+  xp_earned: number;
+  rp_change: number;
+  completed_at: string;
+}
+
+export interface PublicPlayerProfilePage {
+  profile: PublicPlayerProfileSummary | null;
+  recent_results: PublicPlayerRecentResult[];
+}
+
 export interface FriendUser extends PublicAvatarConfig {
   user_id: string;
   display_name: string;
@@ -1954,6 +2001,34 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     return profilesById;
   }, [updateDiagnostics]);
 
+  const fetchPublicPlayerProfile = useCallback(async (userId: string): Promise<PublicPlayerProfilePage> => {
+    if (!isSupabaseConfigured || !userId) {
+      return { profile: null, recent_results: [] };
+    }
+
+    const [profileResponse, resultsResponse] = await Promise.all([
+      supabase.rpc("get_public_player_profile", { p_user_id: userId }),
+      supabase.rpc("get_public_player_recent_results", { p_user_id: userId, p_limit: 8 }),
+    ]);
+
+    if (profileResponse.error) {
+      updateDiagnostics({ lastError: profileResponse.error.message });
+      return { profile: null, recent_results: [] };
+    }
+
+    if (resultsResponse.error) {
+      updateDiagnostics({ lastError: resultsResponse.error.message });
+    }
+
+    const profileRow = ((profileResponse.data ?? []) as PublicPlayerProfileSummary[])[0] ?? null;
+    const recentResults = (resultsResponse.data ?? []) as PublicPlayerRecentResult[];
+
+    return {
+      profile: profileRow,
+      recent_results: recentResults,
+    };
+  }, [updateDiagnostics]);
+
   const fetchDailyLeaderboard = useCallback(async (dateStr: string): Promise<DailyLeaderboardEntry[]> => {
     if (!isSupabaseConfigured) return [];
 
@@ -2974,6 +3049,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
     fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel, cancelRankedDuel,
+    fetchPublicPlayerProfile,
     refreshProfile: loadBackendProfile,
     resetLocalProfile, checkUsernameAvailable, completeProfileSetup, updateDisplayName, updateAvatar, updateNotificationSettings, updatePrivacySettings,
     repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, testDailyResultQuery, clearLastUpdate, clearLastStreakIncrease,
@@ -2985,6 +3061,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
     fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel, cancelRankedDuel,
+    fetchPublicPlayerProfile,
     repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
     simulateRankedLoss, simulateRankedWin, simulateResult,
     testSupabaseRead, testSupabaseWrite, testDailyResultQuery,
