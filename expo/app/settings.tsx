@@ -11,7 +11,6 @@ import { formatAppVersionLabel } from "@/constants/appInfo";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { buttonShadow } from "@/constants/depth";
-import { SHOW_INTERNAL_QA_TOOLS } from "@/constants/internal";
 import { SHOW_DEVELOPER_TOOLS } from "@/constants/developer";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
@@ -19,7 +18,6 @@ import { usePremiumStatus } from "@/hooks/usePremiumStatus";
 import { printActionAuditReport } from "@/lib/actionAudit";
 import { loadAppPreferences, saveAppPreferences, triggerHaptic, type AppPreferences } from "@/lib/appPreferences";
 import { normalizeAvatarConfig, type CharacterAvatarConfig } from "@/lib/avatar";
-import { getPushProjectDiagnostics, type PushProjectDiagnostics } from "@/lib/notifications";
 import type { PlayerProfile, ProfileSettings } from "@/lib/playerProfile";
 import { supabaseConfigDiagnostics } from "@/lib/supabase";
 
@@ -57,7 +55,6 @@ export default function SettingsScreen() {
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsSaving, setSettingsSaving] = useState<boolean>(false);
   const [appPreferences, setAppPreferences] = useState<AppPreferences>({ soundEnabled: true, hapticsEnabled: true });
-  const [pushDiagnostics, setPushDiagnostics] = useState<PushProjectDiagnostics | null>(null);
   const dailyDiagnostics = diagnostics.daily;
   const developerToolsEnabled = SHOW_DEVELOPER_TOOLS && profile.settings.devMode;
 
@@ -84,11 +81,6 @@ export default function SettingsScreen() {
   const updateAppPreference = (next: AppPreferences) => {
     setAppPreferences(next);
     void saveAppPreferences(next, auth.user?.id ?? null);
-  };
-
-  const openPushDiagnostics = async () => {
-    setPushDiagnostics(await getPushProjectDiagnostics());
-    setPanel("push-diagnostics");
   };
 
   const requestAccountDeletion = () => {
@@ -203,20 +195,13 @@ export default function SettingsScreen() {
           <Row icon={<HelpCircle size={18} color={C.inkSoft} />} title="Help & FAQ" detail="Answers and gameplay basics" onPress={() => router.push({ pathname: "/settings-info", params: { page: "help" } })} />
           <Row icon={<LifeBuoy size={18} color={C.inkSoft} />} title="Support" detail="Contact and account requests" onPress={() => router.push({ pathname: "/settings-info", params: { page: "support" } })} />
           <Row icon={<MessageSquare size={18} color={C.inkSoft} />} title="Send feedback" detail="Tell us what to improve" onPress={() => router.push({ pathname: "/settings-feedback", params: { category: "feedback" } })} />
-          {SHOW_INTERNAL_QA_TOOLS ? (
-            <Row icon={<FlaskConical size={18} color={C.inkSoft} />} title="Life Layer QA" detail="Internal animation previews" onPress={() => router.push("/life-layer-qa")} />
-          ) : null}
           <Row icon={<LifeBuoy size={18} color={C.inkSoft} />} title="Report a problem" detail="Bug reports and issues" onPress={() => router.push({ pathname: "/settings-feedback", params: { category: "problem" } })} last />
         </Section>
 
         <Section title="Legal">
           <Row icon={<Shield size={18} color={C.inkSoft} />} title="Terms & Conditions" detail="Terms of Use" onPress={() => router.push({ pathname: "/settings-info", params: { page: "terms" } })} />
           <Row icon={<Shield size={18} color={C.inkSoft} />} title="Privacy Policy" detail="Data and privacy practices" onPress={() => router.push({ pathname: "/settings-info", params: { page: "privacy" } })} />
-          <Pressable onPress={() => Alert.alert(APP_NAME, formatAppVersionLabel())} onLongPress={() => { void openPushDiagnostics(); }} delayLongPress={700} style={styles.row}>
-            <View style={styles.rowIcon}><Database size={18} color={C.inkSoft} /></View>
-            <View style={{ flex: 1 }}><Text style={styles.rowTitle}>App version</Text><Text style={styles.rowDetail}>{formatAppVersionLabel()}</Text></View>
-            <Text style={styles.chevron}>›</Text>
-          </Pressable>
+          <Row icon={<Database size={18} color={C.inkSoft} />} title="App version" detail={formatAppVersionLabel()} onPress={() => Alert.alert(APP_NAME, formatAppVersionLabel())} last />
         </Section>
 
         {auth.isGuest ? (
@@ -234,7 +219,6 @@ export default function SettingsScreen() {
               <DevButton label="Ranked Loss" onPress={() => { if (developerToolsEnabled) simulateRankedLoss(); }} />
               <DevButton label="Reset Local" onPress={() => { if (developerToolsEnabled) resetLocalProfile(); }} />
               <DevButton label="Backend Diagnostics" onPress={() => { if (developerToolsEnabled) setPanel("backend"); }} />
-              <DevButton label="Push Diagnostics" onPress={() => { void openPushDiagnostics(); }} />
               <DevButton label="Action Report" onPress={() => { if (developerToolsEnabled) Alert.alert("Action Report", printActionAuditReport()); }} />
             </View>
           </View>
@@ -259,10 +243,6 @@ export default function SettingsScreen() {
 
       <Modal visible={developerToolsEnabled && panel === "backend"} transparent animationType="slide" onRequestClose={() => setPanel(null)}>
         <View style={styles.backdrop}><Card style={styles.modalCard}><ScrollView showsVerticalScrollIndicator={false}><View style={styles.modalHeader}><Database size={20} color={C.ink} /><Text style={styles.modalTitle}>Backend Diagnostics</Text></View><Diagnostic label="Supabase URL configured" value={supabaseConfigDiagnostics.urlConfigured ? "Yes" : "No"} /><Diagnostic label="Supabase URL host" value={supabaseConfigDiagnostics.urlHost || "None"} /><Diagnostic label="Supabase URL valid" value={supabaseConfigDiagnostics.urlValid ? "Yes" : "No"} /><Diagnostic label="Session" value={diagnostics.sessionStatus} /><Diagnostic label="User ID" value={diagnostics.userId ?? "None"} /><Diagnostic label="Profile loaded" value={diagnostics.profileLoaded ? "Yes" : "No"} /><Diagnostic label="Recent results" value={String(diagnostics.recentResultsCount)} /><Diagnostic label="Active sessions" value={String(diagnostics.activeSessionCount)} /><Diagnostic label="Last error" value={diagnostics.lastError ?? "None"} /><Text style={styles.devTitle}>Daily Diagnostics</Text><Diagnostic label="Current auth user id" value={dailyDiagnostics?.currentUserId ?? "None"} /><Diagnostic label="Today dateStr" value={dailyDiagnostics?.todayDateStr ?? "None"} /><Diagnostic label="Assigned puzzle_id" value={dailyDiagnostics?.assignedDailyPuzzleId ?? "None"} /><Diagnostic label="Replay query rows" value={String(dailyDiagnostics?.replayQueryResultCount ?? "N/A")} /><Diagnostic label="Leaderboard RPC rows" value={String(dailyDiagnostics?.leaderboardRpcResultCount ?? "N/A")} /><Diagnostic label="Daily errors" value={formatDiagnosticValue(dailyDiagnostics?.errors)} /><View style={styles.devButtons}><DevButton label="Test read" onPress={() => { void showResult("Supabase read", testSupabaseRead); }} /><DevButton label="Test write" onPress={() => { void showResult("Supabase write", testSupabaseWrite); }} /><DevButton label="Test Daily Result Query" onPress={() => { void showResult("Daily result query", testDailyResultQuery); }} /><DevButton label="Repair rows" onPress={() => { void showResult("Repair profile rows", repairMissingProfileRows); }} /><DevButton label="Repair sessions" onPress={() => { void showResult("Repair completed sessions", repairCompletedSessions); }} /></View><Actions onCancel={() => setPanel(null)} onSave={() => setPanel(null)} /></ScrollView></Card></View>
-      </Modal>
-
-      <Modal visible={panel === "push-diagnostics"} transparent animationType="slide" onRequestClose={() => setPanel(null)}>
-        <View style={styles.backdrop}><Card style={styles.modalCard}><ScrollView showsVerticalScrollIndicator={false}><View style={styles.modalHeader}><Bell size={20} color={C.ink} /><Text style={styles.modalTitle}>Push Diagnostics</Text></View>{pushDiagnostics ? <><Diagnostic label="Constants.expoConfig.extra.eas.projectId" value={pushDiagnostics.extraEasProjectId ?? "None"} /><Diagnostic label="Constants.easConfig.projectId" value={pushDiagnostics.constantsEasConfigProjectId ?? "None"} /><Diagnostic label="EXPO_PUBLIC_EAS_PROJECT_ID" value={pushDiagnostics.expoPublicEasProjectId ?? "None"} /><Diagnostic label="EXPO_PUBLIC_PROJECT_ID" value={pushDiagnostics.expoPublicProjectId ?? "None"} /><Diagnostic label="Selected project ID source" value={pushDiagnostics.selectedProjectIdSource} /><Diagnostic label="Selected project ID value" value={pushDiagnostics.selectedProjectId ?? "None"} /><Diagnostic label="Selected project ID length" value={String(pushDiagnostics.selectedProjectIdLength)} /><Diagnostic label="UUID-shaped selected value" value={pushDiagnostics.selectedProjectIdIsUuidShaped ? "Yes" : "No"} /><Diagnostic label="Permission status" value={pushDiagnostics.permissionStatus} /><Diagnostic label="Last token error category" value={pushDiagnostics.lastTokenErrorCategory ?? "None"} /><Diagnostic label="Last token error message" value={pushDiagnostics.lastTokenErrorMessage ?? "None"} /></> : <Text style={styles.helper}>Push diagnostics have not loaded yet.</Text>}<Actions onCancel={() => setPanel(null)} onSave={() => { void openPushDiagnostics(); }} saveLabel="Refresh" /></ScrollView></Card></View>
       </Modal>
     </SafeAreaView>
   );
