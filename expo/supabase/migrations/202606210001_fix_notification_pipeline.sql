@@ -272,7 +272,59 @@ $$;
 revoke all on function public.create_notification_self_test(text, text, text, text) from public;
 grant execute on function public.create_notification_self_test(text, text, text, text) to authenticated;
 
+create or replace function public.create_notification_admin_test_for_user(
+  p_user_id uuid,
+  p_type text default 'reminder',
+  p_title text default 'Admin test notification',
+  p_body text default 'This is a secure SudoDuel admin notification test.',
+  p_deep_link text default '/settings-notifications'
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_notification_id uuid;
+begin
+  if p_user_id is null then
+    raise exception 'Target user is required.' using errcode = '22023';
+  end if;
+
+  if p_type not in (
+    'friend_request_received',
+    'friend_request_accepted',
+    'friend_challenge_received',
+    'friend_challenge_accepted',
+    'friend_challenge_completed',
+    'daily_duel_match_found',
+    'ranked_duel_match_found',
+    'duel_ready',
+    'reminder'
+  ) then
+    raise exception 'Unsupported notification test type.' using errcode = '22023';
+  end if;
+
+  v_notification_id := public.create_app_notification(
+    p_user_id,
+    p_type,
+    coalesce(nullif(trim(p_title), ''), 'Admin test notification'),
+    coalesce(nullif(trim(p_body), ''), 'This is a secure SudoDuel admin notification test.'),
+    'notification_test',
+    gen_random_uuid()::text,
+    p_deep_link
+  );
+
+  return v_notification_id;
+end;
+$$;
+
+revoke all on function public.create_notification_admin_test_for_user(uuid, text, text, text, text) from public;
+revoke all on function public.create_notification_admin_test_for_user(uuid, text, text, text, text) from authenticated;
+grant execute on function public.create_notification_admin_test_for_user(uuid, text, text, text, text) to service_role;
+
 -- Manual verification:
 -- select public.create_notification_self_test();
+-- select public.create_notification_admin_test_for_user('00000000-0000-0000-0000-000000000000');
 -- select public.repair_push_notification_deliveries(now() - interval '30 days');
 -- select status, count(*) from public.push_notification_deliveries group by status order by status;

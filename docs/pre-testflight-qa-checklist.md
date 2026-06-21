@@ -684,6 +684,17 @@ devices:
 select public.create_notification_self_test();
 ```
 
+### Create An Admin Notification Self-Test For A Specific User
+
+Run from the Supabase SQL editor or another service-role context when `auth.uid()`
+is not available:
+
+```sql
+select public.create_notification_admin_test_for_user(
+  '6c90ea5a-ac2b-4660-accd-b03c2a35ebf0'
+);
+```
+
 ### Notification RLS Enabled
 
 ```sql
