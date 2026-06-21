@@ -753,6 +753,12 @@ limit 20;
 - [ ] App privacy disclosures match actual data collection.
 - [ ] Account deletion/request route is explained in-app.
 - [ ] Premium copy does not imply active payments.
+- [ ] Owner-managed EAS build doc is up to date for the current app identity.
+- [ ] iOS bundle identifier is `com.sudoduel.app`.
+- [ ] Android package is `com.sudoduel.app`.
+- [ ] App scheme is `sudoduel`.
+- [ ] `EXPO_PUBLIC_EAS_PROJECT_ID` is documented as the preferred push/EAS UUID source.
+- [ ] No client config or checked-in docs tell testers to use a Supabase service role key.
 - [ ] TestFlight review notes mention Premium/payments only once the purchase flow exists.
 - [ ] Demo/test account details are prepared before external TestFlight review.
 - [ ] TestFlight build number/version is set.
