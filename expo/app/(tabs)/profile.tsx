@@ -86,7 +86,7 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.avatarBlock}>
-          <Avatar {...profile} initials={profile.initials} color={profile.avatar_color} symbol={profile.avatar_symbol} size={84} />
+          <Avatar {...profile} initials={profile.initials} color={profile.avatar_color} symbol={profile.avatar_symbol} variant="xl" />
           <Text style={styles.username}>{profile.display_name ?? profile.username}</Text>
           {profile.username_handle ? <Text style={styles.handle}>@{profile.username_handle}</Text> : null}
           <View style={styles.rankBadge}>

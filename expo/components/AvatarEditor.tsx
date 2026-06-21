@@ -45,6 +45,7 @@ export default function AvatarEditor({ value, onChange, error, hasPremiumCosmeti
             initials={value.initials}
             color={config.avatar_bg_color || value.avatar_color}
             symbol={null}
+            variant="xl"
             size={108}
           />
         </View>

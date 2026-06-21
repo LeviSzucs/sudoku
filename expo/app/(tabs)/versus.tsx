@@ -448,7 +448,7 @@ export default function VersusScreen() {
                     initials={profile.initials}
                     color={profile.avatar_color}
                     symbol={profile.avatar_symbol}
-                    size={56}
+                    variant="lg"
                   />
                   <Text style={styles.vsName}>{profile.display_name ?? profile.username}</Text>
                   <Text style={styles.vsRank}>{formatRank(profile.rank_tier, profile.rank_division)}</Text>
@@ -471,7 +471,7 @@ export default function VersusScreen() {
                     avatar_top_color={dailyDuel?.opponent_avatar_top_color}
                     avatar_accessory={dailyDuel?.opponent_avatar_accessory}
                     avatar_frame={dailyDuel?.opponent_avatar_frame}
-                    size={56}
+                    variant="lg"
                   />
                   <Text style={styles.vsName}>{dailyDuel?.opponent_display_name ?? "Opponent"}</Text>
                   <Text style={styles.vsRank}>{dailyDuel?.opponent_user_id ? dailyDuel.opponent_rank_tier ?? "Unranked" : dailyDuelCopy.opponentSub}</Text>
