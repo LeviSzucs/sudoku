@@ -286,7 +286,7 @@ export default function LeaderboardsScreen() {
                         initials={entry.user.initials}
                         color={entry.user.avatarColor}
                         symbol={entry.user.avatar_symbol}
-                        size={place === 1 ? 56 : 46}
+                        variant={place === 1 ? "lg" : "md"}
                       />
                       <Text style={styles.podiumName} numberOfLines={1}>
                         {entry.user.username}
@@ -346,7 +346,7 @@ export default function LeaderboardsScreen() {
                     initials={entry.user.initials}
                     color={entry.user.avatarColor}
                     symbol={entry.user.avatar_symbol}
-                    size={36}
+                    variant="sm"
                   />
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={styles.name}>{entry.user.username}</Text>

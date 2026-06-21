@@ -109,7 +109,7 @@ export default function FriendHeadToHeadScreen() {
                   avatar_top_color={summary.friend_avatar_top_color}
                   avatar_accessory={summary.friend_avatar_accessory}
                   avatar_frame={summary.friend_avatar_frame}
-                  size={58}
+                  variant="lg"
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.friendName}>{summary.friend_display_name}</Text>
