@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "SudoDuel",
-    "slug": "okidsmkev7mo0mtc0ic0z",
+    "slug": "sudoduel",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -40,6 +40,11 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "9e0e41fd-7050-42f7-b25f-49d1181f19a8"
+      }
     }
   }
 }
