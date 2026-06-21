@@ -232,8 +232,6 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Premium opens.
 - [ ] Terms & Conditions opens.
 - [ ] Privacy Policy opens.
-- [ ] Life Layer QA entry is hidden when internal QA tools are disabled.
-- [ ] Life Layer QA entry appears only in internal QA-enabled builds.
 - [ ] Logout works.
 
 ## K2. Notifications
@@ -248,11 +246,9 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] If Rork/EAS/APNs is not fully configured, TestFlight shows a calm unavailable message, not a raw Expo error.
 - [ ] In that parked state, Inbox notifications still load and remain fully usable.
 - [ ] Phone push is treated as pending Rork EAS/APNs setup for this build, not as a blocker for in-app notification QA.
-- [ ] Long-press Settings > Legal > App version to open Push Diagnostics in TestFlight; confirm the selected project ID source and UUID-shaped value.
 - [ ] Push token registers after permission is granted.
 - [ ] TestFlight device creates an active `push_tokens` row after opening Notifications with permission granted.
 - [ ] Push token upsert does not create duplicate active token rows for the same user/token.
-- [ ] Push diagnostics show project ID/permission/token/upsert status without logging raw push tokens.
 - [ ] Notification preferences save and reload.
 - [ ] Marketing/news/offers defaults off.
 - [ ] Friend request received creates an in-app notification for the recipient.
@@ -385,25 +381,12 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Dark cards/buttons are readable.
 - [ ] Premium/settings/legal screens are not obvious placeholders except where intentionally coming soon.
 - [ ] Settings has no hardcoded or decorative footer copy such as build markers or "Made with care".
-- [ ] App version display is dynamic or hidden from normal users, while internal long-press diagnostics still work.
+- [ ] App version display is dynamic or hidden from normal users.
 - [ ] Terms & Conditions has no version, build, or developer subheader text.
 - [ ] Privacy Policy has no version, build, or developer subheader text.
 - [ ] Daily Sudoku card CTA stays inside the card.
 - [ ] Ranked Duel card text does not wrap awkwardly.
 - [ ] Home buttons/cards have consistent readable depth.
-
-## O2. Internal Life Layer QA
-
-- [ ] With internal QA tools enabled, Life Layer QA screen opens from Settings.
-- [ ] Badge: single unlock preview animates once and fires one medium haptic.
-- [ ] Badge: multiple unlocks preview staggers cleanly and does not spam haptics.
-- [ ] Duel: win preview reveals scores and verdict once.
-- [ ] Duel: loss preview stays restrained and does not show win treatment.
-- [ ] Duel: draw preview stays moderate.
-- [ ] Streak ambient flame preview is subtle and not distracting.
-- [ ] Streak ignite preview fires once and does not affect real streak data.
-- [ ] Rank promotion preview appears once, dismisses cleanly, and does not affect RP.
-- [ ] Life Layer previews do not create real badges, streaks, results, sessions, RP, or challenge changes.
 
 ## P. Error / Loading States
 
@@ -424,6 +407,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] No service role key exists in app code.
 - [ ] No secrets are committed.
 - [ ] Supabase anon key is the only client key present.
+- [ ] Internal QA/debug routes are not accessible in release builds.
+- [ ] Long-press or hidden diagnostics do not open from Premium or legal screens in release builds.
 - [ ] Terms screen has no placeholder copy.
 - [ ] Privacy screen has no placeholder copy.
 - [ ] Support/contact route works.
