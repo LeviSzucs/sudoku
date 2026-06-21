@@ -49,3 +49,45 @@ Expected empty response when there is nothing queued:
 ```
 
 If notifications are queued, the response should show processed delivery counts. Delivery rows are recorded in `public.push_notification_deliveries`.
+
+## Recommended verification order
+
+1. Confirm device tokens exist:
+
+```sql
+select user_id, platform, is_active, count(*) as token_count
+from public.push_tokens
+group by user_id, platform, is_active
+order by user_id, platform;
+```
+
+2. Create a safe self-test notification for the currently signed-in user:
+
+```sql
+select public.create_notification_self_test();
+```
+
+3. Confirm the notification and queued deliveries exist before push send runs:
+
+```sql
+select notification_id, type, title, created_at
+from public.app_notifications
+order by created_at desc
+limit 10;
+```
+
+```sql
+select status, count(*) as delivery_count
+from public.push_notification_deliveries
+group by status
+order by status;
+```
+
+4. Invoke the Edge Function and then re-check delivery statuses:
+
+```sql
+select delivery_id, status, provider_message_id, left(error_message, 160) as error_preview, attempted_at
+from public.push_notification_deliveries
+order by attempted_at desc
+limit 20;
+```
