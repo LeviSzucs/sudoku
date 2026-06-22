@@ -115,9 +115,14 @@ Use this checklist before TestFlight builds and before adding another major feat
 
 ## F. Friend Challenge
 
+- [ ] Friends screen explains how to add a friend and where Friend Challenges live.
+- [ ] Invite/share action opens the native share sheet or shows a safe unavailable message.
+- [ ] Shared invite text clearly tells the recipient how to add the sender.
 - [ ] Friend list loads in challenge mode.
+- [ ] Incoming friend requests appear under Friends > Incoming requests.
 - [ ] Empty friend/challenge states explain what to do next instead of ending in a dead end.
 - [ ] Challenge creation works.
+- [ ] Sending a Friend Challenge opens the sender's own run and the recipient can find the invite under Incoming challenges.
 - [ ] User A customises avatar and User B sees User A's saved avatar in Friend Challenge.
 - [ ] User B customises avatar and User A sees User B's saved avatar in Friend Challenge.
 - [ ] Duplicate active challenge is blocked only for same friend plus same difficulty.
