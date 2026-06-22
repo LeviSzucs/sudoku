@@ -209,6 +209,16 @@ export default function LeaderboardsScreen() {
     router.push({ pathname: "/player/[id]", params: { id: userId } });
   };
 
+  const emptyAction = (() => {
+    if (tab === "daily" || tab === "weekly") {
+      return { label: "Play a puzzle", onPress: () => router.push("/(tabs)/play") };
+    }
+    if (tab === "friends") {
+      return { label: friendsCount === 0 ? "Find friends" : "Play this week", onPress: () => router.push(friendsCount === 0 ? "/friends" : "/(tabs)/play") };
+    }
+    return { label: "Open Versus", onPress: () => router.push("/versus") };
+  })();
+
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
@@ -275,6 +285,9 @@ export default function LeaderboardsScreen() {
             {emptyState.icon}
             <Text style={styles.emptyTitle}>{emptyState.title}</Text>
             <Text style={styles.emptySub}>{emptyState.sub}</Text>
+            <Pressable style={styles.emptyButton} onPress={emptyAction.onPress}>
+              <Text style={styles.emptyButtonText}>{emptyAction.label}</Text>
+            </Pressable>
           </Card>
         ) : (
           <>
@@ -526,5 +539,19 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: "center",
     paddingHorizontal: 24,
+  },
+  emptyButton: {
+    marginTop: 14,
+    minHeight: 40,
+    borderRadius: 999,
+    backgroundColor: C.ink,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyButtonText: {
+    color: "#FBF8F2",
+    fontSize: 12,
+    fontWeight: "900",
   },
 });

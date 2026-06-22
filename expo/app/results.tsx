@@ -91,7 +91,13 @@ export default function ResultsScreen() {
         </ScrollView>
         <Card padded={false}>
           {visibleResults.length === 0 ? (
-            <Text style={styles.empty}>{emptyText}</Text>
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyTitle}>{profile.recent_results.length === 0 ? "No results yet" : "Nothing in this filter yet"}</Text>
+              <Text style={styles.empty}>{emptyText}</Text>
+              <Pressable style={styles.emptyButton} onPress={() => router.push("/(tabs)/play")}>
+                <Text style={styles.emptyButtonText}>Play a puzzle</Text>
+              </Pressable>
+            </View>
           ) : (
             visibleResults.map((result, index) => {
               const ranked = isRankedResult(result);
@@ -144,5 +150,9 @@ const styles = StyleSheet.create({
   rowMeta: { fontSize: 12, color: C.muted, marginTop: 4 },
   score: { fontSize: 16, color: C.ink, fontWeight: "900" },
   xp: { fontSize: 12, color: C.accent, fontWeight: "800", marginTop: 3 },
-  empty: { padding: 18, color: C.muted, fontWeight: "700" },
+  emptyWrap: { padding: 18 },
+  emptyTitle: { color: C.ink, fontSize: 16, fontWeight: "900" },
+  empty: { color: C.muted, fontWeight: "700", marginTop: 6, lineHeight: 19 },
+  emptyButton: { alignSelf: "flex-start", minHeight: 38, borderRadius: 999, backgroundColor: C.ink, paddingHorizontal: 14, alignItems: "center", justifyContent: "center", marginTop: 14 },
+  emptyButtonText: { color: "#FBF8F2", fontSize: 12, fontWeight: "900" },
 });

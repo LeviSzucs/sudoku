@@ -159,7 +159,13 @@ export default function ProfileScreen() {
           <SectionHeader title="Recent results" />
           <Card padded={false}>
             {profile.recent_results.length === 0 ? (
-              <Text style={styles.emptyResults}>Complete a puzzle to start your result history.</Text>
+              <View style={styles.emptyResultsWrap}>
+                <Text style={styles.emptyResultsTitle}>No results yet</Text>
+                <Text style={styles.emptyResults}>Complete your first puzzle to start building your history.</Text>
+                <Pressable style={styles.emptyResultsButton} onPress={() => router.push("/(tabs)/play")}>
+                  <Text style={styles.emptyResultsButtonText}>Play your first puzzle</Text>
+                </Pressable>
+              </View>
             ) : profile.recent_results.slice(0, 3).map((r, index) => (
               <ResultRow key={r.result_id ?? r.session_id ?? `${r.puzzle_id}-${r.completed_at}-${index}`} result={r} last={index === Math.min(profile.recent_results.length, 3) - 1} />
             ))}
@@ -290,7 +296,11 @@ const styles = StyleSheet.create({
   miniBar: { height: 4, backgroundColor: C.accent },
   linkButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 12, paddingVertical: 11, gap: 3 },
   linkButtonText: { color: C.accent, fontWeight: "900" },
-  emptyResults: { padding: 18, color: C.muted, fontWeight: "700" },
+  emptyResultsWrap: { padding: 18 },
+  emptyResultsTitle: { color: C.ink, fontWeight: "900", fontSize: 16 },
+  emptyResults: { color: C.muted, fontWeight: "700", marginTop: 6, lineHeight: 19 },
+  emptyResultsButton: { alignSelf: "flex-start", minHeight: 38, borderRadius: 999, backgroundColor: C.ink, paddingHorizontal: 14, alignItems: "center", justifyContent: "center", marginTop: 14 },
+  emptyResultsButtonText: { color: "#FBF8F2", fontSize: 12, fontWeight: "900" },
   resultRow: { flexDirection: "row", alignItems: "center", padding: 16 },
   resultTitle: { color: C.ink, fontWeight: "800", textTransform: "capitalize" },
   resultSub: { color: C.muted, fontSize: 12, marginTop: 4 },

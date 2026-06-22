@@ -628,8 +628,11 @@ export default function VersusScreen() {
               <Swords size={32} color={C.mutedSoft} strokeWidth={1.5} />
               <Text style={styles.emptyTitle}>No matches yet</Text>
               <Text style={styles.emptySub}>
-                Complete a duel or ranked match to see your history here
+                Finish a Daily Duel, Ranked Duel, or Friend Challenge to build your match history.
               </Text>
+              <Pressable style={styles.emptyButton} onPress={startDailyDuel}>
+                <Text style={styles.emptyButtonText}>{dailyDuelLoading ? "Loading..." : "Play Daily Duel"}</Text>
+              </Pressable>
             </Card>
           ) : (
             duelResults.slice(0, 5).map((r, index) => {
@@ -1055,5 +1058,19 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: "center",
     paddingHorizontal: 24,
+  },
+  emptyButton: {
+    marginTop: 14,
+    minHeight: 40,
+    borderRadius: 999,
+    backgroundColor: C.ink,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyButtonText: {
+    color: "#FBF8F2",
+    fontSize: 12,
+    fontWeight: "900",
   },
 });

@@ -273,7 +273,13 @@ export default function SettingsNotificationsScreen() {
             </View>
             <Card padded={false}>
               {notifications.length === 0 ? (
-                <Text style={styles.emptyInbox}>Duel and social updates will appear here.</Text>
+                <View style={styles.emptyInboxWrap}>
+                  <Text style={styles.emptyInboxTitle}>No notifications yet</Text>
+                  <Text style={styles.emptyInbox}>Friend requests, challenges, and duel updates will appear here when they arrive.</Text>
+                  <Pressable style={styles.emptyInboxButton} onPress={() => router.push("/friends")}>
+                    <Text style={styles.emptyInboxButtonText}>Find friends</Text>
+                  </Pressable>
+                </View>
               ) : notifications.map((item, index) => (
                 <Pressable
                   key={item.notification_id}
@@ -323,7 +329,11 @@ const styles = StyleSheet.create({
   inboxHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 24, marginBottom: 8 },
   sectionTitle: { color: C.muted, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, textTransform: "uppercase" },
   unread: { color: C.gold, fontSize: 12, fontWeight: "900" },
-  emptyInbox: { color: C.muted, fontSize: 13, fontWeight: "700", lineHeight: 19, padding: 16 },
+  emptyInboxWrap: { padding: 16, alignItems: "flex-start" },
+  emptyInboxTitle: { color: C.ink, fontSize: 16, fontWeight: "900" },
+  emptyInbox: { color: C.muted, fontSize: 13, fontWeight: "700", lineHeight: 19, marginTop: 6 },
+  emptyInboxButton: { minHeight: 38, borderRadius: 999, backgroundColor: C.ink, alignItems: "center", justifyContent: "center", paddingHorizontal: 14, marginTop: 14 },
+  emptyInboxButtonText: { color: "#FBF8F2", fontSize: 12, fontWeight: "900" },
   notificationRow: { flexDirection: "row", gap: 10, padding: 16 },
   notificationUnread: { backgroundColor: C.bgElevated },
   notificationDotWrap: { width: 10, alignItems: "center", paddingTop: 6 },
