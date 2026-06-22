@@ -57,6 +57,7 @@ export default function HomeScreen() {
   const activeSession = classicContinueSession;
   const hasActiveSession = Boolean(activeSession);
   const isGuest = auth.isGuest;
+  const isNewPlayer = profile.puzzles_completed === 0;
 
   const openSignedInDailyMode = async (mode: "daily" | "daily_duel") => {
     if (!auth.user) {
@@ -208,6 +209,23 @@ export default function HomeScreen() {
         </Card>
 
         {/* Daily Sudoku — hero */}
+        {isNewPlayer ? (
+          <Card style={{ marginBottom: 16 }}>
+            <Text style={styles.onboardingTitle}>Welcome to SudoDuel</Text>
+            <Text style={styles.onboardingBody}>
+              Start with your first Classic puzzle or today's Daily Sudoku. Once you have a solve on the board, try Daily Duel or challenge a friend.
+            </Text>
+            <View style={styles.onboardingActions}>
+              <Pressable style={styles.onboardingPrimary} onPress={() => router.push("/(tabs)/play")}>
+                <Text style={styles.onboardingPrimaryText}>Play your first puzzle</Text>
+              </Pressable>
+              <Pressable style={styles.onboardingSecondary} onPress={() => router.push("/versus")}>
+                <Text style={styles.onboardingSecondaryText}>See duel modes</Text>
+              </Pressable>
+            </View>
+          </Card>
+        ) : null}
+
         <Pressable onPress={openDaily} style={premiumShadow}>
           {({ pressed }) => (
             <View style={[styles.heroCard, pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}>
@@ -420,6 +438,52 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 6,
     marginTop: 14,
+  },
+  onboardingTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: C.ink,
+    letterSpacing: -0.2,
+  },
+  onboardingBody: {
+    fontSize: 13,
+    color: C.muted,
+    marginTop: 6,
+    lineHeight: 19,
+  },
+  onboardingActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 16,
+    flexWrap: "wrap",
+  },
+  onboardingPrimary: {
+    minHeight: 42,
+    borderRadius: 999,
+    backgroundColor: C.ink,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  onboardingPrimaryText: {
+    color: "#FBF8F2",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  onboardingSecondary: {
+    minHeight: 42,
+    borderRadius: 999,
+    backgroundColor: C.bgElevated,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  onboardingSecondaryText: {
+    color: C.ink,
+    fontSize: 13,
+    fontWeight: "900",
   },
   dot: {
     flex: 1,
