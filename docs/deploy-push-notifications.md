@@ -6,18 +6,40 @@ SudoDuel sends phone push notifications from the Supabase Edge Function:
 
 The mobile app must not send push notifications directly.
 
+## Automatic Invocation
+
+Queued `pending` rows in `public.push_notification_deliveries` are sent automatically
+by the GitHub Actions workflow:
+
+`.github/workflows/run-push-notifications.yml`
+
+The workflow:
+
+- runs every 5 minutes
+- can also be started manually with `workflow_dispatch`
+- calls the existing protected Edge Function with `limit: 100`
+- is safe to run repeatedly because the Edge Function only processes queued
+  `pending` rows and marks them `sending`, `sent`, `failed`, or `skipped`
+
 ## GitHub Repository Secrets
 
 Add these repository secrets before running the manual workflow:
 
 - `SUPABASE_ACCESS_TOKEN`
 - `SUPABASE_PROJECT_REF`
+- `PUSH_DELIVERY_SECRET`
 
 The workflow is manual and lives at:
 
 `.github/workflows/deploy-push-notifications.yml`
 
 Run it from GitHub Actions with **Deploy Push Notifications Function**.
+
+The automatic runner lives at:
+
+`.github/workflows/run-push-notifications.yml`
+
+It appears in GitHub Actions as **Run Push Notifications**.
 
 ## Supabase Edge Function Secrets
 
@@ -30,7 +52,7 @@ Set these in Supabase as Edge Function secrets:
 
 `SUPABASE_SERVICE_ROLE_KEY` must stay server-side as a Supabase Edge Function secret. Do not commit it to the app, GitHub, or any client-visible config.
 
-## Test After Deployment
+## Manual Debug Invocation
 
 Replace `<PROJECT_REF>` and `<PUSH_DELIVERY_SECRET>` with the real values:
 
@@ -93,7 +115,7 @@ group by status
 order by status;
 ```
 
-4. Invoke the Edge Function and then re-check delivery statuses:
+4. Wait for the scheduled workflow or invoke the Edge Function manually, then re-check delivery statuses:
 
 ```sql
 select delivery_id, status, provider_message_id, left(error_message, 160) as error_preview, attempted_at
@@ -101,3 +123,11 @@ from public.push_notification_deliveries
 order by attempted_at desc
 limit 20;
 ```
+
+## How To Verify Automation
+
+1. Create an in-app notification or a self-test notification.
+2. Confirm matching rows exist in `public.push_notification_deliveries` with `status = 'pending'`.
+3. Wait up to 5 minutes for the **Run Push Notifications** workflow, or run it manually from GitHub Actions.
+4. Re-run the delivery-status query.
+5. Confirm pending rows become `sent`, `failed`, or `skipped`.

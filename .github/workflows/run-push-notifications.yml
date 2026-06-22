@@ -1,0 +1,36 @@
+name: Run Push Notifications
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Maximum queued deliveries to process"
+        required: false
+        default: "100"
+
+permissions:
+  contents: read
+
+jobs:
+  invoke:
+    name: Invoke send-push-notifications
+    runs-on: ubuntu-latest
+    steps:
+      - name: Invoke Edge Function
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          PUSH_DELIVERY_SECRET: ${{ secrets.PUSH_DELIVERY_SECRET }}
+          BATCH_LIMIT: ${{ github.event.inputs.limit || '100' }}
+        run: |
+          set -euo pipefail
+          payload=$(printf '{"limit":%s}' "${BATCH_LIMIT}")
+          response=$(curl --silent --show-error --fail \
+            -X POST \
+            -H "Authorization: Bearer ${PUSH_DELIVERY_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d "${payload}" \
+            "https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/send-push-notifications")
+          echo "Push delivery invocation succeeded."
+          echo "${response}"
