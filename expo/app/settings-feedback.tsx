@@ -140,6 +140,7 @@ export default function SettingsFeedbackScreen() {
               placeholderTextColor={C.mutedSoft}
               style={styles.input}
             />
+            <Text style={styles.messageHint}>Write at least 3 characters to enable Send.</Text>
             <View style={styles.toggleRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.toggleTitle}>Include app diagnostics</Text>
@@ -152,7 +153,7 @@ export default function SettingsFeedbackScreen() {
                 thumbColor={includeDiagnostics ? C.accent : C.mutedSoft}
               />
             </View>
-            <Text style={styles.helper}>For account, privacy, or deletion requests, include the email or username tied to your account. Minimum 3 characters.</Text>
+            <Text style={styles.helper}>For account, privacy, or deletion requests, include the email or username tied to your account.</Text>
             <Pressable
               onPress={() => {
                 void openSupportEmail({
@@ -191,6 +192,7 @@ const styles = StyleSheet.create({
   chipText: { color: C.inkSoft, fontWeight: "800", fontSize: 12 },
   chipTextActive: { color: "#FBF8F2" },
   input: { minHeight: 160, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 14, color: C.ink, fontSize: 15, fontWeight: "700" },
+  messageHint: { color: C.muted, fontSize: 12, fontWeight: "700", marginTop: 8 },
   helper: { color: C.muted, fontSize: 12, fontWeight: "700", marginTop: 8 },
   toggleRow: { flexDirection: "row", gap: 12, alignItems: "center", marginTop: 14, padding: 14, borderRadius: 16, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border },
   toggleTitle: { color: C.ink, fontSize: 13, fontWeight: "900" },
