@@ -1,12 +1,13 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Check, History, Play, Search, Swords, UserPlus, Users, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
 import SectionHeader from "@/components/SectionHeader";
+import { APP_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { canCreateFriendChallenge } from "@/constants/premium";
 import type { Difficulty } from "@/constants/mockData";
@@ -50,6 +51,7 @@ export default function FriendsScreen() {
   const auth = useAuth();
   const premium = usePremiumStatus();
   const {
+    profile,
     fetchFriends,
     fetchPendingFriendRequests,
     searchUsersByUsername,
@@ -124,7 +126,7 @@ export default function FriendsScreen() {
       return;
     }
     setResults((current) => current.map((row) => row.user_id === user.user_id ? { ...row, relationship_status: "request_sent" } : row));
-    Alert.alert("Friend request sent", `Request sent to @${user.username_handle}.`);
+    Alert.alert("Friend request sent", `Request sent to @${user.username_handle}. They will see it under Incoming requests.`);
   }, [sendFriendRequest]);
 
   const respond = useCallback(async (request: FriendRequestEntry, response: "accepted" | "declined") => {
@@ -234,6 +236,20 @@ export default function FriendsScreen() {
     setChallengeTarget(friend);
   }, [challengeCreation]);
 
+  const openChallengeScreen = useCallback(() => {
+    router.push("/friends?mode=challenge");
+  }, []);
+
+  const shareInvite = useCallback(() => {
+    const username = profile.username_handle?.trim();
+    const message = username
+      ? `Join me on ${APP_NAME} for daily Sudoku and Friend Challenges. Once you're in, add me by username: @${username}.`
+      : `Join me on ${APP_NAME} for daily Sudoku and Friend Challenges. Once you're in, open Friends and search for my username.`;
+    void Share.share({ message }).catch(() => {
+      Alert.alert("Share invite", "Sharing is unavailable on this device.");
+    });
+  }, [profile.username_handle]);
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
@@ -246,6 +262,23 @@ export default function FriendsScreen() {
             <Text style={styles.title}>{isChallengeMode ? "Friend Challenge" : "Find players"}</Text>
           </View>
         </View>
+
+        {!isChallengeMode ? (
+        <Card style={styles.guideCard}>
+          <Text style={styles.guideTitle}>Find friends, then start a challenge.</Text>
+          <Text style={styles.guideText}>Search for a friend's username to send a request. Once they accept, open Friend Challenge to pick a difficulty and start your own run.</Text>
+          <View style={styles.guideActions}>
+            <Pressable style={styles.guidePrimaryButton} onPress={shareInvite}>
+              <Text style={styles.guidePrimaryButtonText}>Invite a tester</Text>
+            </Pressable>
+            {friends.length > 0 ? (
+              <Pressable style={styles.guideSecondaryButton} onPress={openChallengeScreen}>
+                <Text style={styles.guideSecondaryButtonText}>Open Friend Challenge</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </Card>
+        ) : null}
 
         {!isChallengeMode ? (
         <Card>
@@ -272,6 +305,16 @@ export default function FriendsScreen() {
         </Card>
         ) : null}
 
+        {isChallengeMode ? (
+        <Card style={styles.guideCard}>
+          <Text style={styles.guideTitle}>Choose a friend and we'll open your puzzle straight away.</Text>
+          <Text style={styles.guideText}>After you send a Friend Challenge, your own run starts immediately. Your friend will see the invite under Incoming challenges, and completed results move below once both players finish.</Text>
+          {premium.plan === "free" && challengeCreation.remaining !== null && challengeCreation.limit ? (
+            <Text style={styles.guideMeta}>{challengeCreation.remaining} of {challengeCreation.limit} free Friend Challenges left today.</Text>
+          ) : null}
+        </Card>
+        ) : null}
+
         {!isChallengeMode && results.length > 0 ? (
           <View style={styles.section}>
             <SectionHeader title="Search results" />
@@ -290,14 +333,17 @@ export default function FriendsScreen() {
             </Card>
           </View>
         ) : !isChallengeMode && query.length >= 2 && !searching ? (
-          <Text style={styles.emptyText}>No players found.</Text>
+          <Card style={styles.inlineEmptyCard}>
+            <Text style={styles.emptyTitle}>No players found</Text>
+            <Text style={styles.emptyText}>Check the username and try again. Usernames are lowercase and unique.</Text>
+          </Card>
         ) : null}
 
         {!isChallengeMode ? (
         <View style={styles.section}>
           <SectionHeader title="Incoming requests" />
           <Card padded={false}>
-            {loading ? <LoadingRow /> : requests.length === 0 ? <EmptyRow text="No pending friend requests." /> : requests.map((request, index) => (
+            {loading ? <LoadingRow /> : requests.length === 0 ? <EmptyRow title="No friend requests yet" text="When someone adds you on SudoDuel, their request will appear here." /> : requests.map((request, index) => (
               <RequestRow
                 key={request.request_id}
                 request={request}
@@ -316,7 +362,7 @@ export default function FriendsScreen() {
         <View style={styles.section}>
           <SectionHeader title="Friends" action={`${friends.length}`} />
           <Card padded={false}>
-            {loading ? <LoadingRow /> : friends.length === 0 ? <EmptyRow text="Add friends from Profile to start challenges." /> : friends.map((friend, index) => (
+            {loading ? <LoadingRow /> : friends.length === 0 ? <EmptyRow title="No friends yet" text="Add friends first, then you can send head-to-head Sudoku challenges." actionLabel="Find friends" onAction={() => router.replace("/friends")} /> : friends.map((friend, index) => (
               <UserRow
                 key={friend.user_id}
                 user={friend}
@@ -336,7 +382,7 @@ export default function FriendsScreen() {
         <View style={styles.section}>
           <SectionHeader title="Incoming challenges" />
           <Card padded={false}>
-            {loading ? <LoadingRow /> : incomingChallenges.length === 0 ? <EmptyRow text="No incoming challenges." /> : incomingChallenges.map((challenge, index) => (
+            {loading ? <LoadingRow /> : incomingChallenges.length === 0 ? <EmptyRow title="No incoming challenges" text="Friend Challenges sent to you will appear here." /> : incomingChallenges.map((challenge, index) => (
               <ChallengeRow
                 key={challenge.challenge_id}
                 challenge={challenge}
@@ -356,7 +402,7 @@ export default function FriendsScreen() {
         <View style={styles.section}>
           <SectionHeader title="Active challenges" action={`${activeChallenges.length + outgoingPendingChallenges.length}`} />
           <Card padded={false}>
-            {loading ? <LoadingRow /> : activeChallenges.length + outgoingPendingChallenges.length === 0 ? <EmptyRow text="No active challenges." /> : [...outgoingPendingChallenges, ...activeChallenges].map((challenge, index, all) => (
+            {loading ? <LoadingRow /> : activeChallenges.length + outgoingPendingChallenges.length === 0 ? <EmptyRow title="No active challenges" text={friends.length > 0 ? "Choose a friend above to start a new challenge." : "Add a friend first, then send your first challenge."} actionLabel={friends.length > 0 ? undefined : "Find friends"} onAction={friends.length > 0 ? undefined : () => router.replace("/friends")} /> : [...outgoingPendingChallenges, ...activeChallenges].map((challenge, index, all) => (
               <ChallengeRow
                 key={challenge.challenge_id}
                 challenge={challenge}
@@ -376,7 +422,7 @@ export default function FriendsScreen() {
         <View style={styles.section}>
           <SectionHeader title="Friends" action={`${friends.length}`} />
           <Card padded={false}>
-            {loading ? <LoadingRow /> : friends.length === 0 ? <EmptyRow text="Search by username to add friends." /> : friends.map((friend, index) => (
+            {loading ? <LoadingRow /> : friends.length === 0 ? <EmptyRow title="No friends yet" text="Search by username above to add your first friend." /> : friends.map((friend, index) => (
               <UserRow
                 key={friend.user_id}
                 user={friend}
@@ -394,7 +440,7 @@ export default function FriendsScreen() {
         <View style={styles.section}>
           <SectionHeader title="Completed challenges" />
           <Card padded={false}>
-            {loading ? <LoadingRow /> : completedChallenges.length === 0 ? <EmptyRow text="No completed challenges." /> : completedChallenges.map((challenge, index) => (
+            {loading ? <LoadingRow /> : completedChallenges.length === 0 ? <EmptyRow title="No completed challenges yet" text="Finished Friend Challenges will appear here once both players have played." /> : completedChallenges.map((challenge, index) => (
               <ChallengeRow
                 key={challenge.challenge_id}
                 challenge={challenge}
@@ -443,8 +489,29 @@ function LoadingRow() {
   return <View style={styles.row}><ActivityIndicator color={C.accent} /><Text style={styles.rowSub}>Loading...</Text></View>;
 }
 
-function EmptyRow({ text }: { text: string }) {
-  return <View style={styles.emptyRow}><Users size={24} color={C.mutedSoft} /><Text style={styles.emptyText}>{text}</Text></View>;
+function EmptyRow({
+  title,
+  text,
+  actionLabel,
+  onAction,
+}: {
+  title: string;
+  text: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
+  return (
+    <View style={styles.emptyRow}>
+      <Users size={24} color={C.mutedSoft} />
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptyText}>{text}</Text>
+      {actionLabel && onAction ? (
+        <Pressable style={styles.emptyActionButton} onPress={onAction}>
+          <Text style={styles.emptyActionText}>{actionLabel}</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
 }
 
 function UserRow({ user, last, action, working, challengeWorking, onPress, onChallenge, onHistory, onProfile }: { user: FriendUser; last: boolean; action?: string | null; working?: boolean; challengeWorking?: boolean; onPress?: () => void; onChallenge?: () => void; onHistory?: () => void; onProfile?: () => void }) {
@@ -602,8 +669,18 @@ const styles = StyleSheet.create({
   iconButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
   kicker: { fontSize: 11, color: C.muted, fontWeight: "700", letterSpacing: 1.6 },
   title: { color: C.ink, fontSize: 28, fontWeight: "900", marginTop: 2 },
+  guideCard: { marginBottom: 16 },
+  guideTitle: { color: C.ink, fontWeight: "900", fontSize: 16 },
+  guideText: { color: C.muted, fontWeight: "700", lineHeight: 19, marginTop: 8 },
+  guideMeta: { color: C.accent, fontWeight: "800", fontSize: 12, marginTop: 10 },
+  guideActions: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 14 },
+  guidePrimaryButton: { minHeight: 40, borderRadius: 999, backgroundColor: C.ink, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },
+  guidePrimaryButtonText: { color: "#FBF8F2", fontWeight: "900", fontSize: 12 },
+  guideSecondaryButton: { minHeight: 40, borderRadius: 999, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },
+  guideSecondaryButtonText: { color: C.ink, fontWeight: "900", fontSize: 12 },
   section: { marginTop: 22 },
   sectionTitle: { color: C.ink, fontWeight: "900", fontSize: 16 },
+  inlineEmptyCard: { marginTop: 16 },
   searchRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 12 },
   searchInputWrap: { flex: 1, minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 },
   searchInput: { flex: 1, color: C.ink, fontWeight: "800", fontSize: 15, paddingVertical: 10 },
@@ -618,7 +695,10 @@ const styles = StyleSheet.create({
   rowTitle: { color: C.ink, fontWeight: "900", fontSize: 15 },
   rowSub: { color: C.muted, fontWeight: "700", fontSize: 12, marginTop: 2 },
   emptyRow: { alignItems: "center", justifyContent: "center", padding: 22, gap: 8 },
-  emptyText: { color: C.muted, fontWeight: "700", textAlign: "center", marginTop: 10 },
+  emptyTitle: { color: C.ink, fontWeight: "900", fontSize: 16, textAlign: "center" },
+  emptyText: { color: C.muted, fontWeight: "700", textAlign: "center", marginTop: 2, lineHeight: 18 },
+  emptyActionButton: { minHeight: 38, borderRadius: 999, backgroundColor: C.ink, alignItems: "center", justifyContent: "center", paddingHorizontal: 14, marginTop: 6 },
+  emptyActionText: { color: "#FBF8F2", fontWeight: "900", fontSize: 12 },
   friendActions: { alignItems: "stretch", gap: 8, minWidth: 116 },
   addButton: { minHeight: 38, borderRadius: 999, backgroundColor: C.accent, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 13 },
   challengeButton: { minHeight: 38, minWidth: 108, borderRadius: 999, backgroundColor: C.ink, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 13 },
