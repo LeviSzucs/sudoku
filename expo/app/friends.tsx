@@ -305,16 +305,6 @@ export default function FriendsScreen() {
         </Card>
         ) : null}
 
-        {isChallengeMode ? (
-        <Card style={styles.guideCard}>
-          <Text style={styles.guideTitle}>Choose a friend and we'll open your puzzle straight away.</Text>
-          <Text style={styles.guideText}>After you send a Friend Challenge, your own run starts immediately. Your friend will see the invite under Incoming challenges, and completed results move below once both players finish.</Text>
-          {premium.plan === "free" && challengeCreation.remaining !== null && challengeCreation.limit ? (
-            <Text style={styles.guideMeta}>{challengeCreation.remaining} of {challengeCreation.limit} free Friend Challenges left today.</Text>
-          ) : null}
-        </Card>
-        ) : null}
-
         {!isChallengeMode && results.length > 0 ? (
           <View style={styles.section}>
             <SectionHeader title="Search results" />
