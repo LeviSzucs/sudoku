@@ -6,10 +6,12 @@ import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import AppErrorBoundary from "@/components/AppErrorBoundary";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { PlayerProfileProvider, usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { loadAppPreferences } from "@/lib/appPreferences";
 import { syncPushTokenOnLogin } from "@/lib/notifications";
+import { flushPendingRuntimeErrorReports, installGlobalErrorHandlers, setRuntimeErrorContext } from "@/lib/runtimeErrors";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -28,7 +30,12 @@ function RootLayoutNav() {
     if (!auth.user?.id || !showApp) return;
     void syncPushTokenOnLogin(auth.user.id);
     void loadAppPreferences(auth.user.id);
+    void flushPendingRuntimeErrorReports(auth.user.id);
   }, [auth.user?.id, showApp]);
+
+  useEffect(() => {
+    setRuntimeErrorContext({ userId: auth.user?.id ?? null });
+  }, [auth.user?.id]);
 
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
@@ -60,6 +67,7 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   useEffect(() => {
+    installGlobalErrorHandlers();
     SplashScreen.hideAsync();
   }, []);
 
@@ -70,7 +78,9 @@ export default function RootLayout() {
           <SafeAreaProvider>
             <GestureHandlerRootView style={{ flex: 1 }}>
               <StatusBar style="dark" />
-              <RootLayoutNav />
+              <AppErrorBoundary>
+                <RootLayoutNav />
+              </AppErrorBoundary>
             </GestureHandlerRootView>
           </SafeAreaProvider>
         </PlayerProfileProvider>

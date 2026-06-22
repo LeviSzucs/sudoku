@@ -241,6 +241,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Submitting feedback creates a Supabase row.
 - [ ] Feedback prevents empty submissions.
 - [ ] Feedback can optionally include app diagnostics.
+- [ ] A reproduced signed-in runtime crash or React render failure creates an automatic `bug_report` feedback row.
 - [ ] Help & FAQ opens.
 - [ ] Support opens.
 - [ ] Premium opens.
@@ -808,6 +809,8 @@ limit 20;
 - [ ] App scheme is `sudoduel`.
 - [ ] `EXPO_PUBLIC_EAS_PROJECT_ID` is documented as the preferred push/EAS UUID source.
 - [ ] No client config or checked-in docs tell testers to use a Supabase service role key.
+- [ ] Crash reporting doc is up to date for the current runtime error foundation.
+- [ ] Automatic runtime error reports reach `public.feedback` without including puzzle boards, passwords, auth tokens, or full push tokens.
 - [ ] TestFlight review notes mention Premium/payments only once the purchase flow exists.
 - [ ] Demo/test account details are prepared before external TestFlight review.
 - [ ] TestFlight build number/version is set.
