@@ -168,8 +168,8 @@ export default function StreakStatsScreen() {
         </Card>
 
         <Card style={{ marginTop: 14 }}>
-          <Text style={styles.freezeTitle}>Streak Freeze</Text>
-          <Text style={styles.freezeText}>Coming soon: protect a streak when life gets busy.</Text>
+          <Text style={styles.freezeTitle}>How streaks work</Text>
+          <Text style={styles.freezeText}>Streaks increase only when you successfully solve the Daily Sudoku. Missing a day or failing the daily puzzle ends the current streak.</Text>
         </Card>
       </ScrollView>
     </SafeAreaView>

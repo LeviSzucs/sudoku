@@ -51,6 +51,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 
 ## C. Solo / Classic
 
+- [ ] Solo Ranked Duel card opens the Versus/Ranked flow instead of a Coming Soon alert.
 - [ ] Easy opens.
 - [ ] Medium opens.
 - [ ] Hard opens.
@@ -91,6 +92,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] A genuine streak increase triggers the streak flame ignite once.
 - [ ] Navigating away and back does not replay the same streak ignite.
 - [ ] Reopening the app does not replay the same streak ignite just because the streak count loads.
+- [ ] Streak screen explains current streak rules without a dead placeholder card.
 - [ ] Replay/duplicate handling is sane.
 - [ ] Completion CTA goes to the correct place.
 - [ ] Daily leaderboard includes completed Daily attempts for the assigned puzzle.
