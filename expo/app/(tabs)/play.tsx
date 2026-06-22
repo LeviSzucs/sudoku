@@ -26,11 +26,11 @@ import { logDevDiagnostic } from "@/lib/performanceDiagnostics";
 import { fetchClassicPuzzle, fetchDailyPuzzle, makeEmptyNotes, type RawPuzzleData } from "@/lib/sudoku";
 
 const DIFFICULTIES: { key: Difficulty; sub: string; tone: "muted" | "accent" | "amber" | "red" | "purple" }[] = [
-  { key: "Easy", sub: "Warm up · ~4 min", tone: "muted" },
-  { key: "Medium", sub: "Balanced · ~7 min", tone: "accent" },
-  { key: "Hard", sub: "Challenging · ~12 min", tone: "amber" },
-  { key: "Expert", sub: "Brutal · 20+ min", tone: "red" },
-  { key: "Master", sub: "Diabolical · 30+ min", tone: "purple" },
+  { key: "Easy", sub: "Warm up - ~4 min", tone: "muted" },
+  { key: "Medium", sub: "Balanced - ~7 min", tone: "accent" },
+  { key: "Hard", sub: "Challenging - ~12 min", tone: "amber" },
+  { key: "Expert", sub: "Brutal - 20+ min", tone: "red" },
+  { key: "Master", sub: "Diabolical - 30+ min", tone: "purple" },
 ];
 
 function formatElapsed(seconds: number): string {
@@ -40,7 +40,7 @@ function formatElapsed(seconds: number): string {
 }
 
 function formatBestTime(seconds: number | undefined): string {
-  if (seconds === undefined) return "—";
+  if (seconds === undefined) return "-";
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
@@ -235,7 +235,9 @@ export default function PlayHubScreen() {
   const startDuel = () => {
     router.push("/versus");
   };
-  const showComingSoon = (message = "Coming soon") => Alert.alert("Coming soon", message);
+  const openRanked = () => {
+    router.push("/versus");
+  };
 
   const today = new Date();
   const dateStr = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -266,7 +268,7 @@ export default function PlayHubScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle}>Continue puzzle</Text>
                 <Text style={styles.cardSub}>
-                  {activeSession.difficulty} · {formatElapsed(activeSession.elapsed_seconds)} elapsed
+                  {activeSession.difficulty} - {formatElapsed(activeSession.elapsed_seconds)} elapsed
                 </Text>
               </View>
             </View>
@@ -293,7 +295,7 @@ export default function PlayHubScreen() {
                 </View>
                 <View style={styles.heroFooter}>
                   <Text style={styles.heroFooterText}>
-                    Same puzzle for everyone — compare your score
+                    Same puzzle for everyone - compare your score
                   </Text>
                   <View style={styles.heroCTA}>
                     <PlayIcon size={14} color={C.ink} fill={C.ink} />
@@ -369,15 +371,15 @@ export default function PlayHubScreen() {
               <ChevronRight color={C.mutedSoft} size={20} />
             </View>
           </Card>
-          <Card onPress={() => showComingSoon("Ranked matchmaking coming soon")} style={{ marginTop: 10 }}>
+          <Card onPress={openRanked} style={{ marginTop: 10 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
               <View style={[styles.iconTile, { backgroundColor: "#1E1B4B22" }]}>
                 <Crown color={C.gold} size={22} strokeWidth={2} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>Ranked match</Text>
+                <Text style={styles.cardTitle}>Ranked Duel</Text>
                 <Text style={styles.cardSub}>
-                  Climb the ladder · {formatBestTime(profile.best_times_by_difficulty.Hard)} best
+                  Queue against nearby RP opponents
                 </Text>
               </View>
               <ChevronRight color={C.mutedSoft} size={20} />
@@ -402,7 +404,7 @@ export default function PlayHubScreen() {
                       (best, t) => t !== undefined && (best === undefined || t < best) ? t : best,
                       undefined
                     )
-                  ) : "—"}
+                  ) : "-"}
                 </Text>
                 <Text style={styles.statLabel}>Best time</Text>
               </View>
