@@ -34,3 +34,16 @@ jobs:
             "https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/send-push-notifications")
           echo "Push delivery invocation succeeded."
           echo "${response}"
+          {
+            echo "## Run Push Notifications"
+            echo
+            echo "- Supabase project ref: \`${SUPABASE_PROJECT_REF}\`"
+            echo "- Batch limit: \`${BATCH_LIMIT}\`"
+            echo "- Result: success"
+            echo
+            echo "### Raw JSON response"
+            echo
+            echo '```json'
+            echo "${response}"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
