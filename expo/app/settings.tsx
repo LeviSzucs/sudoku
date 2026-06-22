@@ -83,27 +83,6 @@ export default function SettingsScreen() {
     void saveAppPreferences(next, auth.user?.id ?? null);
   };
 
-  const requestAccountDeletion = () => {
-    Alert.alert(
-      "Request account deletion?",
-      "We will send you to Support to request account deletion. This helps prevent accidental deletion while we verify the account owner.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Continue",
-          style: "destructive",
-          onPress: () => router.push({
-            pathname: "/settings-feedback",
-            params: {
-              category: "account_deletion",
-              message: "I would like to request deletion of my SudoDuel account and associated personal data.",
-            },
-          }),
-        },
-      ],
-    );
-  };
-
   const saveName = () => {
     const result = updateDisplayName(name);
     if (!result.ok) {
@@ -175,7 +154,7 @@ export default function SettingsScreen() {
           <Row icon={<Palette size={18} color={C.inkSoft} />} title="Avatar" detail="Character, colours and frame" onPress={() => setPanel("avatar")} />
           <Row icon={<Bell size={18} color={C.inkSoft} />} title="Notifications" detail="Push, duels and social updates" onPress={() => router.push("/settings-notifications")} />
           <Row icon={<Shield size={18} color={C.inkSoft} />} title="Privacy" detail={privacy.publicProfile ? "Public profile" : "Private profile"} onPress={() => setPanel("privacy")} />
-          <Row icon={<Trash2 size={18} color={C.danger} />} title="Delete account" detail="Request permanent account deletion" onPress={requestAccountDeletion} />
+          <Row icon={<Trash2 size={18} color={C.danger} />} title="Delete account" detail="Request permanent account deletion" onPress={() => router.push({ pathname: "/settings-info", params: { page: "delete-account" } })} />
           <Row icon={<LogOut size={18} color={C.inkSoft} />} title="Sign out" detail="Return to the welcome screen" onPress={() => Alert.alert("Sign out?", "You will return to the welcome screen.", [{ text: "Cancel", style: "cancel" }, { text: "Sign out", style: "destructive", onPress: () => { void auth.signOut(); } }])} last />
         </Section>
 
@@ -188,18 +167,18 @@ export default function SettingsScreen() {
         </Section>
 
         <Section title="Premium">
-          <Row icon={<Crown size={18} color={C.gold} />} title={PREMIUM_NAME} detail={`Current plan: ${premium.isPremium ? "Premium" : "Free"}`} onPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })} last />
+          <Row icon={<Crown size={18} color={C.gold} />} title={PREMIUM_NAME} detail="Free during beta" onPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })} last />
         </Section>
 
         <Section title="Support">
           <Row icon={<HelpCircle size={18} color={C.inkSoft} />} title="Help & FAQ" detail="Answers and gameplay basics" onPress={() => router.push({ pathname: "/settings-info", params: { page: "help" } })} />
-          <Row icon={<LifeBuoy size={18} color={C.inkSoft} />} title="Support" detail="Contact and account requests" onPress={() => router.push({ pathname: "/settings-info", params: { page: "support" } })} />
+          <Row icon={<LifeBuoy size={18} color={C.inkSoft} />} title="Contact support" detail="Email help and account requests" onPress={() => router.push({ pathname: "/settings-info", params: { page: "support" } })} />
           <Row icon={<MessageSquare size={18} color={C.inkSoft} />} title="Send feedback" detail="Tell us what to improve" onPress={() => router.push({ pathname: "/settings-feedback", params: { category: "feedback" } })} />
           <Row icon={<LifeBuoy size={18} color={C.inkSoft} />} title="Report a problem" detail="Bug reports and issues" onPress={() => router.push({ pathname: "/settings-feedback", params: { category: "problem" } })} last />
         </Section>
 
         <Section title="Legal">
-          <Row icon={<Shield size={18} color={C.inkSoft} />} title="Terms & Conditions" detail="Terms of Use" onPress={() => router.push({ pathname: "/settings-info", params: { page: "terms" } })} />
+          <Row icon={<Shield size={18} color={C.inkSoft} />} title="Terms of Use" detail="Rules and fair play" onPress={() => router.push({ pathname: "/settings-info", params: { page: "terms" } })} />
           <Row icon={<Shield size={18} color={C.inkSoft} />} title="Privacy Policy" detail="Data and privacy practices" onPress={() => router.push({ pathname: "/settings-info", params: { page: "privacy" } })} />
           <Row icon={<Database size={18} color={C.inkSoft} />} title="App version" detail={formatAppVersionLabel()} onPress={() => Alert.alert(APP_NAME, formatAppVersionLabel())} last />
         </Section>

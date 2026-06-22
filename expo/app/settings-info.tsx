@@ -1,49 +1,46 @@
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { ChevronLeft, HelpCircle, Shield } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useMemo } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import BrandMark from "@/components/BrandMark";
 import Card from "@/components/Card";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
-import { FREE_FEATURES, FREE_FIRST_LAUNCH_MODE, FREE_FIRST_LAUNCH_NOTE, LIVE_PREMIUM_FEATURES, PLANNED_PREMIUM_FEATURES, PREMIUM_FAIRNESS_NOTE } from "@/constants/premium";
-import { PRODUCT_MONTHLY, PRODUCT_YEARLY } from "@/constants/purchases";
 import { LEGAL_LAST_UPDATED, SUPPORT_EMAIL_LABEL } from "@/constants/legal";
-import { usePremiumStatus } from "@/hooks/usePremiumStatus";
-import { getCurrentOffering, getPurchaseDiagnostics, purchasePackage, restorePurchases, type CurrentOffering, type PurchaseDiagnostics, type PurchasePackage } from "@/lib/purchases";
+import { FREE_FIRST_LAUNCH_NOTE, PREMIUM_FAIRNESS_NOTE } from "@/constants/premium";
+import { openSupportEmail } from "@/lib/support";
 
-type InfoPage = "premium" | "help" | "support" | "terms" | "privacy";
+type InfoPage = "premium" | "help" | "support" | "terms" | "privacy" | "delete-account";
+
+type Section = { title: string; body: string };
+type PageAction = {
+  label: string;
+  variant?: "primary" | "secondary" | "danger";
+  onPress: () => void;
+};
 
 const CONTACT = `Contact us at ${SUPPORT_EMAIL_LABEL}.`;
-const PURCHASES_UNAVAILABLE_TITLE = "Purchases temporarily unavailable";
-const PURCHASES_UNAVAILABLE_BODY = "Premium purchases are not available right now. Please try again later.";
-const PURCHASES_UNAVAILABLE_HELP = "Your Free plan is still active. All Classic difficulties, Daily Sudoku, Daily Duel, Ranked Duel, achievements, and basic stats remain available.";
-const RESTORE_UNAVAILABLE_BODY = "Purchases cannot be restored right now. Please try again later.";
-const MANAGE_SUBSCRIPTION_URL = "https://apps.apple.com/account/subscriptions";
-
-type DiagnosticRow = { label: string; value: string };
 
 const CONTENT: Record<InfoPage, {
   eyebrow: string;
   title: string;
   subtitle: string;
   icon: "premium" | "help" | "legal";
-  sections: { title: string; body: string }[];
+  sections: Section[];
 }> = {
   premium: {
     eyebrow: "PREMIUM",
     title: PREMIUM_NAME,
-    subtitle: "Current plan: Free.",
+    subtitle: "Free during beta.",
     icon: "premium",
     sections: [
-      { title: "Free-first launch", body: FREE_FIRST_LAUNCH_NOTE },
-      { title: "What stays free", body: "Unlimited Classic Sudoku, all five Classic difficulties, Daily Sudoku, Daily Duel, Friend Challenges, Ranked Duel, leaderboards, public profiles, achievements, core stats, current avatar customisation, and full social identity surfaces remain open at launch." },
-      { title: "Premium direction", body: "Premium stays ready for future supporter perks, cosmetic extras, richer convenience tools, ad-free play when ads arrive, and carefully chosen upgrades that do not affect competitive fairness." },
-      { title: "Fair play promise", body: PREMIUM_FAIRNESS_NOTE },
-      { title: "Ads", body: "Free accounts may see occasional ads at natural breaks in a future version. Ads will never appear during active puzzles or before results are saved." },
-      { title: "Payments", body: "Purchases are handled securely through the App Store. You can restore purchases at any time." },
+      { title: "Free during beta", body: `${APP_NAME} is free during the current beta. Premium purchases and subscriptions are not currently active.` },
+      { title: "What stays free", body: "All Classic difficulties, Daily Sudoku, Daily Duel, Friend Challenges, Ranked Duel, leaderboards, public profiles, achievements, streaks, core stats, and current avatar customisation remain available without payment." },
+      { title: "What Premium may become", body: "As SudoDuel grows, Premium may focus on supporter perks, cosmetics, richer history, deeper stats, and convenience extras that do not block the core game loop." },
+      { title: "Fairness promise", body: PREMIUM_FAIRNESS_NOTE },
+      { title: "Status", body: FREE_FIRST_LAUNCH_NOTE },
     ],
   },
   help: {
@@ -52,50 +49,42 @@ const CONTENT: Record<InfoPage, {
     subtitle: "Quick answers for the current SudoDuel build.",
     icon: "help",
     sections: [
-      { title: "What is Daily Sudoku?", body: "Daily Sudoku is a solo puzzle assigned for the day. You get one official attempt, and successful solves can count toward daily stats and relevant leaderboards." },
-      { title: "What is Daily Duel?", body: "Daily Duel matches you asynchronously with another player on the same daily duel puzzle. The winner is decided by highest final score, then elapsed time, then completion time." },
-      { title: "What is Ranked Duel?", body: "Ranked Duel is an asynchronous competitive match against another player near your RP. Completed matches can change RP. Cancelling while still searching does not count as a match." },
-      { title: "How does RP work?", body: "RP changes after completed Ranked Duel matches. Wins, losses, draws, opponent strength, and the final match result can affect RP. Ranked queue cancellation does not award or remove RP." },
-      { title: "What are streaks?", body: "Streaks track successfully solved Daily Sudoku puzzles. Failed or abandoned attempts may be saved as final attempts, but they do not extend solved streaks." },
-      { title: "Why did my result not count?", body: "A result may be excluded from solved stats if the puzzle was failed, abandoned, duplicated, or not finalised correctly. Rankings and stats may be corrected if data integrity issues are found." },
-      { title: "What is SudoDuel Premium?", body: "Premium is the paid plan for ad-free play when ads are introduced, deeper stats, fuller history, fair challenge tools, cosmetics, themes, season extras, and the puzzle archive." },
-      { title: "Can Premium affect Ranked RP?", body: "No. Premium never boosts Ranked RP, leaderboard scores, matchmaking, or duel outcomes." },
-      { title: "Are there ads?", body: "A future version may show Free accounts occasional ads at natural breaks, never during an active puzzle or before a result is saved. Premium removes ads when ads are introduced." },
-      { title: "How do I report a bug?", body: "Use Settings > Report a problem and include what you were doing, which mode you were playing, and what happened." },
-      { title: "How do I request account deletion?", body: `In-app self-service account deletion is not currently available. Contact support at ${SUPPORT_EMAIL_LABEL} to request account or data deletion.` },
+      { title: "How do I play?", body: "Choose a Classic Sudoku, Daily Sudoku, Daily Duel, Friend Challenge, or Ranked Duel mode, then fill the board so every row, column, and 3x3 box contains the digits 1 to 9 once." },
+      { title: "How do Friend Challenges work?", body: "Choose a friend, pick a difficulty, and send a challenge. Both players get the same puzzle and the final result is compared once both attempts are complete." },
+      { title: "How do notifications work?", body: "Inbox notifications work inside the app. Phone push notifications may depend on the current build environment, but gameplay still works if device push is unavailable." },
+      { title: "Can I customise my profile and avatar?", body: "Yes. You can update your display name, avatar appearance, and privacy settings from Settings. Other players only see public profile information that your privacy settings allow." },
+      { title: "What about Premium?", body: `${APP_NAME} is free during beta. Premium infrastructure may be used later for supporter perks and cosmetics, but core gameplay is not paywalled right now.` },
+      { title: "How do I report a problem?", body: "Use Settings > Report a problem and include the mode you were in, what you expected, and what actually happened. Adding app diagnostics can help us reproduce issues faster." },
+      { title: "How do I delete my account?", body: `Open Settings > Delete account to send a verified deletion request, or contact ${SUPPORT_EMAIL_LABEL} from the Support screen.` },
     ],
   },
   support: {
     eyebrow: "SUPPORT",
-    title: "Support",
+    title: "Contact Support",
     subtitle: "Help, feedback, bug reports, and account requests.",
     icon: "help",
     sections: [
-      { title: "Contact support", body: `Need help with ${APP_NAME}? Send feedback or report an issue from the app. For account, privacy, or data requests, contact ${SUPPORT_EMAIL_LABEL}.` },
-      { title: "Report a bug", body: "Use Report a problem for crashes, broken screens, missing results, incorrect stats, or anything that blocks play." },
-      { title: "Feedback", body: "Use Send feedback for suggestions about puzzle difficulty, avatars, leaderboards, Premium ideas, or general product feedback." },
-      { title: "Account and data requests", body: "For account access, privacy questions, data export requests, or deletion requests, contact support and include the email or username tied to your account." },
-      { title: "Useful categories", body: "Bug report, Account issue, Gameplay/result issue, Ranked Duel issue, Feedback, and Privacy/data request." },
-      { title: "Response expectations", body: "During TestFlight, support responses may be slower than a public release. We will prioritise account, privacy, data, crash, and result-integrity issues." },
+      { title: "Contact support", body: `Need help with ${APP_NAME}? Email ${SUPPORT_EMAIL_LABEL} for account, privacy, or data requests, or use the in-app forms for feedback and bug reports.` },
+      { title: "Report a problem", body: "Use the bug report flow for crashes, blocked progress, missing results, incorrect stats, or anything that stops normal play." },
+      { title: "Send feedback", body: "Use feedback for ideas, polish notes, puzzle feel comments, avatar requests, and anything that would make SudoDuel better." },
+      { title: "Account and privacy requests", body: "Deletion, privacy, or account-access requests are reviewed carefully so we can verify the account owner before taking action." },
+      { title: "Response expectations", body: "During TestFlight, we prioritise account, privacy, result-integrity, and crash issues first. Replies may be slower than a full public release." },
     ],
   },
   terms: {
     eyebrow: "LEGAL",
-    title: "Terms & Conditions",
+    title: "Terms of Use",
     subtitle: `Last updated ${LEGAL_LAST_UPDATED}`,
     icon: "legal",
     sections: [
-      { title: "About SudoDuel", body: `${APP_NAME} is a competitive Sudoku puzzle game with solo puzzles, daily play, asynchronous duels, ranked progression, leaderboards, profile stats, avatars, friends, and feedback tools.` },
-      { title: "Eligibility", body: "You are responsible for using the app in a lawful way and only if you are allowed to use online game services in your location. If you are under the age required by your region, use the app only with permission from a parent or guardian." },
-      { title: "Your account", body: "You are responsible for your account activity, display name, username, avatar choices, and keeping access to your sign-in method secure. Do not impersonate another person or use misleading profile information." },
-      { title: "Fair play", body: "SudoDuel is designed to be competitive but fair. Do not use cheats, automation, exploits, modified clients, or other methods that give an unfair advantage." },
-      { title: "Game results, rankings, and stats", body: "Scores, RP, streaks, results, leaderboards, achievements, and stats may be recalculated or corrected if we identify bugs, duplicate results, abuse, exploits, or data integrity issues." },
-      { title: "Usernames, avatars, and profile content", body: "Choose usernames, display names, avatars, and feedback content that are respectful and do not impersonate others, harass people, include hate or abuse, or violate another person's rights." },
-      { title: "Premium features", body: "Premium may remove ads and add richer stats, full history, cosmetics, season identity, and fair duel tools. Premium will not provide competitive advantages in Ranked Duel, Daily Duel, Friend Challenge, or leaderboards." },
-      { title: "Acceptable use", body: "Do not attack, disrupt, scrape, overload, reverse engineer, exploit, or interfere with the app, backend, matchmaking, scoring, leaderboards, feedback tools, or other users." },
-      { title: "Service availability", body: "SudoDuel is in TestFlight and may have downtime, bugs, resets, balance changes, or unavailable features. Some features may change before public release." },
-      { title: "Changes to the app", body: "We may update, add, remove, rebalance, or rename features during testing. We may also update these Terms as the product evolves." },
-      { title: "Limitation of liability", body: "To the fullest extent allowed by law, SudoDuel is provided as-is for testing and entertainment. We are not responsible for indirect losses, lost progress, unavailable service, or issues outside our reasonable control." },
+      { title: "About SudoDuel", body: `${APP_NAME} is a puzzle and social game app built around solo Sudoku, daily play, asynchronous duels, ranked competition, profile identity, and feedback tools.` },
+      { title: "Eligibility", body: "Use SudoDuel only if you are allowed to use online game services in your location. If your region requires parental or guardian permission, please use the app only with that permission." },
+      { title: "Your account", body: "You are responsible for your sign-in method, account activity, username, display name, avatar choices, and keeping access to your account secure." },
+      { title: "Fair use", body: "Do not cheat, automate play, manipulate rankings, exploit bugs, impersonate others, spam other users, or misuse social features, feedback tools, or backend services." },
+      { title: "Results, rankings, and stats", body: "Scores, streaks, results, achievements, RP, and leaderboard positions may be corrected if we detect bugs, duplicate results, abuse, or data integrity issues." },
+      { title: "Profile content", body: "Choose respectful usernames, display names, avatars, and messages. Do not use content that is abusive, misleading, hateful, or infringes someone else's rights." },
+      { title: "Beta status", body: `${APP_NAME} is still in beta. Features may change, move, or be removed, and the app may occasionally be unavailable while we improve reliability.` },
+      { title: "Limitation of liability", body: "To the fullest extent allowed by law, SudoDuel is provided as-is for testing and entertainment. We are not responsible for indirect losses, unavailable service, or issues outside our reasonable control." },
       { title: "Contact us", body: CONTACT },
     ],
   },
@@ -105,28 +94,38 @@ const CONTENT: Record<InfoPage, {
     subtitle: `Last updated ${LEGAL_LAST_UPDATED}`,
     icon: "legal",
     sections: [
-      { title: "What we collect", body: "SudoDuel may store your account identifier from the authentication provider, display name, username handle, avatar settings, user settings, friend relationships, feedback submissions, and support/report messages." },
-      { title: "Game and progress data", body: "We store puzzle progress, continue state, completed and failed attempts, mode, difficulty, score, elapsed time, mistakes, hints, undos, XP, RP changes, streak information, leaderboard records, ranked duel records, daily duel records, and friend challenge records." },
-      { title: "How we use data", body: "We use your data to operate the app, save progress, calculate scores, run duels, maintain leaderboards, provide support, investigate bugs, prevent abuse, and improve reliability." },
-      { title: "Game data and leaderboards", body: "Some profile and gameplay information can be visible to other players, such as display name, username, avatar, rank, leaderboard position, duel outcome, and public challenge or friend-related information needed for gameplay." },
-      { title: "Feedback and support", body: "When you send feedback or report a problem, we store the category, message, account identifier if signed in, app version if available, and submission time so we can review and respond to issues." },
-      { title: "Premium and payments", body: "Premium purchases are handled through the App Store when available. SudoDuel does not store payment card details." },
-      { title: "Data sharing", body: "SudoDuel does not currently sell personal data. We use backend service providers, such as Supabase, to operate account, profile, gameplay, and feedback features." },
-      // TODO: Update privacy disclosures before enabling a real ad SDK or tracking.
-      { title: "Advertising and tracking", body: "SudoDuel does not currently show ads. If ads are introduced, Free accounts may see occasional ads at natural breaks only, never during active puzzles or before results are saved." },
-      { title: "Data storage and security", body: "We use backend access controls and authentication to protect user-owned data. No system can be guaranteed perfectly secure, especially during beta testing." },
-      { title: "Your choices", body: "You can update profile information, avatar settings, notification preferences, and privacy settings in the app. Some game results and duel records are kept to preserve competitive integrity." },
-      { title: "Account deletion", body: `In-app self-service account deletion is not currently available. Contact ${SUPPORT_EMAIL_LABEL} to request account deletion or a data request.` },
-      { title: "Children", body: "SudoDuel is not intended to knowingly collect personal data from children below the age required by applicable law without appropriate permission." },
-      { title: "Changes to this policy", body: "We may update this Privacy Policy as SudoDuel changes. App privacy disclosures should match the app's actual data collection before public release." },
+      { title: "What we store", body: "SudoDuel stores account and profile information such as your account identifier, username, display name, avatar configuration, settings, and privacy preferences." },
+      { title: "Gameplay and progress data", body: "We store puzzle sessions, continue state, completed and failed results, scores, timings, mistakes, hints, undos, streak progress, achievements, leaderboards, ranked records, daily duel records, and friend challenge records." },
+      { title: "Social data", body: "We store friend relationships, friend requests, challenge records, public profile details that your settings allow, and in-app notifications needed to support social and competitive play." },
+      { title: "Push notifications", body: "If you allow device notifications, we store push token information so we can deliver duel, challenge, and account-related notifications to your devices." },
+      { title: "Feedback and reports", body: "When you send feedback or report a problem, we store the category, message, app version, and any optional diagnostics you choose to include so we can investigate and respond." },
+      { title: "Analytics and crash data", body: "SudoDuel does not currently use a dedicated analytics or crash reporting provider in this client flow unless separately added to a future build. If that changes, this policy should be updated to match." },
+      { title: "Payments and subscriptions", body: `${APP_NAME} is free during beta and does not currently process subscriptions in this release flow.` },
+      { title: "How we use data", body: "We use stored data to run the app, save progress, calculate results, support social play, maintain leaderboards, deliver notifications, investigate issues, and keep the game fair and reliable." },
+      { title: "Your choices", body: "You can update profile, avatar, privacy, and notification settings in the app. Some competitive records and result history may be retained to preserve match integrity." },
+      { title: "Account deletion", body: `Self-service account deletion is not fully automated in this build. Use the Delete account screen or contact ${SUPPORT_EMAIL_LABEL} to request deletion.` },
       { title: "Contact us", body: CONTACT },
+    ],
+  },
+  "delete-account": {
+    eyebrow: "ACCOUNT",
+    title: "Delete Account",
+    subtitle: "Request permanent account deletion safely.",
+    icon: "legal",
+    sections: [
+      { title: "What this does", body: "This flow creates a verified deletion request for the SudoDuel team. We use a request flow in beta so we can confirm the account owner before deleting or anonymising data." },
+      { title: "What may be removed", body: "Your profile, avatar settings, account-linked preferences, and personal support history can be removed or anonymised as appropriate. Some competitive records may need to be retained in a minimal form to preserve match integrity and prevent broken history for other players." },
+      { title: "Before you continue", body: "Account deletion is intended to be permanent. If you only want a break, signing out is safer. If you are requesting deletion for privacy reasons, include the email or username tied to your account." },
+      { title: "Need help first?", body: CONTACT },
     ],
   },
 };
 
 function getPage(value: string | string[] | undefined): InfoPage {
   const page = Array.isArray(value) ? value[0] : value;
-  return page === "help" || page === "support" || page === "terms" || page === "privacy" || page === "premium" ? page : "help";
+  return page === "premium" || page === "help" || page === "support" || page === "terms" || page === "privacy" || page === "delete-account"
+    ? page
+    : "help";
 }
 
 function PageIcon({ type }: { type: "premium" | "help" | "legal" }) {
@@ -135,175 +134,62 @@ function PageIcon({ type }: { type: "premium" | "help" | "legal" }) {
   return <View style={styles.icon}><Icon size={22} color={C.inkSoft} /></View>;
 }
 
-function featureList(features: { title: string; description: string }[]): string {
-  return features.map((feature) => `- ${feature.title}: ${feature.description}`).join("\n\n");
-}
-
 export default function SettingsInfoScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ page?: string }>();
   const page = getPage(params.page);
   const content = CONTENT[page];
-  const premium = usePremiumStatus();
-  const planLabel = premium.isLoading ? "checking..." : premium.isPremium ? "Premium" : "Free";
-  const [offering, setOffering] = useState<CurrentOffering | null>(null);
-  const [purchaseError, setPurchaseError] = useState<string | null>(null);
-  const [isLoadingOffering, setIsLoadingOffering] = useState(false);
-  const [purchaseAction, setPurchaseAction] = useState<string | null>(null);
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
-  const [purchaseDiagnostics, setPurchaseDiagnostics] = useState<PurchaseDiagnostics | null>(null);
-  const [isLoadingDiagnostics, setIsLoadingDiagnostics] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-
-    async function loadOffering(): Promise<void> {
-      if (page !== "premium") return;
-      setIsLoadingOffering(true);
-      const result = await getCurrentOffering();
-      if (!active) return;
-      if (result.ok) {
-        setOffering(result.data);
-        if (result.data?.availablePackages.length) {
-          setPurchaseError(null);
-        } else {
-          console.warn("[Premium] RevenueCat offering returned no packages.");
-          setPurchaseError(PURCHASES_UNAVAILABLE_BODY);
-        }
-      } else {
-        console.warn("[Premium] RevenueCat offering unavailable.", result.error);
-        setOffering(null);
-        setPurchaseError(PURCHASES_UNAVAILABLE_BODY);
-      }
-      setIsLoadingOffering(false);
-    }
-
-    void loadOffering();
-    return () => {
-      active = false;
-    };
-  }, [page]);
-
-  const premiumPackages = useMemo(() => {
-    const packages = offering?.availablePackages ?? [];
-    return [...packages].sort((a, b) => {
-      const order = (pkg: PurchasePackage) => {
-        if (pkg.product.identifier === PRODUCT_MONTHLY) return 0;
-        if (pkg.product.identifier === PRODUCT_YEARLY) return 1;
-        return 2;
-      };
-      return order(a) - order(b);
-    });
-  }, [offering?.availablePackages]);
-
-  const handlePurchase = useCallback(async (pkg: PurchasePackage) => {
-    setPurchaseAction(pkg.identifier);
-    const result = await purchasePackage(pkg);
-    setPurchaseAction(null);
-    if (!result.ok) {
-      if (result.error === "Purchase cancelled.") return;
-      console.warn("[Premium] Purchase failed.", result.error);
-      Alert.alert("Purchase unavailable", PURCHASES_UNAVAILABLE_BODY);
-      return;
-    }
-    await premium.refresh();
-    Alert.alert("Premium updated", "Your Premium status has been refreshed.");
-  }, [premium]);
-
-  const handleRestore = useCallback(async () => {
-    setPurchaseAction("restore");
-    const result = await restorePurchases();
-    setPurchaseAction(null);
-    if (!result.ok) {
-      console.warn("[Premium] Restore purchases failed.", result.error);
-      Alert.alert("Restore unavailable", RESTORE_UNAVAILABLE_BODY);
-      return;
-    }
-    await premium.refresh();
-    Alert.alert("Purchases restored", "Your Premium status has been refreshed.");
-  }, [premium]);
-
-  const handleManageSubscription = useCallback(async () => {
-    try {
-      const supported = await Linking.canOpenURL(MANAGE_SUBSCRIPTION_URL);
-      if (supported) {
-        await Linking.openURL(MANAGE_SUBSCRIPTION_URL);
-        return;
-      }
-    } catch {}
-    Alert.alert("Manage subscription", "You can manage your subscription in App Store subscriptions.");
-  }, []);
-
-  const premiumSubtitle = premium.isPremium ? "Current plan: Premium." : "Current plan: Free.";
-  const hasMonthlyAndYearly = premiumPackages.some((pkg) => pkg.product.identifier === PRODUCT_MONTHLY)
-    && premiumPackages.some((pkg) => pkg.product.identifier === PRODUCT_YEARLY);
-  const premiumSections = FREE_FIRST_LAUNCH_MODE
-    ? [
-        { title: "Free-first launch", body: FREE_FIRST_LAUNCH_NOTE },
-        { title: "Open for everyone now", body: featureList(FREE_FEATURES.filter((feature) => feature.live !== false)) },
-        { title: "Premium supporter direction", body: "Premium infrastructure remains active for future cosmetics, supporter perks, and convenience features as SudoDuel grows." },
-        { title: "Future Premium ideas", body: featureList(PLANNED_PREMIUM_FEATURES) },
-        ...content.sections.slice(3),
-      ]
-    : [
-        { title: "Premium includes now", body: featureList(LIVE_PREMIUM_FEATURES) },
-        { title: "Free for everyone", body: featureList(FREE_FEATURES.filter((feature) => feature.live !== false)) },
-        { title: "Planned for future updates", body: featureList(PLANNED_PREMIUM_FEATURES) },
-        ...content.sections.slice(3),
+  const pageActions = useMemo<PageAction[]>(() => {
+    if (page === "support") {
+      return [
+        {
+          label: `Email ${SUPPORT_EMAIL_LABEL}`,
+          onPress: () => {
+            void openSupportEmail({
+              subject: `${APP_NAME} support request`,
+              body: "Hi SudoDuel,\n\nI need help with:\n\n",
+            }).then((result) => {
+              if (!result.ok) Alert.alert("Support", result.error);
+            });
+          },
+        },
+        { label: "Report a problem", variant: "secondary", onPress: () => router.push({ pathname: "/settings-feedback", params: { category: "problem" } }) },
+        { label: "Send feedback", variant: "secondary", onPress: () => router.push({ pathname: "/settings-feedback", params: { category: "feedback" } }) },
+        { label: "Request account deletion", variant: "danger", onPress: () => router.push({ pathname: "/settings-info", params: { page: "delete-account" } }) },
       ];
+    }
 
-  const openDiagnostics = useCallback(async () => {
-    if (page !== "premium") return;
-    setShowDiagnostics(true);
-    setIsLoadingDiagnostics(true);
-    const result = await getPurchaseDiagnostics();
-    setPurchaseDiagnostics(result);
-    setIsLoadingDiagnostics(false);
+    if (page === "delete-account") {
+      return [
+        {
+          label: "Send deletion request",
+          variant: "danger",
+          onPress: () => router.push({
+            pathname: "/settings-feedback",
+            params: {
+              category: "account_deletion",
+              message: "I would like to request deletion of my SudoDuel account and associated personal data.",
+            },
+          }),
+        },
+        {
+          label: `Email ${SUPPORT_EMAIL_LABEL}`,
+          variant: "secondary",
+          onPress: () => {
+            void openSupportEmail({
+              subject: `${APP_NAME} account deletion request`,
+              body: "Hi SudoDuel,\n\nI would like to request deletion of my account and associated personal data.\n\nAccount email or username:\n",
+            }).then((result) => {
+              if (!result.ok) Alert.alert("Delete account", result.error);
+            });
+          },
+        },
+      ];
+    }
+
+    return [];
   }, [page]);
-
-  const diagnosticRows = useMemo<DiagnosticRow[]>(() => {
-    if (!purchaseDiagnostics) return [];
-    return [
-      { label: "Platform", value: String(purchaseDiagnostics.platform) },
-      { label: "Purchases enabled", value: purchaseDiagnostics.purchasesEnabled ? "Yes" : "No" },
-      { label: "Purchases module import attempted", value: purchaseDiagnostics.purchasesModuleImportAttempted ? "Yes" : "No" },
-      { label: "Purchases module imported", value: purchaseDiagnostics.purchasesModuleImported ? "Yes" : "No" },
-      { label: "Purchases module loaded", value: purchaseDiagnostics.purchasesModuleLoaded ? "Yes" : "No" },
-      { label: "Module has configure", value: purchaseDiagnostics.purchasesModuleHasConfigure ? "Yes" : "No" },
-      { label: "Module has getOfferings", value: purchaseDiagnostics.purchasesModuleHasGetOfferings ? "Yes" : "No" },
-      { label: "Module has purchasePackage", value: purchaseDiagnostics.purchasesModuleHasPurchasePackage ? "Yes" : "No" },
-      { label: "Module has restorePurchases", value: purchaseDiagnostics.purchasesModuleHasRestorePurchases ? "Yes" : "No" },
-      { label: "iOS API key present", value: purchaseDiagnostics.iosApiKeyPresent ? "Yes" : "No" },
-      { label: "API key length", value: String(purchaseDiagnostics.iosApiKeyLength) },
-      { label: "API key prefix", value: purchaseDiagnostics.iosApiKeyPrefix ?? "None" },
-      { label: "Entitlement ID", value: purchaseDiagnostics.entitlementId },
-      { label: "Offering ID", value: purchaseDiagnostics.offeringId },
-      { label: "Expected monthly product", value: purchaseDiagnostics.expectedMonthlyProductId },
-      { label: "Expected yearly product", value: purchaseDiagnostics.expectedYearlyProductId },
-      { label: "Storefront country", value: purchaseDiagnostics.storefrontCountryCode ?? "None" },
-      { label: "configurePurchases() attempted", value: purchaseDiagnostics.configureAttempted ? "Yes" : "No" },
-      { label: "configurePurchases() succeeded", value: purchaseDiagnostics.configureSucceeded ? "Yes" : "No" },
-      { label: "getOfferings() attempted", value: purchaseDiagnostics.getOfferingsAttempted ? "Yes" : "No" },
-      { label: "getOfferings() succeeded", value: purchaseDiagnostics.getOfferingsSucceeded ? "Yes" : "No" },
-      { label: "Current offering identifier", value: purchaseDiagnostics.currentOfferingIdentifier ?? "None" },
-      { label: "All offering identifiers", value: purchaseDiagnostics.allOfferingIdentifiers.length ? purchaseDiagnostics.allOfferingIdentifiers.join(", ") : "None" },
-      { label: "Selected offering identifier", value: purchaseDiagnostics.selectedOfferingIdentifier ?? "None" },
-      { label: "Selected offering has zero packages", value: purchaseDiagnostics.selectedOfferingHasZeroPackages ? "Yes" : "No" },
-      { label: "Available package count", value: String(purchaseDiagnostics.availablePackageCount) },
-      { label: "Package identifiers", value: purchaseDiagnostics.packageIdentifiers.length ? purchaseDiagnostics.packageIdentifiers.join(", ") : "None" },
-      { label: "Product identifiers", value: purchaseDiagnostics.productIdentifiers.length ? purchaseDiagnostics.productIdentifiers.join(", ") : "None" },
-      { label: "Currency codes", value: purchaseDiagnostics.currencyCodes.length ? purchaseDiagnostics.currencyCodes.join(", ") : "None" },
-      { label: "Price numbers", value: purchaseDiagnostics.priceNumbers.length ? purchaseDiagnostics.priceNumbers.join(", ") : "None" },
-      { label: "Price strings", value: purchaseDiagnostics.priceStrings.length ? purchaseDiagnostics.priceStrings.join(", ") : "None" },
-      { label: "Packages missing price strings", value: purchaseDiagnostics.packagesMissingPriceStrings ? "Yes" : "No" },
-      { label: "Last error category", value: purchaseDiagnostics.lastErrorCategory ?? "None" },
-      { label: "Last error code", value: purchaseDiagnostics.lastErrorCode ?? "None" },
-      { label: "Last error message", value: purchaseDiagnostics.lastErrorMessage ?? "None" },
-      { label: "Last module load error", value: purchaseDiagnostics.lastModuleLoadErrorMessage ?? "None" },
-      { label: "Last configure error", value: purchaseDiagnostics.lastConfigureErrorMessage ?? "None" },
-      { label: "Last getOfferings error", value: purchaseDiagnostics.lastGetOfferingsErrorMessage ?? "None" },
-    ];
-  }, [purchaseDiagnostics]);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -314,153 +200,51 @@ export default function SettingsInfoScreen() {
             <ChevronLeft size={20} color={C.ink} />
           </Pressable>
           <PageIcon type={content.icon} />
-          <Pressable style={{ flex: 1 }} disabled={page !== "premium"} onLongPress={() => { void openDiagnostics(); }} delayLongPress={500}>
+          <View style={{ flex: 1 }}>
             <Text style={styles.eyebrow}>{content.eyebrow}</Text>
             <Text style={styles.title}>{content.title}</Text>
-            <Text style={styles.sub}>{page === "premium" ? premiumSubtitle : content.subtitle}</Text>
-          </Pressable>
+            <Text style={styles.sub}>{content.subtitle}</Text>
+          </View>
         </View>
 
         <Card style={{ marginTop: 18 }}>
-          {page === "premium" ? (
-            <View style={[styles.planCard, styles.divider]}>
-              <View style={styles.planHeader}>
-                <View style={styles.planHeaderText}>
-                  <Text style={styles.planEyebrow}>PLAN STATUS</Text>
-                  <Text style={styles.planTitle}>Current plan: {planLabel}</Text>
-                </View>
-                <View style={[styles.planBadge, premium.isPremium && styles.planBadgePremium]}>
-                  <Text style={[styles.planBadgeText, premium.isPremium && styles.planBadgeTextPremium]}>
-                    {premium.isPremium ? "Active" : "Free"}
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.planBody}>
-                {premium.isPremium
-                  ? FREE_FIRST_LAUNCH_MODE
-                    ? "Premium is active for this account. SudoDuel is currently launching free-first, so core play and social features remain open to everyone while Premium stays ready for supporter perks and future cosmetic extras."
-                    : "Premium is active for this account. Your plan now includes full results history, advanced stat views, expanded head-to-head history, higher Friend Challenge creation, and Premium avatar cosmetics."
-                  : FREE_FIRST_LAUNCH_MODE
-                    ? "All Classic difficulties are free, including Expert and Master. SudoDuel is currently launching free-first, so core play, social features, leaderboards, public profiles, and current avatar options remain open while Premium supporter perks continue to take shape."
-                    : "All Classic difficulties are free, including Expert and Master. Premium adds live convenience features, deeper history, richer stats, higher Friend Challenge creation, and cosmetic extras."}
-              </Text>
-              <View style={styles.disabledCta}>
-                <Text style={styles.disabledCtaText}>{premium.isPremium ? "Premium active" : FREE_FIRST_LAUNCH_MODE ? "Free-first launch" : "Free plan active"}</Text>
-              </View>
-            </View>
-          ) : null}
-
-          {page === "premium" ? (
-            <View style={[styles.purchaseBlock, styles.divider]}>
-              <Text style={styles.featureStripTitle}>{premium.isPremium ? "Manage your subscription" : FREE_FIRST_LAUNCH_MODE ? "Support SudoDuel" : "Choose a plan"}</Text>
-              <Text style={styles.purchaseIntro}>
-                {premium.isPremium
-                  ? "Your subscription is managed through the App Store."
-                  : FREE_FIRST_LAUNCH_MODE
-                    ? "SudoDuel is launching free-first. If you choose to subscribe, prices are loaded securely from the App Store and help support future cosmetics and Premium perks."
-                    : "Subscribe to unlock Premium benefits. Prices are loaded securely from the App Store."}
-              </Text>
-              {premium.isPremium ? (
-                <View style={styles.manageBlock}>
-                  <Pressable
-                    style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}
-                    onPress={() => { void handleManageSubscription(); }}
-                  >
-                    <Text style={styles.manageButtonText}>Manage subscription</Text>
-                  </Pressable>
-                  <Text style={styles.manageHelp}>If prices appear in dollars, check that the test device App Store storefront is set to the UK. Prices come directly from the App Store.</Text>
-                </View>
-              ) : isLoadingOffering ? (
-                <View style={styles.purchaseLoading}>
-                  <ActivityIndicator color={C.gold} />
-                  <Text style={styles.purchaseMuted}>Checking purchase availability...</Text>
-                </View>
-              ) : premiumPackages.length > 0 ? (
-                <View style={styles.packageList}>
-                  {premiumPackages.map((pkg) => (
-                    <Pressable
-                      key={pkg.identifier}
-                      style={({ pressed }) => [styles.packageCard, pressed && styles.pressed]}
-                      onPress={() => void handlePurchase(pkg)}
-                      disabled={purchaseAction !== null}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.packageTitle}>
-                          {pkg.product.identifier === PRODUCT_YEARLY ? "Yearly plan" : pkg.product.identifier === PRODUCT_MONTHLY ? "Monthly plan" : pkg.product.title ?? "Premium"}
-                        </Text>
-                        <Text style={styles.packageSub}>
-                          {pkg.product.identifier === PRODUCT_YEARLY && hasMonthlyAndYearly ? "Better value for regular players" : pkg.product.description || "SudoDuel Premium"}
-                        </Text>
-                        {pkg.product.priceString ? <Text style={styles.packagePrice}>{pkg.product.priceString}</Text> : null}
-                      </View>
-                      <View style={styles.packageButton}>
-                        {purchaseAction === pkg.identifier ? <ActivityIndicator color={C.ink} /> : <Text style={styles.packageButtonText}>Subscribe</Text>}
-                      </View>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : (
-                <View style={styles.unavailableBox}>
-                  <Text style={styles.unavailableTitle}>{PURCHASES_UNAVAILABLE_TITLE}</Text>
-                  <Text style={styles.unavailableBody}>{purchaseError ?? PURCHASES_UNAVAILABLE_BODY}</Text>
-                  <Text style={styles.unavailableHelp}>{PURCHASES_UNAVAILABLE_HELP}</Text>
-                </View>
-              )}
-              <Pressable
-                style={({ pressed }) => [styles.restoreButton, pressed && styles.pressed]}
-                onPress={() => void handleRestore()}
-                disabled={purchaseAction !== null}
-              >
-                {purchaseAction === "restore" ? <ActivityIndicator color={C.ink} /> : <Text style={styles.restoreButtonText}>Restore purchases</Text>}
-              </Pressable>
-            </View>
-          ) : null}
-
-          {(page === "premium" ? premiumSections : content.sections).map((section, index, sections) => (
-            <View key={section.title} style={[styles.section, index < sections.length - 1 && styles.divider]}>
+          {content.sections.map((section, index) => (
+            <View key={section.title} style={[styles.section, index < content.sections.length - 1 && styles.divider]}>
               <Text style={styles.sectionTitle}>{section.title}</Text>
               <Text style={styles.body}>{section.body}</Text>
             </View>
           ))}
         </Card>
-      </ScrollView>
 
-      <Modal
-        visible={showDiagnostics}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowDiagnostics(false)}
-      >
-        <View style={styles.modalScrim}>
-          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 20 }]}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalEyebrow}>INTERNAL</Text>
-                <Text style={styles.modalTitle}>Premium diagnostics</Text>
-              </View>
-              <Pressable style={styles.modalClose} onPress={() => setShowDiagnostics(false)}>
-                <Text style={styles.modalCloseText}>Done</Text>
-              </Pressable>
+        {pageActions.length ? (
+          <Card style={{ marginTop: 16 }}>
+            <Text style={styles.actionTitle}>{page === "delete-account" ? "Next steps" : "Actions"}</Text>
+            <View style={styles.actionList}>
+              {pageActions.map((action) => (
+                <Pressable
+                  key={action.label}
+                  style={[
+                    styles.actionButton,
+                    action.variant === "secondary" && styles.actionButtonSecondary,
+                    action.variant === "danger" && styles.actionButtonDanger,
+                  ]}
+                  onPress={action.onPress}
+                >
+                  <Text
+                    style={[
+                      styles.actionButtonText,
+                      action.variant === "secondary" && styles.actionButtonTextSecondary,
+                      action.variant === "danger" && styles.actionButtonTextDanger,
+                    ]}
+                  >
+                    {action.label}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
-            <Text style={styles.modalSub}>Hidden RevenueCat diagnostics for TestFlight purchase debugging.</Text>
-            {isLoadingDiagnostics ? (
-              <View style={styles.purchaseLoading}>
-                <ActivityIndicator color={C.gold} />
-                <Text style={styles.purchaseMuted}>Loading diagnostics...</Text>
-              </View>
-            ) : (
-              <ScrollView style={styles.diagnosticsList} contentContainerStyle={{ paddingBottom: 12 }} showsVerticalScrollIndicator={false}>
-                {diagnosticRows.map((row, index) => (
-                  <View key={row.label} style={[styles.diagnosticRow, index < diagnosticRows.length - 1 && styles.diagnosticDivider]}>
-                    <Text style={styles.diagnosticLabel}>{row.label}</Text>
-                    <Text style={styles.diagnosticValue}>{row.value}</Text>
-                  </View>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      </Modal>
+          </Card>
+        ) : null}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -477,52 +261,12 @@ const styles = StyleSheet.create({
   divider: { borderBottomWidth: 1, borderBottomColor: C.border, paddingBottom: 16, marginBottom: 6 },
   sectionTitle: { color: C.ink, fontSize: 16, fontWeight: "900" },
   body: { color: C.muted, fontSize: 14, fontWeight: "700", lineHeight: 20, marginTop: 6 },
-  planCard: { paddingBottom: 16, marginBottom: 6 },
-  planHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
-  planHeaderText: { flex: 1, minWidth: 0 },
-  planEyebrow: { color: C.gold, fontSize: 12, fontWeight: "900", letterSpacing: 1.1 },
-  planTitle: { color: C.ink, fontSize: 24, fontWeight: "900", marginTop: 4 },
-  planBadge: { alignSelf: "flex-start", borderRadius: 999, borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, paddingHorizontal: 12, paddingVertical: 7, maxWidth: "45%" },
-  planBadgePremium: { borderColor: C.gold, backgroundColor: C.goldSoft },
-  planBadgeText: { color: C.muted, fontSize: 12, fontWeight: "900" },
-  planBadgeTextPremium: { color: C.ink },
-  planBody: { color: C.muted, fontSize: 14, fontWeight: "700", lineHeight: 20, marginTop: 10 },
-  disabledCta: { alignSelf: "flex-start", borderRadius: 14, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, paddingHorizontal: 14, paddingVertical: 10, marginTop: 12 },
-  disabledCtaText: { color: C.muted, fontSize: 13, fontWeight: "900" },
-  purchaseBlock: { paddingBottom: 16, marginBottom: 6 },
-  purchaseIntro: { color: C.muted, fontSize: 13, fontWeight: "700", lineHeight: 19, marginTop: 8 },
-  purchaseLoading: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 12 },
-  purchaseMuted: { color: C.muted, fontSize: 13, fontWeight: "700" },
-  packageList: { gap: 10, marginTop: 12 },
-  manageBlock: { marginTop: 12, gap: 10 },
-  manageButton: { alignSelf: "flex-start", borderRadius: 14, backgroundColor: C.goldSoft, borderWidth: 1, borderColor: C.gold, paddingHorizontal: 14, paddingVertical: 10 },
-  manageButtonText: { color: C.ink, fontSize: 13, fontWeight: "900" },
-  manageHelp: { color: C.muted, fontSize: 12, fontWeight: "700", lineHeight: 18 },
-  packageCard: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 18, borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, padding: 12 },
-  packageTitle: { color: C.ink, fontSize: 16, fontWeight: "900" },
-  packageSub: { color: C.muted, fontSize: 12, fontWeight: "700", marginTop: 3 },
-  packagePrice: { color: C.gold, fontSize: 13, fontWeight: "900", marginTop: 6 },
-  packageButton: { minWidth: 92, borderRadius: 14, backgroundColor: C.gold, paddingHorizontal: 12, paddingVertical: 10, alignItems: "center", justifyContent: "center" },
-  packageButtonText: { color: C.ink, fontSize: 13, fontWeight: "900" },
-  unavailableBox: { borderRadius: 18, borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, padding: 14, marginTop: 12 },
-  unavailableTitle: { color: C.ink, fontSize: 15, fontWeight: "900" },
-  unavailableBody: { color: C.muted, fontSize: 13, fontWeight: "700", lineHeight: 19, marginTop: 4 },
-  unavailableHelp: { color: C.muted, fontSize: 12, fontWeight: "700", lineHeight: 18, marginTop: 10 },
-  restoreButton: { alignSelf: "flex-start", borderRadius: 14, borderWidth: 1, borderColor: C.border, backgroundColor: C.card, paddingHorizontal: 14, paddingVertical: 10, marginTop: 12, minHeight: 42, justifyContent: "center" },
-  restoreButtonText: { color: C.ink, fontSize: 13, fontWeight: "900" },
-  pressed: { opacity: 0.86, transform: [{ scale: 0.99 }] },
-  featureStripTitle: { color: C.gold, fontSize: 12, fontWeight: "900", letterSpacing: 1.1, textTransform: "uppercase" },
-  modalScrim: { flex: 1, backgroundColor: "rgba(15, 16, 38, 0.48)", justifyContent: "flex-end" },
-  modalSheet: { backgroundColor: C.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 18, maxHeight: "78%" },
-  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
-  modalEyebrow: { color: C.gold, fontSize: 11, fontWeight: "900", letterSpacing: 1.3 },
-  modalTitle: { color: C.ink, fontSize: 24, fontWeight: "900", marginTop: 3 },
-  modalSub: { color: C.muted, fontSize: 13, fontWeight: "700", lineHeight: 18, marginTop: 8, marginBottom: 10 },
-  modalClose: { borderRadius: 999, borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, paddingHorizontal: 14, paddingVertical: 9 },
-  modalCloseText: { color: C.ink, fontSize: 13, fontWeight: "900" },
-  diagnosticsList: { marginTop: 6 },
-  diagnosticRow: { paddingVertical: 10 },
-  diagnosticDivider: { borderBottomWidth: 1, borderBottomColor: C.border },
-  diagnosticLabel: { color: C.gold, fontSize: 11, fontWeight: "900", letterSpacing: 0.8, textTransform: "uppercase" },
-  diagnosticValue: { color: C.ink, fontSize: 14, fontWeight: "700", lineHeight: 20, marginTop: 4 },
+  actionTitle: { color: C.ink, fontSize: 16, fontWeight: "900" },
+  actionList: { gap: 10, marginTop: 14 },
+  actionButton: { borderRadius: 16, backgroundColor: C.ink, paddingVertical: 14, paddingHorizontal: 16, alignItems: "center" },
+  actionButtonSecondary: { backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border },
+  actionButtonDanger: { backgroundColor: C.cellError, borderWidth: 1, borderColor: C.danger },
+  actionButtonText: { color: "#FBF8F2", fontWeight: "900" },
+  actionButtonTextSecondary: { color: C.ink },
+  actionButtonTextDanger: { color: C.danger },
 });

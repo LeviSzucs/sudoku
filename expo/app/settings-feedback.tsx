@@ -1,7 +1,7 @@
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { ChevronLeft, LifeBuoy, MessageSquare } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Card from "@/components/Card";
@@ -10,6 +10,7 @@ import { APP_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { SUPPORT_EMAIL_LABEL } from "@/constants/legal";
 import { useAuth } from "@/hooks/useAuth";
+import { openSupportEmail } from "@/lib/support";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 type FeedbackCategory = "general_feedback" | "bug_report" | "account_issue" | "gameplay_issue" | "ranked_duel_issue" | "privacy_data_request" | "account_deletion" | "other";
@@ -41,6 +42,7 @@ export default function SettingsFeedbackScreen() {
   const [selectedCategory, setSelectedCategory] = useState<FeedbackCategory>(() => getCategory(params.category));
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [sent, setSent] = useState<boolean>(false);
+  const [includeDiagnostics, setIncludeDiagnostics] = useState<boolean>(isProblemReport || getCategory(params.category) === "account_deletion");
   const isDeletionRequest = selectedCategory === "account_deletion";
   const title = isDeletionRequest ? "Delete account" : isProblemReport ? "Report a problem" : "Send feedback";
   const helper = isDeletionRequest
@@ -50,6 +52,12 @@ export default function SettingsFeedbackScreen() {
   const canSubmit = message.trim().length >= 3 && !isSubmitting;
 
   const appVersion = useMemo(() => APP_VERSION, []);
+  const platform = useMemo(() => Platform.OS, []);
+  const submissionMessage = useMemo(() => {
+    const trimmed = message.trim();
+    if (!includeDiagnostics) return trimmed;
+    return `${trimmed}\n\n---\nApp version: ${appVersion}\nPlatform: ${platform}`;
+  }, [appVersion, includeDiagnostics, message, platform]);
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -62,7 +70,7 @@ export default function SettingsFeedbackScreen() {
       const { error } = await supabase.from("feedback").insert({
         user_id: auth.user.id,
         category: selectedCategory,
-        message: message.trim(),
+        message: submissionMessage,
         app_version: appVersion,
       });
       if (error) throw error;
@@ -95,6 +103,19 @@ export default function SettingsFeedbackScreen() {
           <Card style={{ marginTop: 18 }}>
             <Text style={styles.successTitle}>Thanks - your feedback has been sent.</Text>
             <Text style={styles.successBody}>We saved your message for the {APP_NAME} team. For account, privacy, or data requests, you can also contact {SUPPORT_EMAIL_LABEL}.</Text>
+            <Pressable
+              onPress={() => {
+                void openSupportEmail({
+                  subject: `${APP_NAME} support follow-up`,
+                  body: "Hi SudoDuel,\n\nI am following up on a feedback or support request.\n\n",
+                }).then((result) => {
+                  if (!result.ok) Alert.alert("Support", result.error);
+                });
+              }}
+              style={styles.secondary}
+            >
+              <Text style={styles.secondaryText}>Email support</Text>
+            </Pressable>
             <Pressable onPress={() => router.replace("/settings")} style={styles.primary}>
               <Text style={styles.primaryText}>Done</Text>
             </Pressable>
@@ -119,7 +140,32 @@ export default function SettingsFeedbackScreen() {
               placeholderTextColor={C.mutedSoft}
               style={styles.input}
             />
+            <View style={styles.toggleRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.toggleTitle}>Include app diagnostics</Text>
+                <Text style={styles.toggleBody}>Adds the app version and platform to help support reproduce the issue.</Text>
+              </View>
+              <Switch
+                value={includeDiagnostics}
+                onValueChange={setIncludeDiagnostics}
+                trackColor={{ false: C.border, true: C.accentSoft }}
+                thumbColor={includeDiagnostics ? C.accent : C.mutedSoft}
+              />
+            </View>
             <Text style={styles.helper}>For account, privacy, or deletion requests, include the email or username tied to your account. Minimum 3 characters.</Text>
+            <Pressable
+              onPress={() => {
+                void openSupportEmail({
+                  subject: `${APP_NAME} ${isDeletionRequest ? "account request" : isProblemReport ? "bug report" : "feedback"}`,
+                  body: message.trim() || `Hi SudoDuel,\n\nI need help with ${isDeletionRequest ? "an account deletion request" : isProblemReport ? "a problem in the app" : "feedback about the app"}.\n\n`,
+                }).then((result) => {
+                  if (!result.ok) Alert.alert("Support", result.error);
+                });
+              }}
+              style={styles.secondary}
+            >
+              <Text style={styles.secondaryText}>Email support instead</Text>
+            </Pressable>
             <Pressable disabled={!canSubmit} onPress={() => { void submit(); }} style={[styles.primary, !canSubmit && { opacity: 0.5 }]}>
               <Text style={styles.primaryText}>{isSubmitting ? "Sending..." : "Send"}</Text>
             </Pressable>
@@ -146,8 +192,13 @@ const styles = StyleSheet.create({
   chipTextActive: { color: "#FBF8F2" },
   input: { minHeight: 160, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 14, color: C.ink, fontSize: 15, fontWeight: "700" },
   helper: { color: C.muted, fontSize: 12, fontWeight: "700", marginTop: 8 },
+  toggleRow: { flexDirection: "row", gap: 12, alignItems: "center", marginTop: 14, padding: 14, borderRadius: 16, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border },
+  toggleTitle: { color: C.ink, fontSize: 13, fontWeight: "900" },
+  toggleBody: { color: C.muted, fontSize: 12, fontWeight: "700", lineHeight: 17, marginTop: 4 },
   successTitle: { color: C.ink, fontSize: 20, fontWeight: "900" },
   successBody: { color: C.muted, fontSize: 14, fontWeight: "700", lineHeight: 20, marginTop: 8 },
+  secondary: { borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, borderRadius: 16, paddingVertical: 14, alignItems: "center", marginTop: 16 },
+  secondaryText: { color: C.ink, fontWeight: "900" },
   primary: { backgroundColor: C.ink, borderRadius: 16, paddingVertical: 14, alignItems: "center", marginTop: 16 },
   primaryText: { color: "#FBF8F2", fontWeight: "900" },
 });
