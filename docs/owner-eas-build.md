@@ -28,6 +28,18 @@ You need:
 - EAS CLI installed locally
 - the SudoDuel repo checked out locally
 
+## Supabase Migration Warning
+
+Do **not** treat owner-managed EAS setup as permission to run a blind production database push.
+
+For the current production project:
+
+- do **not** run `npx supabase db push` yet
+- do **not** replay the whole `expo/supabase/migrations` folder against production
+- do review the migration audit first: [supabase-production-migration-audit.md](C:\Users\LeviS\Documents\Codex\2026-05-30\github-plugin-github-openai-curated-can\sudoku-supabase-migration-audit\docs\supabase-production-migration-audit.md)
+
+The local migration chain currently includes historical cleanup and replay-hostile assumptions that must be reconciled against production state before normal CLI migration pushes are safe again.
+
 ## Required Environment Variables
 
 Set these in your local shell and in your Expo/EAS project environment as appropriate:
