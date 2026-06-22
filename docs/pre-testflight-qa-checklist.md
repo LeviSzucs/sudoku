@@ -230,13 +230,19 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Delete account entry is present.
 - [ ] Delete account flow requires destructive confirmation.
 - [ ] Delete account flow opens a clear deletion/support request.
+- [ ] Delete account copy explains what will be deleted or anonymised.
 - [ ] Feedback opens.
 - [ ] Report a problem opens.
+- [ ] Contact Support opens.
+- [ ] Contact Support shows `sudoduel@gmail.com`.
+- [ ] Contact Support can open the device mail app or shows a safe fallback message.
 - [ ] Submitting feedback creates a Supabase row.
+- [ ] Feedback prevents empty submissions.
+- [ ] Feedback can optionally include app diagnostics.
 - [ ] Help & FAQ opens.
 - [ ] Support opens.
 - [ ] Premium opens.
-- [ ] Terms & Conditions opens.
+- [ ] Terms of Use opens.
 - [ ] Privacy Policy opens.
 - [ ] Logout works.
 
@@ -305,9 +311,9 @@ Use this checklist before TestFlight builds and before adding another major feat
 ## L. Premium Foundation
 
 - [ ] Premium screen shows Current plan: Free.
-- [ ] Premium screen shows Current plan: Premium immediately after purchase or restore.
+- [ ] Premium screen clearly says the app is free during beta.
+- [ ] Premium screen uses clean placeholder copy and does not push users into an inactive purchase flow.
 - [ ] Fairness note is visible.
-- [ ] Free and Premium states show clean, non-technical purchase copy.
 - [ ] All Classic difficulties, including Expert and Master, are free.
 - [ ] Premium screen clearly explains the current free-first launch approach.
 - [ ] Premium is framed as future/supporter/cosmetic-focused rather than a core gameplay paywall.
@@ -339,26 +345,10 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Friend Challenge difficulty selection still works for Easy, Medium, Hard, Expert, and Master.
 - [ ] Any future Premium gating plan for history, stats, avatar cosmetics, and supporter perks is documented for post-launch review rather than hard-blocking launch players.
 - [ ] Friend Challenge limits and ad-free behaviour can still be retested later if monetisation rules change after launch learning.
-- [ ] RevenueCat public iOS API key is configured for purchase-enabled builds.
-- [ ] RevenueCat entitlement `premium` exists.
-- [ ] RevenueCat offering `default` exists.
-- [ ] App Store Connect products `sudoduel_premium_monthly` and `sudoduel_premium_yearly` exist.
-- [ ] Premium screen loads monthly/yearly offerings and prices from the store in sandbox/TestFlight.
-- [ ] Premium active state hides Subscribe buttons and shows a clean active layout with the badge fully inside the card.
-- [ ] Premium active state shows App Store subscription management copy and keeps Restore purchases visible.
-- [ ] Long-press the Premium screen title to open internal Premium diagnostics for TestFlight purchase debugging.
-- [ ] Premium diagnostics show API key presence, masked prefix, entitlement/offering IDs, package identifiers, and last safe RevenueCat error details without exposing the full key.
-- [ ] Premium diagnostics show storefront country, currency codes, numeric prices, and StoreKit price strings when available.
-- [ ] If UK pricing is expected, confirm the test device App Store storefront is set to the UK; prices must come from StoreKit/RevenueCat, not hardcoded app copy.
 - [ ] Solo screen does not show an overflowing or cramped Premium promo card at the bottom.
 - [ ] Premium promo copy does not imply paid gameplay advantages or paywalled Classic difficulties.
-- [ ] Premium diagnostics confirm whether the `react-native-purchases` module loaded, whether `configurePurchases()` was attempted and succeeded, and whether `getOfferings()` was attempted and succeeded.
-- [ ] Premium diagnostics show whether the module import was attempted, whether it imported successfully, and whether `configure`, `getOfferings`, `purchasePackage`, and `restorePurchases` are present on the imported module.
-- [ ] Premium diagnostics distinguish API key missing, module load failure, configure failure, offering with zero packages, and packages with missing price strings.
-- [ ] Subscribe flow works in sandbox/TestFlight.
-- [ ] Restore purchases refreshes Premium status.
-- [ ] Logout/login preserves active Premium entitlement.
-- [ ] Purchase-unavailable preview state is graceful and does not show fake prices.
+- [ ] Premium screen does not show broken subscribe buttons, fake prices, or dead-end purchase UI during beta.
+- [ ] Premium architecture remains easy to re-enable later without affecting current free-beta players.
 
 ## M. Results / History / Stats
 
@@ -399,8 +389,9 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Premium/settings/legal screens are not obvious placeholders except where intentionally coming soon.
 - [ ] Settings has no hardcoded or decorative footer copy such as build markers or "Made with care".
 - [ ] App version display is dynamic or hidden from normal users.
-- [ ] Terms & Conditions has no version, build, or developer subheader text.
+- [ ] Terms of Use has no version, build, or developer subheader text.
 - [ ] Privacy Policy has no version, build, or developer subheader text.
+- [ ] Contact Support, Help & FAQ, Privacy Policy, and Terms of Use read as user-facing screens rather than placeholder copy.
 - [ ] Daily Sudoku card CTA stays inside the card.
 - [ ] Ranked Duel card text does not wrap awkwardly.
 - [ ] Home buttons/cards have consistent readable depth.
@@ -429,8 +420,10 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Terms screen has no placeholder copy.
 - [ ] Privacy screen has no placeholder copy.
 - [ ] Support/contact route works.
+- [ ] Support email is centralised and currently points to `sudoduel@gmail.com`.
 - [ ] App privacy disclosures match actual data collection.
 - [ ] Account deletion/request route is explained.
+- [ ] Account deletion is handled as a verified request flow unless a full self-service delete has been explicitly implemented and tested.
 - [ ] Premium copy does not imply active payments.
 - [ ] Premium copy does not imply Expert/Master are paywalled.
 - [ ] Ad copy says ads are planned/coming soon if no real ad SDK is active.
@@ -802,7 +795,7 @@ limit 20;
 - [ ] TypeScript/lint checks pass if available.
 - [ ] No critical console errors during smoke test.
 - [ ] Privacy Policy is no longer placeholder copy.
-- [ ] Terms & Conditions are no longer placeholder copy.
+- [ ] Terms of Use is no longer placeholder copy.
 - [ ] Support/contact route works.
 - [ ] App privacy disclosures match actual data collection.
 - [ ] Account deletion/request route is explained in-app.
