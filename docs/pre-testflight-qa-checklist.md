@@ -38,6 +38,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 ## B. Home
 
 - [ ] Home loads.
+- [ ] New users see a lightweight explanation of what SudoDuel is and a clear first-puzzle action.
+- [ ] Onboarding guidance does not block the app or trap the user in a long intro.
 - [ ] Streak card displays correctly.
 - [ ] Streak flame has a subtle ambient flicker and does not feel distracting.
 - [ ] Daily Sudoku card opens today's puzzle.
@@ -114,6 +116,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 ## F. Friend Challenge
 
 - [ ] Friend list loads in challenge mode.
+- [ ] Empty friend/challenge states explain what to do next instead of ending in a dead end.
 - [ ] Challenge creation works.
 - [ ] User A customises avatar and User B sees User A's saved avatar in Friend Challenge.
 - [ ] User B customises avatar and User A sees User B's saved avatar in Friend Challenge.
@@ -172,6 +175,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Current user highlighting is correct.
 - [ ] RP/rank display matches Profile and Versus.
 - [ ] Empty/loading states are clean.
+- [ ] Empty leaderboard states include a useful next action.
 - [ ] Avatars render correctly.
 - [ ] No fake rows appear for signed-in users.
 
@@ -357,6 +361,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 
 - [ ] Solved result appears correctly.
 - [ ] Failed result appears correctly.
+- [ ] Empty results/history states explain how to generate the first entries and offer a useful action.
 - [ ] Best times use solved-only results.
 - [ ] Streaks use solved-only Daily completions.
 - [ ] Result detail opens.
@@ -382,6 +387,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 
 ## O. Visual / Layout QA
 
+- [ ] Empty-state cards, helper text, and action buttons fit small iPhones without clipping.
 - [ ] No status bar overlap at rest.
 - [ ] Bottom nav labels fit: Home, Solo, Duel, Ranks, Profile.
 - [ ] Cards do not clip.
@@ -405,6 +411,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Offline/slow network does not crash where possible.
 - [ ] Supabase errors show safe messages.
 - [ ] Empty states are readable.
+- [ ] Empty states for Friends, Notifications, Leaderboards, Versus, and Results all explain what to do next.
 - [ ] No raw database errors are shown to users.
 - [ ] Autosave failures do not kick the user out of a valid game.
 - [ ] Forced navigation logs are available if the game exits unexpectedly.
