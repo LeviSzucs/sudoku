@@ -287,7 +287,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Streak stats screen shows the same subtle flame treatment as Home where appropriate.
 - [ ] Reduced-motion devices still show the streak clearly without broken or busy animation.
 - [ ] Streak count remains accurate while the ambient flame animation runs.
-- [ ] `send-push-notifications` Edge Function is deployed and invoked by a secure schedule, webhook, or manual trigger.
+- [ ] `send-push-notifications` Edge Function is deployed and invoked automatically by the scheduled backend job, with manual invocation available for debugging.
 - [ ] Push deployment setup follows `docs/deploy-push-notifications.md`.
 - [ ] Edge Function uses `SUPABASE_SERVICE_ROLE_KEY` only in the server runtime.
 - [ ] `PUSH_DELIVERY_SECRET` is configured if invoking the function over HTTP.
@@ -299,6 +299,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Invalid/dead Expo tokens are marked inactive.
 - [ ] Push delivery failures do not remove in-app notifications.
 - [ ] Client code does not send push notifications to other users.
+- [ ] After creating a new notification, matching `push_notification_deliveries` rows appear as `pending`.
+- [ ] Within the automation window, pending rows move to `sent`, `failed`, or `skipped` without manual PowerShell commands.
 
 ## L. Premium Foundation
 

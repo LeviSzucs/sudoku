@@ -5,6 +5,10 @@ Supabase Edge Function for SudoDuel phone push delivery.
 This function sends Expo push notifications for already-queued rows in `public.push_notification_deliveries`.
 It must run server-side only. The mobile app must not call Expo push delivery directly.
 
+In production, SudoDuel invokes this function automatically from the scheduled
+GitHub Actions workflow `run-push-notifications.yml`. Manual HTTP invocation is
+still supported for debugging and backfills.
+
 ## Required environment variables
 
 - `SUPABASE_URL`
