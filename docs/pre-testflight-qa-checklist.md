@@ -278,6 +278,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] No duplicate spam notifications appear for the same event.
 - [ ] In-app notification read state works.
 - [ ] Notification deep links open the relevant Friends/Duel screen where safe.
+- [ ] Tapping a valid notification deep link marks it read and navigates safely without crashing.
+- [ ] Tapping a null, malformed, unsupported, external, or current-screen notification deep link does not crash and safely stays on Notifications.
 - [ ] App still works without push permission.
 
 ## K3. Streak Motion

@@ -1,4 +1,4 @@
-import { Stack, router } from "expo-router";
+import { Stack, router, usePathname } from "expo-router";
 import { Bell, BellOff, ChevronLeft, CheckCircle2 } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
@@ -22,6 +22,7 @@ import {
   type NotificationPermissionStatus,
   type NotificationPreferenceRow,
 } from "@/lib/notifications";
+import { parseNotificationDeepLink } from "@/lib/notificationNavigation";
 
 const TOGGLE_ROWS: { key: keyof NotificationPreferenceRow; label: string; description: string }[] = [
   { key: "push_enabled", label: "Push notifications", description: "Controls device push delivery. Your in-app inbox still works." },
@@ -56,6 +57,7 @@ function isCalmPushUnavailableMessage(message: string | null | undefined): boole
 
 export default function SettingsNotificationsScreen() {
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
   const auth = useAuth();
   const userId = auth.user?.id ?? null;
   const [preferences, setPreferences] = useState<NotificationPreferenceRow | null>(userId ? defaultNotificationPreferences(userId) : null);
@@ -143,13 +145,51 @@ export default function SettingsNotificationsScreen() {
   };
 
   const openNotification = async (item: AppNotification) => {
-    if (!item.read_at) {
-      const result = await markNotificationRead(item.notification_id);
-      if (!result.ok) setError(result.error);
-      setNotifications((current) => current.map((entry) => entry.notification_id === item.notification_id ? { ...entry, read_at: entry.read_at ?? new Date().toISOString() } : entry));
-    }
-    if (item.deep_link) {
-      router.push(item.deep_link as never);
+    try {
+      if (!item.read_at) {
+        const result = await markNotificationRead(item.notification_id);
+        if (!result.ok) {
+          console.info("[Notifications] Could not mark notification as read.", {
+            notificationId: item.notification_id,
+            message: result.error,
+          });
+          setError(result.error);
+        }
+        setNotifications((current) => current.map((entry) => entry.notification_id === item.notification_id ? { ...entry, read_at: entry.read_at ?? new Date().toISOString() } : entry));
+      }
+
+      const target = parseNotificationDeepLink(item.deep_link);
+      if (!target.ok) {
+        console.info("[Notifications] Ignored notification deep link.", {
+          notificationId: item.notification_id,
+          reason: target.reason,
+          hasDeepLink: Boolean(item.deep_link),
+        });
+        return;
+      }
+
+      if (target.normalisedPath === pathname) {
+        console.info("[Notifications] Ignored notification deep link to current screen.", {
+          notificationId: item.notification_id,
+          path: target.normalisedPath,
+        });
+        return;
+      }
+
+      try {
+        router.push(target.href);
+      } catch (error) {
+        console.warn("[Notifications] Navigation from notification failed.", {
+          notificationId: item.notification_id,
+          path: target.normalisedPath,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    } catch (error) {
+      console.warn("[Notifications] Notification tap handling failed.", {
+        notificationId: item.notification_id,
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   };
 

@@ -226,7 +226,7 @@ create or replace function public.create_notification_self_test(
   p_type text default 'reminder',
   p_title text default 'Test notification',
   p_body text default 'This is a secure SudoDuel notification test.',
-  p_deep_link text default '/settings-notifications'
+  p_deep_link text default '/settings'
 )
 returns uuid
 language plpgsql
@@ -277,7 +277,7 @@ create or replace function public.create_notification_admin_test_for_user(
   p_type text default 'reminder',
   p_title text default 'Admin test notification',
   p_body text default 'This is a secure SudoDuel admin notification test.',
-  p_deep_link text default '/settings-notifications'
+  p_deep_link text default '/settings'
 )
 returns uuid
 language plpgsql
