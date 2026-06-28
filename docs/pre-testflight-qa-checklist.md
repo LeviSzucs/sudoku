@@ -18,18 +18,25 @@ Use this checklist before TestFlight builds and before adding another major feat
 
 - [ ] App opens cleanly.
 - [ ] No blank screen, crash loop, or stuck splash.
+- [ ] Signed-out launch shows a polished welcome/auth screen with a clear SudoDuel value proposition.
+- [ ] Auth landing screen copy is App Store-safe and does not mention paid Premium, ads, or subscriptions.
+- [ ] Auth landing screen fits on a small iPhone without clipped buttons, text, or overlapping cards.
 - [ ] Returning user stays signed in.
 - [ ] Logout works.
 - [ ] Login works after logout.
 - [ ] Create account works.
+- [ ] Sign-in and sign-up forms have clear labels, helper copy, and disabled/loading button states.
 - [ ] Sign-up validates email format.
 - [ ] Sign-up validates minimum password length.
 - [ ] Sign-up validates matching confirm password.
 - [ ] Duplicate-account and bad-login errors are friendly.
+- [ ] Failed sign-in/sign-up/reset states show polished user-facing messages rather than raw technical copy.
 - [ ] Forgot password sends a reset email.
 - [ ] Password reset link returns to the app or safe reset screen.
 - [ ] New password can be saved from the reset flow.
 - [ ] Username/profile setup works for a new user.
+- [ ] Username setup clearly separates display name from searchable username.
+- [ ] Username setup makes it clear avatar customisation can be done later.
 - [ ] Returning user lands in the right state.
 - [ ] Incomplete profile user is routed to setup.
 - [ ] Completed profile user does not briefly see setup.

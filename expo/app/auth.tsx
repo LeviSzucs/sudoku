@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { ChevronLeft, Shield, Trophy } from "lucide-react-native";
-import React, { useState } from "react";
+import { ChevronLeft, LockKeyhole, Mail, Shield, Trophy, Users } from "lucide-react-native";
+import React, { useMemo, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -15,15 +15,30 @@ const MIN_PASSWORD_LENGTH = 6;
 
 function friendlyAuthError(message?: string): string {
   const text = (message ?? "").toLowerCase();
-  if (text.includes("invalid login") || text.includes("invalid credentials")) return "Email or password is incorrect.";
+  if (text.includes("invalid login") || text.includes("invalid credentials")) return "That email or password does not look right. Please try again.";
   if (text.includes("already registered") || text.includes("already exists")) return "An account with this email already exists. Try logging in instead.";
+  if (text.includes("email not confirmed")) return "Please check your email for any confirmation steps, then try again.";
+  if (text.includes("network")) return "We could not reach the server just now. Please check your connection and try again.";
   if (text.includes("password")) return message ?? "Please check your password and try again.";
-  if (text.includes("email")) return message ?? "Please check your email and try again.";
+  if (text.includes("email")) return message ?? "Please check your email address and try again.";
   return message ?? "Something went wrong. Please try again.";
 }
 
 function isValidEmail(email: string): boolean {
   return EMAIL_RE.test(email.trim());
+}
+
+function buttonLabel(step: AuthStep, loading: boolean): string {
+  if (!loading) {
+    if (step === "signup") return "Create account";
+    if (step === "login") return "Log in";
+    if (step === "reset_request") return "Send reset email";
+    return "Continue";
+  }
+  if (step === "signup") return "Creating account...";
+  if (step === "login") return "Signing you in...";
+  if (step === "reset_request") return "Sending reset email...";
+  return "Saving...";
 }
 
 export default function AuthScreen() {
@@ -121,129 +136,267 @@ export default function AuthScreen() {
       setError(friendlyAuthError(result.error));
       return;
     }
-    setNotice("Your password has been updated. You can continue to SudoDuel.");
+    setNotice("Your password has been updated. You can continue into SudoDuel.");
   };
+
+  const headerCopy = useMemo(() => {
+    switch (step) {
+      case "signup":
+        return {
+          eyebrow: "Create your account",
+          title: "Start your first duel",
+          subtitle: "Use email and password to save your profile, puzzle history, friends, and results.",
+        };
+      case "login":
+        return {
+          eyebrow: "Welcome back",
+          title: "Pick up where you left off",
+          subtitle: "Log in to keep your profile, streaks, badges, and competitive progress in sync.",
+        };
+      case "reset_request":
+        return {
+          eyebrow: "Password help",
+          title: "Reset your password",
+          subtitle: "We will send a secure link so you can get back into your account.",
+        };
+      case "reset_sent":
+        return {
+          eyebrow: "Check your inbox",
+          title: "Reset email sent",
+          subtitle: "Open the link on this device, then come back to finish setting your new password.",
+        };
+      case "reset_update":
+        return {
+          eyebrow: "New password",
+          title: "Choose a new password",
+          subtitle: "Once saved, you can continue straight into the app.",
+        };
+      default:
+        return {
+          eyebrow: "Competitive Sudoku with friends",
+          title: "Play solo. Duel friends. Climb the ranks.",
+          subtitle: "SudoDuel blends polished Sudoku play with daily challenges, head-to-head duels, and lasting progression.",
+        };
+    }
+  }, [step]);
 
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          {step !== "splash" ? (
-            <Pressable onPress={() => goTo(step === "reset_update" ? "login" : "splash")} style={styles.back}>
-              <ChevronLeft color={C.ink} size={22} />
-              <Text style={styles.backText}>Back</Text>
-            </Pressable>
-          ) : null}
+          <View style={styles.shell}>
+            {step !== "splash" ? (
+              <Pressable onPress={() => goTo(step === "reset_update" ? "login" : "splash")} style={styles.back}>
+                <ChevronLeft color={C.ink} size={18} />
+                <Text style={styles.backText}>Back</Text>
+              </Pressable>
+            ) : null}
 
-          <View style={styles.logoWrap}>
-            <BrandMark size={78} showWordmark tagline="Sudoku, made competitive." />
+            <View style={styles.heroCard}>
+              <View style={styles.heroGlow} />
+              <View style={styles.logoWrap}>
+                <BrandMark size={82} showWordmark />
+              </View>
+              <Text style={styles.eyebrow}>{headerCopy.eyebrow}</Text>
+              <Text style={styles.heroTitle}>{headerCopy.title}</Text>
+              <Text style={styles.heroSubtitle}>{headerCopy.subtitle}</Text>
+
+              <View style={styles.heroStats}>
+                <HeroPill icon={<Trophy size={15} color={C.gold} />} label="Daily play" />
+                <HeroPill icon={<Users size={15} color={C.accent} />} label="Head-to-head" />
+                <HeroPill icon={<Shield size={15} color={C.success} />} label="Saved progress" />
+              </View>
+            </View>
+
+            {step === "splash" ? (
+              <View style={styles.panel}>
+                <Feature
+                  icon={<Trophy size={18} color={C.gold} />}
+                  title="Compete fairly"
+                  text="Solve the same boards, compare clean scores, and build real ranked progress."
+                />
+                <Feature
+                  icon={<Users size={18} color={C.accent} />}
+                  title="Challenge friends"
+                  text="Send head-to-head Sudoku challenges and keep the rivalry going."
+                />
+                <Feature
+                  icon={<Shield size={18} color={C.success} />}
+                  title="Keep your progress"
+                  text="Your account keeps stats, streaks, badges, settings, and social activity together."
+                />
+                <PrimaryButton label="Create account" onPress={() => goTo("signup")} />
+                <SecondaryButton label="Log in" onPress={() => goTo("login")} />
+              </View>
+            ) : null}
+
+            {step === "signup" ? (
+              <AuthForm
+                title="Create account"
+                subtitle="You can customise your avatar later in Profile."
+                email={email}
+                password={password}
+                confirm={confirm}
+                setEmail={setEmail}
+                setPassword={setPassword}
+                setConfirm={setConfirm}
+                showConfirm
+                error={error}
+                notice={notice}
+                loading={loading}
+                button={buttonLabel(step, loading)}
+                onSubmit={createAccount}
+                footer="Already have an account? Log in"
+                onFooter={() => goTo("login")}
+              />
+            ) : null}
+
+            {step === "login" ? (
+              <AuthForm
+                title="Log in"
+                subtitle="Use the email and password linked to your SudoDuel account."
+                email={email}
+                password={password}
+                confirm={confirm}
+                setEmail={setEmail}
+                setPassword={setPassword}
+                setConfirm={setConfirm}
+                error={error}
+                notice={notice}
+                loading={loading}
+                button={buttonLabel(step, loading)}
+                onSubmit={logIn}
+                footer="New here? Create account"
+                onFooter={() => goTo("signup")}
+                secondaryFooter="Forgot password?"
+                onSecondaryFooter={() => goTo("reset_request")}
+              />
+            ) : null}
+
+            {step === "reset_request" ? (
+              <ResetRequestForm
+                email={email}
+                setEmail={setEmail}
+                error={error}
+                loading={loading}
+                onSubmit={sendResetEmail}
+                onBack={() => goTo("login")}
+              />
+            ) : null}
+
+            {step === "reset_sent" ? (
+              <InfoPanel
+                title="Check your email"
+                body={`If an account exists for ${email.trim()}, we have sent a password reset link. Open it on this device to continue.`}
+                actionLabel="Back to log in"
+                onAction={() => goTo("login")}
+              />
+            ) : null}
+
+            {step === "reset_update" ? (
+              <AuthForm
+                title="Set new password"
+                subtitle="Choose something memorable. You can change it again later from the reset flow if needed."
+                email={email}
+                password={password}
+                confirm={confirm}
+                setEmail={setEmail}
+                setPassword={setPassword}
+                setConfirm={setConfirm}
+                showConfirm
+                hideEmail
+                error={error}
+                notice={notice}
+                loading={loading}
+                button={notice ? "Continue to SudoDuel" : buttonLabel(step, loading)}
+                onSubmit={notice ? () => router.replace("/(tabs)") : updatePassword}
+                footer="Back to log in"
+                onFooter={() => goTo("login")}
+              />
+            ) : null}
           </View>
-
-          {step === "splash" ? (
-            <View style={styles.panel}>
-              <Feature icon={<Trophy size={18} color={C.gold} />} title="Compete fairly" text="Same boards, score-first leaderboards, skill-based RP." />
-              <Feature icon={<Shield size={18} color={C.accent} />} title="Cloud profile" text="Save XP, badges, settings and results to your account." />
-              <PrimaryButton label="Create account" onPress={() => goTo("signup")} />
-              <SecondaryButton label="Log in" onPress={() => goTo("login")} />
-            </View>
-          ) : null}
-
-          {step === "signup" ? (
-            <AuthForm
-              title="Create account"
-              email={email}
-              password={password}
-              confirm={confirm}
-              setEmail={setEmail}
-              setPassword={setPassword}
-              setConfirm={setConfirm}
-              showConfirm
-              error={error}
-              notice={notice}
-              loading={loading}
-              button="Create account"
-              onSubmit={createAccount}
-              footer="Already have an account? Log in"
-              onFooter={() => goTo("login")}
-            />
-          ) : null}
-
-          {step === "login" ? (
-            <AuthForm
-              title="Log in"
-              email={email}
-              password={password}
-              confirm={confirm}
-              setEmail={setEmail}
-              setPassword={setPassword}
-              setConfirm={setConfirm}
-              error={error}
-              notice={notice}
-              loading={loading}
-              button="Log in"
-              onSubmit={logIn}
-              footer="New here? Create account"
-              onFooter={() => goTo("signup")}
-              secondaryFooter="Forgot password?"
-              onSecondaryFooter={() => goTo("reset_request")}
-            />
-          ) : null}
-
-          {step === "reset_request" ? (
-            <ResetRequestForm
-              email={email}
-              setEmail={setEmail}
-              error={error}
-              loading={loading}
-              onSubmit={sendResetEmail}
-              onBack={() => goTo("login")}
-            />
-          ) : null}
-
-          {step === "reset_sent" ? (
-            <View style={styles.panel}>
-              <Text style={styles.formTitle}>Check your email</Text>
-              <Text style={styles.helperLarge}>If an account exists for {email.trim()}, we have sent a password reset link. Open the link on this device to set a new password.</Text>
-              <PrimaryButton label="Back to log in" onPress={() => goTo("login")} />
-            </View>
-          ) : null}
-
-          {step === "reset_update" ? (
-            <AuthForm
-              title="Set new password"
-              email={email}
-              password={password}
-              confirm={confirm}
-              setEmail={setEmail}
-              setPassword={setPassword}
-              setConfirm={setConfirm}
-              showConfirm
-              hideEmail
-              error={error}
-              notice={notice}
-              loading={loading}
-              button={notice ? "Continue" : "Update password"}
-              onSubmit={notice ? () => router.replace("/(tabs)") : updatePassword}
-              footer="Back to log in"
-              onFooter={() => goTo("login")}
-            />
-          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-function Feature({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
-  return <View style={styles.feature}><View style={styles.featureIcon}>{icon}</View><View style={{ flex: 1 }}><Text style={styles.featureTitle}>{title}</Text><Text style={styles.featureText}>{text}</Text></View></View>;
+function HeroPill({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <View style={styles.heroPill}>
+      {icon}
+      <Text style={styles.heroPillText}>{label}</Text>
+    </View>
+  );
 }
 
-function PrimaryButton({ label, onPress }: { label: string; onPress: () => void }) {
-  return <Pressable onPress={onPress} style={styles.primary}><Text style={styles.primaryText}>{label}</Text></Pressable>;
+function Feature({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
+  return (
+    <View style={styles.feature}>
+      <View style={styles.featureIcon}>{icon}</View>
+      <View style={styles.featureBody}>
+        <Text style={styles.featureTitle}>{title}</Text>
+        <Text style={styles.featureText}>{text}</Text>
+      </View>
+    </View>
+  );
+}
+
+function MessageBanner({ tone, text }: { tone: "error" | "notice"; text: string }) {
+  return (
+    <View style={[styles.banner, tone === "error" ? styles.errorBanner : styles.noticeBanner]}>
+      <Text style={[styles.bannerText, tone === "error" ? styles.errorTextStrong : styles.noticeText]}>{text}</Text>
+    </View>
+  );
+}
+
+function PrimaryButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
+  return (
+    <Pressable disabled={disabled} onPress={onPress} style={[styles.primary, disabled && styles.disabledPrimary]}>
+      <Text style={styles.primaryText}>{label}</Text>
+    </Pressable>
+  );
 }
 
 function SecondaryButton({ label, onPress }: { label: string; onPress: () => void }) {
-  return <Pressable onPress={onPress} style={styles.secondary}><Text style={styles.secondaryText}>{label}</Text></Pressable>;
+  return (
+    <Pressable onPress={onPress} style={styles.secondary}>
+      <Text style={styles.secondaryText}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function Field({
+  icon,
+  label,
+  children,
+  helper,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  children: React.ReactNode;
+  helper?: string;
+}) {
+  return (
+    <View style={styles.fieldBlock}>
+      <View style={styles.fieldHeader}>
+        <View style={styles.fieldIcon}>{icon}</View>
+        <Text style={styles.label}>{label}</Text>
+      </View>
+      {children}
+      {helper ? <Text style={styles.helper}>{helper}</Text> : null}
+    </View>
+  );
+}
+
+function InfoPanel({ title, body, actionLabel, onAction }: { title: string; body: string; actionLabel: string; onAction: () => void }) {
+  return (
+    <View style={styles.panel}>
+      <Text style={styles.formTitle}>{title}</Text>
+      <Text style={styles.formSubtitle}>{body}</Text>
+      <PrimaryButton label={actionLabel} onPress={onAction} />
+    </View>
+  );
 }
 
 function ResetRequestForm(props: {
@@ -257,19 +410,21 @@ function ResetRequestForm(props: {
   return (
     <View style={styles.panel}>
       <Text style={styles.formTitle}>Reset password</Text>
-      <Text style={styles.helperLarge}>Enter your account email and we will send a secure reset link.</Text>
-      <TextInput
-        autoCapitalize="none"
-        autoComplete="email"
-        keyboardType="email-address"
-        value={props.email}
-        onChangeText={props.setEmail}
-        placeholder="Email"
-        placeholderTextColor={C.mutedSoft}
-        style={styles.input}
-      />
-      {props.error ? <Text style={styles.error}>{props.error}</Text> : null}
-      <Pressable disabled={props.loading} onPress={props.onSubmit} style={[styles.primary, props.loading && { opacity: 0.7 }]}>
+      <Text style={styles.formSubtitle}>Enter your account email and we will send a secure reset link.</Text>
+      <Field icon={<Mail size={16} color={C.accent} />} label="Email">
+        <TextInput
+          autoCapitalize="none"
+          autoComplete="email"
+          keyboardType="email-address"
+          value={props.email}
+          onChangeText={props.setEmail}
+          placeholder="name@example.com"
+          placeholderTextColor={C.mutedSoft}
+          style={styles.input}
+        />
+      </Field>
+      {props.error ? <MessageBanner tone="error" text={props.error} /> : null}
+      <Pressable disabled={props.loading} onPress={props.onSubmit} style={[styles.primary, props.loading && styles.disabledPrimary]}>
         {props.loading ? <ActivityIndicator color="#FBF8F2" /> : <Text style={styles.primaryText}>Send reset email</Text>}
       </Pressable>
       <Pressable onPress={props.onBack} style={styles.footerLink}><Text style={styles.link}>Back to log in</Text></Pressable>
@@ -279,6 +434,7 @@ function ResetRequestForm(props: {
 
 function AuthForm(props: {
   title: string;
+  subtitle: string;
   email: string;
   password: string;
   confirm: string;
@@ -300,41 +456,52 @@ function AuthForm(props: {
   return (
     <View style={styles.panel}>
       <Text style={styles.formTitle}>{props.title}</Text>
+      <Text style={styles.formSubtitle}>{props.subtitle}</Text>
       {!props.hideEmail ? (
-        <TextInput
-          autoCapitalize="none"
-          autoComplete="email"
-          keyboardType="email-address"
-          value={props.email}
-          onChangeText={props.setEmail}
-          placeholder="Email"
-          placeholderTextColor={C.mutedSoft}
-          style={styles.input}
-        />
+        <Field icon={<Mail size={16} color={C.accent} />} label="Email">
+          <TextInput
+            autoCapitalize="none"
+            autoComplete="email"
+            keyboardType="email-address"
+            value={props.email}
+            onChangeText={props.setEmail}
+            placeholder="name@example.com"
+            placeholderTextColor={C.mutedSoft}
+            style={styles.input}
+          />
+        </Field>
       ) : null}
-      <TextInput
-        secureTextEntry
-        autoComplete="password"
-        value={props.password}
-        onChangeText={props.setPassword}
-        placeholder="Password"
-        placeholderTextColor={C.mutedSoft}
-        style={styles.input}
-      />
-      {props.showConfirm ? (
+      <Field
+        icon={<LockKeyhole size={16} color={C.gold} />}
+        label="Password"
+        helper={props.showConfirm ? `Use at least ${MIN_PASSWORD_LENGTH} characters.` : undefined}
+      >
         <TextInput
           secureTextEntry
           autoComplete="password"
-          value={props.confirm}
-          onChangeText={props.setConfirm}
-          placeholder="Confirm password"
+          value={props.password}
+          onChangeText={props.setPassword}
+          placeholder="Enter your password"
           placeholderTextColor={C.mutedSoft}
           style={styles.input}
         />
+      </Field>
+      {props.showConfirm ? (
+        <Field icon={<LockKeyhole size={16} color={C.gold} />} label="Confirm password">
+          <TextInput
+            secureTextEntry
+            autoComplete="password"
+            value={props.confirm}
+            onChangeText={props.setConfirm}
+            placeholder="Repeat your password"
+            placeholderTextColor={C.mutedSoft}
+            style={styles.input}
+          />
+        </Field>
       ) : null}
-      {props.notice ? <Text style={styles.notice}>{props.notice}</Text> : null}
-      {props.error ? <Text style={styles.error}>{props.error}</Text> : null}
-      <Pressable disabled={props.loading} onPress={props.onSubmit} style={[styles.primary, props.loading && { opacity: 0.7 }]}>
+      {props.notice ? <MessageBanner tone="notice" text={props.notice} /> : null}
+      {props.error ? <MessageBanner tone="error" text={props.error} /> : null}
+      <Pressable disabled={props.loading} onPress={props.onSubmit} style={[styles.primary, props.loading && styles.disabledPrimary]}>
         {props.loading ? <ActivityIndicator color="#FBF8F2" /> : <Text style={styles.primaryText}>{props.button}</Text>}
       </Pressable>
       <Pressable onPress={props.onFooter} style={styles.footerLink}><Text style={styles.link}>{props.footer}</Text></Pressable>
@@ -346,26 +513,132 @@ function AuthForm(props: {
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   safe: { flex: 1, backgroundColor: C.bg },
-  content: { flexGrow: 1, padding: 24, justifyContent: "center" },
-  back: { position: "absolute", top: 16, left: 18, flexDirection: "row", alignItems: "center", zIndex: 2 },
-  backText: { color: C.ink, fontWeight: "800" },
-  logoWrap: { alignItems: "center", marginBottom: 28 },
-  panel: { backgroundColor: C.card, borderRadius: 28, padding: 20, borderWidth: 1, borderColor: C.border },
+  content: { flexGrow: 1, padding: 20, justifyContent: "center" },
+  shell: { width: "100%", maxWidth: 540, alignSelf: "center", gap: 16, paddingVertical: 12 },
+  back: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 4, paddingVertical: 4 },
+  backText: { color: C.ink, fontWeight: "800", fontSize: 14 },
+  heroCard: {
+    backgroundColor: C.card,
+    borderRadius: 32,
+    paddingHorizontal: 22,
+    paddingTop: 22,
+    paddingBottom: 20,
+    borderWidth: 1,
+    borderColor: C.border,
+    overflow: "hidden",
+    shadowColor: "#15171C",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 3,
+  },
+  heroGlow: {
+    position: "absolute",
+    right: -18,
+    top: -24,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: C.amberSoft,
+    opacity: 0.6,
+  },
+  logoWrap: { alignItems: "flex-start", marginBottom: 16 },
+  eyebrow: {
+    color: C.gold,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+    marginBottom: 10,
+  },
+  heroTitle: {
+    color: C.ink,
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: "900",
+    marginBottom: 10,
+  },
+  heroSubtitle: {
+    color: C.inkSoft,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: "600",
+  },
+  heroStats: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 18 },
+  heroPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 999,
+    backgroundColor: C.bgElevated,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  heroPillText: { color: C.ink, fontSize: 12, fontWeight: "800" },
+  panel: {
+    backgroundColor: C.card,
+    borderRadius: 28,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: C.border,
+    shadowColor: "#15171C",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.06,
+    shadowRadius: 18,
+    elevation: 2,
+  },
   feature: { flexDirection: "row", gap: 12, alignItems: "center", paddingVertical: 10 },
-  featureIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: C.bgElevated, alignItems: "center", justifyContent: "center" },
-  featureTitle: { color: C.ink, fontWeight: "900" },
-  featureText: { color: C.muted, fontSize: 12, marginTop: 2, fontWeight: "600" },
-  primary: { backgroundColor: C.ink, borderRadius: 16, paddingVertical: 15, alignItems: "center", marginTop: 16 },
+  featureBody: { flex: 1 },
+  featureIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: C.bgElevated, alignItems: "center", justifyContent: "center" },
+  featureTitle: { color: C.ink, fontWeight: "900", fontSize: 15 },
+  featureText: { color: C.muted, fontSize: 13, lineHeight: 18, marginTop: 3, fontWeight: "600" },
+  formTitle: { fontSize: 28, lineHeight: 32, fontWeight: "900", color: C.ink, marginBottom: 8 },
+  formSubtitle: { color: C.muted, fontSize: 14, lineHeight: 21, fontWeight: "600", marginBottom: 6 },
+  fieldBlock: { marginTop: 14 },
+  fieldHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+  fieldIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    backgroundColor: C.bg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  label: { color: C.ink, fontWeight: "900", fontSize: 13 },
+  input: {
+    backgroundColor: C.bgElevated,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 16,
+    paddingHorizontal: 15,
+    paddingVertical: 14,
+    color: C.ink,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  helper: { color: C.muted, fontSize: 12, lineHeight: 18, marginTop: 8, fontWeight: "700" },
+  banner: {
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 14,
+    borderWidth: 1,
+  },
+  errorBanner: { backgroundColor: "#FFF3F0", borderColor: "#F4D4D4" },
+  noticeBanner: { backgroundColor: "#F0F7F2", borderColor: "#CFE3D4" },
+  bannerText: { fontSize: 13, lineHeight: 19, fontWeight: "800" },
+  noticeText: { color: C.success },
+  errorTextStrong: { color: C.danger },
+  primary: { backgroundColor: C.ink, borderRadius: 18, paddingVertical: 16, alignItems: "center", marginTop: 18, minHeight: 56, justifyContent: "center" },
+  disabledPrimary: { opacity: 0.74 },
   primaryText: { color: "#FBF8F2", fontWeight: "900", fontSize: 15 },
-  secondary: { backgroundColor: C.bgElevated, borderRadius: 16, paddingVertical: 15, alignItems: "center", marginTop: 10, borderWidth: 1, borderColor: C.border },
+  secondary: { backgroundColor: C.bgElevated, borderRadius: 18, paddingVertical: 16, alignItems: "center", marginTop: 10, borderWidth: 1, borderColor: C.border },
   secondaryText: { color: C.ink, fontWeight: "900", fontSize: 15 },
-  formTitle: { fontSize: 26, fontWeight: "900", color: C.ink, marginBottom: 16, letterSpacing: -0.5 },
-  input: { backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, borderRadius: 15, paddingHorizontal: 14, paddingVertical: 13, color: C.ink, fontSize: 16, fontWeight: "700", marginTop: 10 },
-  helperLarge: { color: C.muted, fontSize: 14, lineHeight: 20, fontWeight: "700", marginBottom: 4 },
-  error: { color: C.danger, fontWeight: "800", marginTop: 10 },
-  notice: { color: C.success, fontWeight: "800", marginTop: 10, lineHeight: 18 },
   footerLink: { alignItems: "center", marginTop: 14 },
-  link: { color: C.accent, fontWeight: "900" },
-  linkMuted: { color: C.muted, fontWeight: "900" },
+  link: { color: C.accent, fontWeight: "900", textAlign: "center" },
+  linkMuted: { color: C.muted, fontWeight: "900", textAlign: "center" },
 });
