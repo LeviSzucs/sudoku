@@ -154,7 +154,7 @@ export default function SettingsScreen() {
           <Row icon={<Palette size={18} color={C.inkSoft} />} title="Avatar" detail="Character, colours and frame" onPress={() => setPanel("avatar")} />
           <Row icon={<Bell size={18} color={C.inkSoft} />} title="Notifications" detail="Push, duels and social updates" onPress={() => router.push("/settings-notifications")} />
           <Row icon={<Shield size={18} color={C.inkSoft} />} title="Privacy" detail={privacy.publicProfile ? "Public profile" : "Private profile"} onPress={() => setPanel("privacy")} />
-          <Row icon={<Trash2 size={18} color={C.danger} />} title="Delete account" detail="Request permanent account deletion" onPress={() => router.push({ pathname: "/settings-info", params: { page: "delete-account" } })} />
+          <Row icon={<Trash2 size={18} color={C.danger} />} title="Delete account" detail="Permanently delete or anonymise this account" onPress={() => router.push("/settings-delete-account")} />
           <Row icon={<LogOut size={18} color={C.inkSoft} />} title="Sign out" detail="Return to the welcome screen" onPress={() => Alert.alert("Sign out?", "You will return to the welcome screen.", [{ text: "Cancel", style: "cancel" }, { text: "Sign out", style: "destructive", onPress: () => { void auth.signOut(); } }])} last />
         </Section>
 

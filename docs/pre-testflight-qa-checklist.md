@@ -240,8 +240,12 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Appearance is not shown as fake placeholder functionality.
 - [ ] Delete account entry is present.
 - [ ] Delete account flow requires destructive confirmation.
-- [ ] Delete account flow opens a clear deletion/support request.
+- [ ] Delete account flow performs real in-app deletion or anonymisation, not just a request form.
 - [ ] Delete account copy explains what will be deleted or anonymised.
+- [ ] The `delete-account` Edge Function is deployed before TestFlight verification.
+- [ ] Deleting an account signs the user out cleanly.
+- [ ] Deleted accounts no longer appear in friend search, public profiles, or active challenge cards.
+- [ ] A freshly deleted email can create a new account again afterward.
 - [ ] Feedback opens.
 - [ ] Report a problem opens.
 - [ ] Contact Support opens.

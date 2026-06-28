@@ -22,7 +22,7 @@ const CATEGORY_OPTIONS: { value: FeedbackCategory; label: string }[] = [
   { value: "gameplay_issue", label: "Gameplay issue" },
   { value: "ranked_duel_issue", label: "Ranked Duel issue" },
   { value: "privacy_data_request", label: "Privacy/data request" },
-  { value: "account_deletion", label: "Delete account request" },
+  { value: "account_deletion", label: "Delete account help" },
   { value: "other", label: "Other" },
 ];
 
@@ -44,9 +44,9 @@ export default function SettingsFeedbackScreen() {
   const [sent, setSent] = useState<boolean>(false);
   const [includeDiagnostics, setIncludeDiagnostics] = useState<boolean>(isProblemReport || getCategory(params.category) === "account_deletion");
   const isDeletionRequest = selectedCategory === "account_deletion";
-  const title = isDeletionRequest ? "Delete account" : isProblemReport ? "Report a problem" : "Send feedback";
+  const title = isDeletionRequest ? "Delete account help" : isProblemReport ? "Report a problem" : "Send feedback";
   const helper = isDeletionRequest
-    ? "Send a deletion request so we can verify the account owner before removing data."
+    ? "Use this if the in-app deletion flow fails or you need help before deleting your account."
     : isProblemReport ? "Describe what went wrong and what you were doing." : "Tell us what would make SudoDuel better.";
   const Icon = isProblemReport ? LifeBuoy : MessageSquare;
   const canSubmit = message.trim().length >= 3 && !isSubmitting;
@@ -153,12 +153,12 @@ export default function SettingsFeedbackScreen() {
                 thumbColor={includeDiagnostics ? C.accent : C.mutedSoft}
               />
             </View>
-            <Text style={styles.helper}>For account, privacy, or deletion requests, include the email or username tied to your account.</Text>
+            <Text style={styles.helper}>For account, privacy, or deletion help, include the email or username tied to your account.</Text>
             <Pressable
               onPress={() => {
                 void openSupportEmail({
                   subject: `${APP_NAME} ${isDeletionRequest ? "account request" : isProblemReport ? "bug report" : "feedback"}`,
-                  body: message.trim() || `Hi SudoDuel,\n\nI need help with ${isDeletionRequest ? "an account deletion request" : isProblemReport ? "a problem in the app" : "feedback about the app"}.\n\n`,
+                  body: message.trim() || `Hi SudoDuel,\n\nI need help with ${isDeletionRequest ? "deleting my account" : isProblemReport ? "a problem in the app" : "feedback about the app"}.\n\n`,
                 }).then((result) => {
                   if (!result.ok) Alert.alert("Support", result.error);
                 });

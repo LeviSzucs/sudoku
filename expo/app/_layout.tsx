@@ -57,6 +57,7 @@ function RootLayoutNav() {
         <Stack.Screen name="player/[id]" options={{ headerShown: false, presentation: "card" }} />
         <Stack.Screen name="results" options={{ headerShown: false, presentation: "card" }} />
         <Stack.Screen name="settings" options={{ headerShown: false, presentation: "card" }} />
+        <Stack.Screen name="settings-delete-account" options={{ headerShown: false, presentation: "card" }} />
         <Stack.Screen name="settings-feedback" options={{ headerShown: false, presentation: "card" }} />
         <Stack.Screen name="settings-info" options={{ headerShown: false, presentation: "card" }} />
         <Stack.Screen name="settings-notifications" options={{ headerShown: false, presentation: "card" }} />

@@ -39,13 +39,17 @@ Change the address in one place only if SudoDuel moves to a domain email later.
 
 ## Account Deletion Behaviour
 
-Current behaviour is a verified deletion request flow, not a destructive self-service delete.
+Current behaviour is an in-app deletion and anonymisation flow backed by a privileged Edge Function.
 
-- `Settings > Delete Account` explains the flow.
-- Users can:
-  - open a prefilled in-app deletion request
-  - email support directly
-- This avoids unsafe partial deletion while beta data relationships are still being reviewed.
+- `Settings > Delete Account` requires destructive confirmation.
+- Edge Function path: `expo/supabase/functions/delete-account`
+- On successful deletion, the app:
+  - anonymises profile-visible identity
+  - removes active social links and pending challenge state where safe
+  - removes push tokens and notification preferences
+  - removes or detaches support records where safe
+  - signs the user out
+- Some completed duel or result history may be retained in minimal anonymised form so other players do not lose legitimate match records.
 
 ## App Store Review Notes
 
@@ -53,7 +57,7 @@ Before wider TestFlight or App Store review:
 
 - confirm Terms of Use and Privacy Policy copy still matches actual data flows
 - confirm `sudoduel@gmail.com` is monitored
-- confirm account deletion requests have an operational response process
+- confirm the `delete-account` Edge Function is deployed with service-role access
 - confirm feedback submissions still create `public.feedback` rows
 - confirm mailto support links open safely on device
 - confirm Premium copy does not imply active subscriptions during beta

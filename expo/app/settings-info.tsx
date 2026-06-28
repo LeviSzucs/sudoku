@@ -55,7 +55,7 @@ const CONTENT: Record<InfoPage, {
       { title: "Can I customise my profile and avatar?", body: "Yes. You can update your display name, avatar appearance, and privacy settings from Settings. Other players only see public profile information that your privacy settings allow." },
       { title: "What about Premium?", body: `${APP_NAME} is free during beta. Premium infrastructure may be used later for supporter perks and cosmetics, but core gameplay is not paywalled right now.` },
       { title: "How do I report a problem?", body: "Use Settings > Report a problem and include the mode you were in, what you expected, and what actually happened. Adding app diagnostics can help us reproduce issues faster." },
-      { title: "How do I delete my account?", body: `Open Settings > Delete account to send a verified deletion request, or contact ${SUPPORT_EMAIL_LABEL} from the Support screen.` },
+      { title: "How do I delete my account?", body: `Open Settings > Delete account to permanently delete or anonymise your account in-app. If deletion cannot complete, you can still contact ${SUPPORT_EMAIL_LABEL} for help.` },
     ],
   },
   support: {
@@ -67,7 +67,7 @@ const CONTENT: Record<InfoPage, {
       { title: "Contact support", body: `Need help with ${APP_NAME}? Email ${SUPPORT_EMAIL_LABEL} for account, privacy, or data requests, or use the in-app forms for feedback and bug reports.` },
       { title: "Report a problem", body: "Use the bug report flow for crashes, blocked progress, missing results, incorrect stats, or anything that stops normal play." },
       { title: "Send feedback", body: "Use feedback for ideas, polish notes, puzzle feel comments, avatar requests, and anything that would make SudoDuel better." },
-      { title: "Account and privacy requests", body: "Deletion, privacy, or account-access requests are reviewed carefully so we can verify the account owner before taking action." },
+      { title: "Account and privacy requests", body: "You can use the in-app Delete account flow for permanent deletion. If something fails or you need privacy help first, email support and include the email address or username linked to your account." },
       { title: "Response expectations", body: "During TestFlight, we prioritise account, privacy, result-integrity, and crash issues first. Replies may be slower than a full public release." },
     ],
   },
@@ -103,19 +103,19 @@ const CONTENT: Record<InfoPage, {
       { title: "Payments and subscriptions", body: `${APP_NAME} is free during beta and does not currently process subscriptions in this release flow.` },
       { title: "How we use data", body: "We use stored data to run the app, save progress, calculate results, support social play, maintain leaderboards, deliver notifications, investigate issues, and keep the game fair and reliable." },
       { title: "Your choices", body: "You can update profile, avatar, privacy, and notification settings in the app. Some competitive records and result history may be retained to preserve match integrity." },
-      { title: "Account deletion", body: `Self-service account deletion is not fully automated in this build. Use the Delete account screen or contact ${SUPPORT_EMAIL_LABEL} to request deletion.` },
+      { title: "Account deletion", body: `You can delete your account inside the app. Public profile details, active social links, push tokens, and account-linked settings are removed or anonymised. Some completed match records may be retained in minimal anonymised form so other players do not lose legitimate history.` },
       { title: "Contact us", body: CONTACT },
     ],
   },
   "delete-account": {
     eyebrow: "ACCOUNT",
     title: "Delete Account",
-    subtitle: "Request permanent account deletion safely.",
+    subtitle: "Permanently delete or anonymise this account.",
     icon: "legal",
     sections: [
-      { title: "What this does", body: "This flow creates a verified deletion request for the SudoDuel team. We use a request flow in beta so we can confirm the account owner before deleting or anonymising data." },
-      { title: "What may be removed", body: "Your profile, avatar settings, account-linked preferences, and personal support history can be removed or anonymised as appropriate. Some competitive records may need to be retained in a minimal form to preserve match integrity and prevent broken history for other players." },
-      { title: "Before you continue", body: "Account deletion is intended to be permanent. If you only want a break, signing out is safer. If you are requesting deletion for privacy reasons, include the email or username tied to your account." },
+      { title: "What this does", body: "The in-app deletion flow permanently removes this account from active use. Public profile details, friend links, pending requests, active challenges, notification tokens, and account-linked settings are deleted or anonymised." },
+      { title: "What may be retained", body: "Completed duel and result history may keep minimal anonymised placeholders so other players do not lose legitimate match records or broken challenge history." },
+      { title: "Before you continue", body: "Account deletion is permanent. If you only want a break, signing out is safer. Once deletion finishes, you will be signed out and will need a fresh account to use SudoDuel again." },
       { title: "Need help first?", body: CONTACT },
     ],
   },
@@ -156,30 +156,24 @@ export default function SettingsInfoScreen() {
         },
         { label: "Report a problem", variant: "secondary", onPress: () => router.push({ pathname: "/settings-feedback", params: { category: "problem" } }) },
         { label: "Send feedback", variant: "secondary", onPress: () => router.push({ pathname: "/settings-feedback", params: { category: "feedback" } }) },
-        { label: "Request account deletion", variant: "danger", onPress: () => router.push({ pathname: "/settings-info", params: { page: "delete-account" } }) },
+        { label: "Delete account", variant: "danger", onPress: () => router.push("/settings-delete-account") },
       ];
     }
 
     if (page === "delete-account") {
       return [
         {
-          label: "Send deletion request",
+          label: "Continue to deletion",
           variant: "danger",
-          onPress: () => router.push({
-            pathname: "/settings-feedback",
-            params: {
-              category: "account_deletion",
-              message: "I would like to request deletion of my SudoDuel account and associated personal data.",
-            },
-          }),
+          onPress: () => router.push("/settings-delete-account"),
         },
         {
           label: `Email ${SUPPORT_EMAIL_LABEL}`,
           variant: "secondary",
           onPress: () => {
             void openSupportEmail({
-              subject: `${APP_NAME} account deletion request`,
-              body: "Hi SudoDuel,\n\nI would like to request deletion of my account and associated personal data.\n\nAccount email or username:\n",
+              subject: `${APP_NAME} account deletion help`,
+              body: "Hi SudoDuel,\n\nI need help with account deletion.\n\nAccount email or username:\n",
             }).then((result) => {
               if (!result.ok) Alert.alert("Delete account", result.error);
             });
