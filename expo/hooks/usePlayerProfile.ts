@@ -344,7 +344,7 @@ export interface RankedDuelEntry {
   opponent_avatar_top_color?: string | null;
   opponent_avatar_accessory?: string | null;
   opponent_avatar_frame?: string | null;
-  opponent_tier: string | null;
+  opponent_rank_tier: string | null;
   your_score: number | null;
   your_elapsed_seconds: number | null;
   opponent_score: number | null;
@@ -1879,7 +1879,30 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       mode: result.mode,
       difficulty: result.difficulty,
     });
-    await verifyOwnedInProgressSession(sessionId);
+    const verifiedSession = await verifyOwnedInProgressSession(sessionId);
+    if (result.mode === "ranked_duel" && verifiedSession.mode === "ranked") {
+      const { error: repairError } = await supabase
+        .from("puzzle_sessions")
+        .update({ mode: "ranked_duel", updated_at: new Date().toISOString() })
+        .eq("session_id", sessionId)
+        .eq("user_id", auth.user.id)
+        .eq("mode", "ranked");
+      if (repairError) {
+        updateDiagnostics({ lastError: repairError.message });
+        logDevDiagnostic("ranked duel session mode repair failed", {
+          authUserId: auth.user.id,
+          sessionId,
+          supabaseError: repairError.message,
+        });
+      } else {
+        logDevDiagnostic("ranked duel session mode repaired", {
+          authUserId: auth.user.id,
+          sessionId,
+          fromMode: verifiedSession.mode,
+          toMode: "ranked_duel",
+        });
+      }
+    }
 
     const previousProfile = profile;
     const resultRpc = result.mode === "ranked" || result.mode === "ranked_duel"
@@ -1954,7 +1977,30 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       mode: result.mode,
       difficulty: result.difficulty,
     });
-    await verifyOwnedInProgressSession(sessionId);
+    const verifiedSession = await verifyOwnedInProgressSession(sessionId);
+    if (result.mode === "ranked_duel" && verifiedSession.mode === "ranked") {
+      const { error: repairError } = await supabase
+        .from("puzzle_sessions")
+        .update({ mode: "ranked_duel", updated_at: new Date().toISOString() })
+        .eq("session_id", sessionId)
+        .eq("user_id", auth.user.id)
+        .eq("mode", "ranked");
+      if (repairError) {
+        updateDiagnostics({ lastError: repairError.message });
+        logDevDiagnostic("ranked duel session mode repair failed", {
+          authUserId: auth.user.id,
+          sessionId,
+          supabaseError: repairError.message,
+        });
+      } else {
+        logDevDiagnostic("ranked duel session mode repaired", {
+          authUserId: auth.user.id,
+          sessionId,
+          fromMode: verifiedSession.mode,
+          toMode: "ranked_duel",
+        });
+      }
+    }
 
     const previousProfile = profile;
     const resultRpc = result.mode === "ranked" || result.mode === "ranked_duel"
@@ -2672,6 +2718,70 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     return { ok: true, duel };
   }, [auth.user, fetchPublicProfileMap, mapDailyDuel, updateDiagnostics]);
 
+  const fetchRankTierForUser = useCallback(async (userId: string | null | undefined): Promise<string | null> => {
+    if (!userId || !isSupabaseConfigured) return null;
+    const { data, error } = await supabase
+      .from("player_stats")
+      .select("rank_tier")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return null;
+    }
+    return data?.rank_tier ?? null;
+  }, [updateDiagnostics]);
+
+  const repairRankedDuelSessionMode = useCallback(async (sessionId: string | null | undefined, expectedMode: "ranked" | "ranked_duel" = "ranked_duel"): Promise<{ status: SessionStatus | null; mode: string | null } | null> => {
+    if (!sessionId || !auth.user || !isSupabaseConfigured) return null;
+
+    const { data, error } = await supabase
+      .from("puzzle_sessions")
+      .select("session_id, status, mode")
+      .eq("session_id", sessionId)
+      .eq("user_id", auth.user.id)
+      .maybeSingle();
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return null;
+    }
+
+    const session = data as ({ session_id: string; status: SessionStatus; mode: string } | null);
+    if (!session) return { status: null, mode: null };
+
+    if (expectedMode === "ranked_duel" && session.mode === "ranked") {
+      const { data: repairedData, error: repairError } = await supabase
+        .from("puzzle_sessions")
+        .update({ mode: "ranked_duel", updated_at: new Date().toISOString() })
+        .eq("session_id", sessionId)
+        .eq("user_id", auth.user.id)
+        .eq("mode", "ranked")
+        .select("session_id, status, mode")
+        .maybeSingle();
+      if (repairError) {
+        updateDiagnostics({ lastError: repairError.message });
+        logDevDiagnostic("ranked duel session mode repair failed", {
+          authUserId: auth.user.id,
+          sessionId,
+          expectedMode,
+          supabaseError: repairError.message,
+        });
+        return session;
+      }
+
+      const repaired = (repairedData as ({ session_id: string; status: SessionStatus; mode: string } | null)) ?? { ...session, mode: "ranked_duel" };
+      logDevDiagnostic("ranked duel session mode repaired", {
+        authUserId: auth.user.id,
+        sessionId,
+        fromMode: session.mode,
+        toMode: repaired.mode,
+      });
+      return repaired;
+    }
+
+    return session;
+  }, [auth.user, updateDiagnostics]);
+
   const mapRankedDuel = useCallback((row: Partial<RankedDuelEntry> | null | undefined): RankedDuelEntry | null => {
     if (!row?.ranked_duel_id) return null;
     return {
@@ -2690,7 +2800,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       opponent_initials: row.opponent_initials ?? null,
       opponent_avatar_color: row.opponent_avatar_color ?? null,
       ...prefixedOpponentAvatarFields(row),
-      opponent_tier: row.opponent_tier ?? null,
+      opponent_rank_tier: row.opponent_rank_tier ?? ((row as { opponent_tier?: string | null }).opponent_tier ?? null),
       your_score: row.your_score ?? null,
       your_elapsed_seconds: row.your_elapsed_seconds ?? null,
       opponent_score: row.opponent_score ?? null,
@@ -2719,9 +2829,16 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     const row = Array.isArray(data) ? data[0] : null;
     let duel = mapRankedDuel(row as Partial<RankedDuelEntry> | null);
     if (!duel) return null;
+    const sessionState = duel.session_id && !duel.current_user_result_id
+      ? await repairRankedDuelSessionMode(duel.session_id, "ranked_duel")
+      : null;
     if (duel.opponent_user_id) {
-      const profilesById = await fetchPublicProfileMap([duel.opponent_user_id]);
+      const [profilesById, opponentRankTier] = await Promise.all([
+        fetchPublicProfileMap([duel.opponent_user_id]),
+        fetchRankTierForUser(duel.opponent_user_id),
+      ]);
       const opponentProfile = profilesById.get(duel.opponent_user_id);
+      duel = { ...duel, opponent_rank_tier: opponentRankTier ?? duel.opponent_rank_tier ?? null };
       if (opponentProfile) {
         duel = {
           ...duel,
@@ -2733,9 +2850,20 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
         };
       }
     }
+    if (sessionState && sessionState.status !== "in_progress" && !duel.current_user_result_id && ["waiting_for_opponent", "matched", "player_a_completed", "player_b_completed"].includes(duel.status)) {
+      logDevDiagnostic("suppressing stale ranked duel state", {
+        authUserId: auth.user.id,
+        rankedDuelId: duel.ranked_duel_id,
+        sessionId: duel.session_id,
+        sessionStatus: sessionState.status,
+        sessionMode: sessionState.mode,
+      });
+      setActiveSessions((prev) => prev.filter((entry) => entry.session_id !== duel?.session_id));
+      return null;
+    }
     if (includeCompleted) return duel;
     return ["waiting_for_opponent", "matched", "player_a_completed", "player_b_completed"].includes(duel.status) ? duel : null;
-  }, [auth.user, fetchPublicProfileMap, mapRankedDuel, updateDiagnostics]);
+  }, [auth.user, fetchPublicProfileMap, fetchRankTierForUser, mapRankedDuel, repairRankedDuelSessionMode, updateDiagnostics]);
 
   const enterRankedDuel = useCallback(async (): Promise<{ ok: boolean; error?: string; duel?: RankedDuelEntry }> => {
     if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before entering Ranked Duel." };
@@ -2748,8 +2876,12 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     let duel = mapRankedDuel(row as Partial<RankedDuelEntry> | null);
     if (!duel) return { ok: false, error: "Ranked Duel did not return a match." };
     if (duel.opponent_user_id) {
-      const profilesById = await fetchPublicProfileMap([duel.opponent_user_id]);
+      const [profilesById, opponentRankTier] = await Promise.all([
+        fetchPublicProfileMap([duel.opponent_user_id]),
+        fetchRankTierForUser(duel.opponent_user_id),
+      ]);
       const opponentProfile = profilesById.get(duel.opponent_user_id);
+      duel = { ...duel, opponent_rank_tier: opponentRankTier ?? duel.opponent_rank_tier ?? null };
       if (opponentProfile) {
         duel = {
           ...duel,
@@ -2763,6 +2895,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }
 
     if (duel.session_id && !duel.current_user_result_id) {
+      await repairRankedDuelSessionMode(duel.session_id, "ranked_duel");
       const { data: sessionData, error: sessionError } = await supabase
         .from("puzzle_sessions")
         .select("*")
@@ -2776,7 +2909,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }
 
     return { ok: true, duel };
-  }, [auth.user, fetchPublicProfileMap, mapRankedDuel, updateDiagnostics]);
+  }, [auth.user, fetchPublicProfileMap, fetchRankTierForUser, mapRankedDuel, repairRankedDuelSessionMode, updateDiagnostics]);
 
   const cancelRankedDuel = useCallback(async (rankedDuelId: string): Promise<{ ok: boolean; error?: string; duel?: RankedDuelEntry | null }> => {
     if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before cancelling Ranked Duel search." };

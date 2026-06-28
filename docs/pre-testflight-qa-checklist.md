@@ -131,6 +131,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Recipient/open challenge flow works if testable.
 - [ ] Challenge completion works.
 - [ ] Failed attempt is final.
+- [ ] If User A finishes first and keeps the waiting result modal open, it updates live to win/loss/draw when User B later completes.
+- [ ] A friend challenge win that resolves from a waiting state plays the normal win treatment once when the final result lands.
 - [ ] Result links to both players correctly.
 - [ ] Result screens and completed challenge cards show the correct player avatars.
 - [ ] Missing/deleted profile fallback avatar still renders without errors.
@@ -151,6 +153,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Both player completion states work.
 - [ ] Timeout/failure state works if testable.
 - [ ] Result finalises once.
+- [ ] Losing a Ranked Duel by running out of mistakes saves a final loss or safe failed state without leaving a replayable dead match.
+- [ ] Returning to Versus after a ranked out-of-mistakes loss does not show a stuck matched duel that can be reopened.
 - [ ] RP changes once only.
 - [ ] Ranked profile updates after finalisation.
 - [ ] Ranked leaderboard updates after finalisation.
@@ -166,6 +170,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Reopening the same ranked result does not replay the same promotion endlessly.
 - [ ] Repeat queue works after completed/cancelled/expired matches.
 - [ ] Completed/cancelled/expired matches do not block a new queue.
+- [ ] Ranked and Daily Duel cards show the opponent's real rank when it exists, and only show Unranked when no rank data exists.
 - [ ] No Premium blocking.
 
 ## H. Ranks / Leaderboards
