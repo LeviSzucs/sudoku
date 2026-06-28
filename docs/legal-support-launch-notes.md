@@ -50,6 +50,7 @@ Current behaviour is an in-app deletion and anonymisation flow backed by a privi
   - removes or detaches support records where safe
   - signs the user out
 - Some completed duel or result history may be retained in minimal anonymised form so other players do not lose legitimate match records.
+- The deletion flow attempts to free the original sign-in email by moving the auth user to a deleted alias and randomising the password. This should still be confirmed in manual QA for the current Supabase project settings before release.
 
 ## App Store Review Notes
 

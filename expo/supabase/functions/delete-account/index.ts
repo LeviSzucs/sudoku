@@ -31,6 +31,10 @@ function deletedUsernameHandle(userId: string): string {
   return `deleted_${userId.replace(/-/g, "").slice(0, 18)}`;
 }
 
+function deletedUsernameValue(userId: string): string {
+  return deletedUsernameHandle(userId);
+}
+
 async function requireAuthenticatedUser(
   supabase: ReturnType<typeof createClient>,
   request: Request,
@@ -93,10 +97,11 @@ async function cancelActiveRankedDuels(supabase: ReturnType<typeof createClient>
 }
 
 async function anonymiseProfile(supabase: ReturnType<typeof createClient>, userId: string) {
+  const deletedUsername = deletedUsernameValue(userId);
   const { error } = await supabase
     .from("profiles")
     .update({
-      username: DELETED_USERNAME,
+      username: deletedUsername,
       display_name: DELETED_USERNAME,
       username_handle: null,
       initials: DELETED_INITIALS,

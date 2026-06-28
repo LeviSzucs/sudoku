@@ -246,6 +246,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Deleting an account signs the user out cleanly.
 - [ ] Deleted accounts no longer appear in friend search, public profiles, or active challenge cards.
 - [ ] A freshly deleted email can create a new account again afterward.
+- [ ] Confirm on the live Supabase project that `auth.admin.updateUserById` frees the original email immediately enough for same-session recreation.
 - [ ] Feedback opens.
 - [ ] Report a problem opens.
 - [ ] Contact Support opens.
