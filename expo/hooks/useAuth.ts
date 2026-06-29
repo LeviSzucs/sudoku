@@ -1,8 +1,5 @@
 import createContextHook from "@nkzw/create-context-hook";
-import { makeRedirectUri } from "expo-auth-session";
-import * as QueryParams from "expo-auth-session/build/QueryParams";
 import * as Linking from "expo-linking";
-import * as WebBrowser from "expo-web-browser";
 import type { Session, User } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -11,25 +8,45 @@ import { supabase, isSupabaseConfigured, supabaseConfigurationError } from "@/li
 export type AuthMode = "loading" | "guest" | "signed_in" | "signed_out";
 export type SocialAuthProvider = "apple" | "google";
 
-WebBrowser.maybeCompleteAuthSession();
+const AUTH_REDIRECT_URL = "sudoduel://auth";
 
-const AUTH_REDIRECT_PATH = "auth";
-const AUTH_REDIRECT_URL = makeRedirectUri({
-  scheme: "sudoduel",
-  path: AUTH_REDIRECT_PATH,
-});
+type AuthUrlParams = {
+  access_token?: string;
+  refresh_token?: string;
+  code?: string;
+  error?: string;
+  error_description?: string;
+};
+
+function parseAuthUrl(url: string): AuthUrlParams {
+  try {
+    const parsed = new URL(url);
+    const params = new URLSearchParams(parsed.search);
+    const hashParams = new URLSearchParams(parsed.hash.startsWith("#") ? parsed.hash.slice(1) : parsed.hash);
+    const merged = new Map<string, string>();
+
+    params.forEach((value, key) => {
+      merged.set(key, value);
+    });
+    hashParams.forEach((value, key) => {
+      merged.set(key, value);
+    });
+
+    return {
+      access_token: merged.get("access_token") ?? undefined,
+      refresh_token: merged.get("refresh_token") ?? undefined,
+      code: merged.get("code") ?? undefined,
+      error: merged.get("error") ?? undefined,
+      error_description: merged.get("error_description") ?? undefined,
+    };
+  } catch {
+    return {};
+  }
+}
 
 function authUrlError(url: string): string | null {
-  const { params, errorCode } = QueryParams.getQueryParams(url);
-  const errorMessage = typeof params.error_description === "string"
-    ? params.error_description
-    : typeof params.error === "string"
-      ? params.error
-      : null;
-
-  if (errorCode) return errorMessage ?? errorCode;
-  if (typeof params.error === "string") return errorMessage ?? params.error;
-  return null;
+  const params = parseAuthUrl(url);
+  return params.error_description ?? params.error ?? null;
 }
 
 export const [AuthProvider, useAuth] = createContextHook(() => {
@@ -39,11 +56,24 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const restoreSessionFromUrl = useCallback(async (url: string | null | undefined): Promise<{ ok: boolean; handled: boolean; error?: string }> => {
     if (!url || !isSupabaseConfigured) return { ok: false, handled: false };
-    const { params } = QueryParams.getQueryParams(url);
+    const params = parseAuthUrl(url);
     const accessToken = typeof params.access_token === "string" ? params.access_token : null;
     const refreshToken = typeof params.refresh_token === "string" ? params.refresh_token : null;
+    const authCode = typeof params.code === "string" ? params.code : null;
 
     if (!accessToken || !refreshToken) {
+      if (authCode) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(authCode);
+        if (error) {
+          setAuthError(error.message);
+          return { ok: false, handled: true, error: error.message };
+        }
+
+        setSession(data.session);
+        setMode(data.session ? "signed_in" : "signed_out");
+        setAuthError(null);
+        return { ok: true, handled: true };
+      }
       const message = authUrlError(url);
       return message ? { ok: false, handled: true, error: message } : { ok: false, handled: false };
     }
@@ -155,6 +185,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       return { ok: false, error: "Could not start sign-in right now." };
     }
 
+    const WebBrowser = await import("expo-web-browser");
     const result = await WebBrowser.openAuthSessionAsync(data.url, AUTH_REDIRECT_URL);
 
     if (result.type === "cancel" || result.type === "dismiss") {

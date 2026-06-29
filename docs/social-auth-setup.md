@@ -7,7 +7,7 @@ This repo now supports Supabase OAuth for:
 - Apple
 - Google
 
-The mobile app uses Expo-compatible browser-based OAuth with a native deep link back into the app. It does **not** use separate native Google or Apple SDK sign-in flows in this PR.
+The mobile app uses Expo-compatible browser-based OAuth with a native deep link back into the app. It does **not** use separate native Google or Apple account-linking flows in this PR.
 
 ## App values used by this setup
 
@@ -93,17 +93,25 @@ Then enable the provider.
 
 ## Expo / app configuration
 
-No extra native Google or Apple sign-in plugin is required for this implementation.
+The app now includes:
+
+- `ios.usesAppleSignIn: true`
+- the `expo-apple-authentication` Expo plugin for capability sync
+- `expo-web-browser` for the OAuth session hand-off
 
 This PR uses:
 
-- `expo-auth-session`
 - `expo-web-browser`
 - existing Expo deep linking via `scheme: "sudoduel"`
 
 Because the app already has the `sudoduel` scheme configured, the OAuth callback returns to:
 
 - `sudoduel://auth`
+
+Depending on the provider and Supabase response mode, the app can now handle either:
+
+- `access_token` + `refresh_token`, or
+- an auth `code`, which is exchanged with Supabase using `exchangeCodeForSession`
 
 ## Account linking note
 
