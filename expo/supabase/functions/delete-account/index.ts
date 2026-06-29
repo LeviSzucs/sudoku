@@ -29,7 +29,7 @@ function deletedPassword(): string {
 }
 
 function deletedUsernameHandle(userId: string): string {
-  return `deleted_${userId.replace(/-/g, "").slice(0, 18)}`;
+  return `deleted_${userId.replace(/-/g, "").slice(0, 12)}`;
 }
 
 function deletedUsernameValue(userId: string): string {
