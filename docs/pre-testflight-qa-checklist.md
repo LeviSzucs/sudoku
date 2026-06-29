@@ -21,11 +21,16 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Signed-out launch shows a polished welcome/auth screen with a clear SudoDuel value proposition.
 - [ ] Auth landing screen copy is App Store-safe and does not mention paid Premium, ads, or subscriptions.
 - [ ] Auth landing screen fits on a small iPhone without clipped buttons, text, or overlapping cards.
+- [ ] Apple and Google sign-in buttons appear on the signed-out auth screen.
+- [ ] On iOS, Continue with Apple is at least as prominent as Continue with Google.
 - [ ] Returning user stays signed in.
 - [ ] Logout works.
 - [ ] Login works after logout.
 - [ ] Create account works.
 - [ ] Sign-in and sign-up forms have clear labels, helper copy, and disabled/loading button states.
+- [ ] Continue with Apple works on a real iPhone/TestFlight build after provider setup.
+- [ ] Continue with Google works on a real iPhone/TestFlight build after provider setup.
+- [ ] Cancelling Apple or Google OAuth shows a clean state and does not leave the app stuck.
 - [ ] Sign-up validates email format.
 - [ ] Sign-up validates minimum password length.
 - [ ] Sign-up validates matching confirm password.
@@ -37,10 +42,14 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Username/profile setup works for a new user.
 - [ ] Username setup clearly separates display name from searchable username.
 - [ ] Username setup makes it clear avatar customisation can be done later.
+- [ ] New social user reaches username setup when their profile is incomplete.
+- [ ] Existing social user returns to Home without briefly seeing the wrong auth/setup state.
 - [ ] Returning user lands in the right state.
 - [ ] Incomplete profile user is routed to setup.
 - [ ] Completed profile user does not briefly see setup.
 - [ ] Session restore works after closing and reopening the app.
+- [ ] Account deletion still works after Apple sign-in.
+- [ ] Account deletion still works after Google sign-in.
 
 ## B. Home
 
