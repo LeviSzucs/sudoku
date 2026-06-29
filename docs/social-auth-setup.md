@@ -80,7 +80,50 @@ To make the Google flow look cleaner:
 
 1. make sure the Google OAuth consent screen branding is fully configured
 2. set the Supabase site URL to `https://sudoduel.app`
-3. if you want to remove the Supabase project host from the visible browser flow entirely, the next follow-up is a Supabase custom auth domain or a native Google ID-token flow
+3. if you want to remove the Supabase project host from the visible browser flow entirely, the smallest safe follow-up is a Supabase custom auth domain
+
+### Google branding follow-up options
+
+#### Option A: Supabase custom auth domain
+
+This is the smallest safe way to replace `bocnyzryikelpiupnigv.supabase.co` with a SudoDuel-owned domain in the browser hand-off flow.
+
+Recommended target:
+
+- `auth.sudoduel.app`
+
+Manual steps for Levi:
+
+1. In Supabase, enable the custom domain/auth domain feature for the project if your plan supports it.
+2. Add a custom auth domain such as `auth.sudoduel.app`.
+3. Create the DNS records Supabase asks for, typically:
+   - a CNAME for `auth.sudoduel.app`
+   - any verification TXT record Supabase provides
+4. Wait for domain verification and TLS provisioning.
+5. Update Google OAuth authorised redirect URIs to include:
+   - `https://auth.sudoduel.app/auth/v1/callback`
+6. Keep the existing Supabase project callback in Google until the custom domain is fully verified and working.
+7. Update any Supabase Auth URL configuration or provider callback settings that still point only at the project subdomain.
+
+Result:
+
+- the Google browser/interstitial flow should show an `auth.sudoduel.app` domain instead of the Supabase project URL
+
+#### Option B: Native Google ID-token flow
+
+This is possible with Supabase, but it is a larger follow-up than this PR.
+
+Why it is larger:
+
+- the current app uses the safer browser-based Google OAuth hand-off
+- moving to native Google sign-in means obtaining a Google ID token directly on-device, then exchanging it with Supabase
+- that requires additional Google client configuration and a native-friendly Google sign-in implementation for Expo/iOS
+
+Recommendation:
+
+- keep the current working Google flow for now
+- prefer the custom auth domain first
+- only move to native Google ID-token auth if the browser hand-off remains unacceptable after domain branding is in place
 
 ## Apple provider setup
 

@@ -53,6 +53,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Account deletion still works after Apple sign-in.
 - [ ] Account deletion still works after Google sign-in.
 - [ ] Failed account deletion shows friendly support-oriented copy rather than a raw Edge Function status message.
+- [ ] Re-trying a deleted Apple/Google/email account never shows raw `User is banned` text.
+- [ ] If a deleted identity cannot yet be re-used automatically, the auth screen shows a clear support-guided message instead.
 
 ## B. Home
 
@@ -169,6 +171,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Cancelled search does not block a new queue.
 - [ ] Matched duel starts.
 - [ ] Both players receive the same puzzle.
+- [ ] Ranked Duel never grades a valid-looking entry against a mismatched fallback puzzle or stale session solution.
+- [ ] If a ranked session cannot load its exact server puzzle, the app fails safely instead of silently substituting a different Hard puzzle.
 - [ ] Both player completion states work.
 - [ ] Timeout/failure state works if testable.
 - [ ] Result finalises once.
@@ -189,6 +193,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Reopening the same ranked result does not replay the same promotion endlessly.
 - [ ] Repeat queue works after completed/cancelled/expired matches.
 - [ ] Completed/cancelled/expired matches do not block a new queue.
+- [ ] A stale or corrupt ranked session does not remain playable from Versus after the app refreshes the active match.
 - [ ] Ranked and Daily Duel cards show the opponent's real rank when it exists, and only show Unranked when no rank data exists.
 - [ ] No Premium blocking.
 
