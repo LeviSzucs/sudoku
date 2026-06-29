@@ -5,6 +5,7 @@ const DELETED_INITIALS = "DEL";
 const DELETED_AVATAR_COLOUR = "#A8A294";
 const DELETED_HAIR_COLOUR = "#6E432D";
 const DELETED_TOP_COLOUR = "#6B7280";
+const ACCOUNT_BAN_DURATION = "876000h";
 
 function jsonResponse(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), {
@@ -50,6 +51,24 @@ async function requireAuthenticatedUser(
   }
 
   return { user: data.user, error: null };
+}
+
+function userProviders(user: { app_metadata?: Record<string, unknown>; identities?: Array<{ provider?: string | null }> | null }) {
+  const providerSet = new Set<string>();
+  const primaryProvider = typeof user.app_metadata?.provider === "string" ? user.app_metadata.provider : null;
+  if (primaryProvider) providerSet.add(primaryProvider);
+
+  const providers = Array.isArray(user.app_metadata?.providers) ? user.app_metadata.providers : [];
+  for (const provider of providers) {
+    if (typeof provider === "string" && provider.trim()) providerSet.add(provider);
+  }
+
+  const identities = Array.isArray(user.identities) ? user.identities : [];
+  for (const identity of identities) {
+    if (typeof identity?.provider === "string" && identity.provider.trim()) providerSet.add(identity.provider);
+  }
+
+  return [...providerSet];
 }
 
 async function cancelActiveFriendChallenges(supabase: ReturnType<typeof createClient>, userId: string) {
@@ -191,30 +210,39 @@ async function deleteLinkedRows(supabase: ReturnType<typeof createClient>, userI
   }
 }
 
-async function revokeAuthAccess(supabase: ReturnType<typeof createClient>, userId: string) {
-  const deletedEmail = deletedEmailForUser(userId);
-  const { error } = await supabase.auth.admin.updateUserById(userId, {
+async function revokeAuthAccess(
+  supabase: ReturnType<typeof createClient>,
+  user: { id: string; app_metadata?: Record<string, unknown>; identities?: Array<{ provider?: string | null }> | null },
+) {
+  const providers = userProviders(user);
+  const deletedEmail = deletedEmailForUser(user.id);
+  const passwordPayload = providers.includes("email") ? { password: deletedPassword() } : {};
+  const { error } = await supabase.auth.admin.updateUserById(user.id, {
     email: deletedEmail,
-    password: deletedPassword(),
+    email_confirm: true,
+    ban_duration: ACCOUNT_BAN_DURATION,
     user_metadata: {
       display_name: DELETED_USERNAME,
-      username_handle: deletedUsernameHandle(userId),
+      username_handle: deletedUsernameHandle(user.id),
       deleted_account: true,
     },
+    ...passwordPayload,
   });
 
   if (error) throw new Error(`Could not revoke account sign-in: ${error.message}`);
 }
 
 Deno.serve(async (request) => {
+  const requestId = crypto.randomUUID();
   if (request.method !== "POST") {
-    return jsonResponse(405, { success: false, message: "Method not allowed." });
+    return jsonResponse(405, { success: false, code: "DELETE_ACCOUNT_METHOD_NOT_ALLOWED", message: "Method not allowed.", requestId });
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseUrl || !serviceRoleKey) {
-    return jsonResponse(500, { success: false, message: "Account deletion is not configured." });
+    console.error("[DeleteAccount]", { requestId, step: "config", error: "Missing Supabase env vars" });
+    return jsonResponse(500, { success: false, code: "DELETE_ACCOUNT_NOT_CONFIGURED", message: "Account deletion is not configured.", requestId });
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
@@ -224,7 +252,13 @@ Deno.serve(async (request) => {
 
   const { user, error: authError } = await requireAuthenticatedUser(supabase, request);
   if (authError || !user) {
-    return jsonResponse(401, { success: false, message: authError ?? "Authentication required." });
+    console.error("[DeleteAccount]", { requestId, step: "auth", error: authError ?? "Authentication required" });
+    return jsonResponse(401, {
+      success: false,
+      code: "DELETE_ACCOUNT_AUTH_REQUIRED",
+      message: "Please sign in again, then try deleting your account once more.",
+      requestId,
+    });
   }
 
   try {
@@ -236,17 +270,33 @@ Deno.serve(async (request) => {
     await anonymiseSettings(supabase, user.id);
     await anonymiseProfile(supabase, user.id);
     await deleteLinkedRows(supabase, user.id);
-    await revokeAuthAccess(supabase, user.id);
+    await revokeAuthAccess(supabase, user);
 
     return jsonResponse(200, {
       success: true,
       message: "Account deletion completed.",
+      requestId,
     });
   } catch (error: unknown) {
-    console.error("[DeleteAccount]", error);
+    const message = error instanceof Error ? error.message : "Account deletion did not complete.";
+    const code = message.startsWith("Could not revoke account sign-in:")
+      ? "DELETE_ACCOUNT_REVOKE_FAILED"
+      : message.startsWith("Could not")
+        ? "DELETE_ACCOUNT_DATA_CLEANUP_FAILED"
+        : "DELETE_ACCOUNT_FAILED";
+    console.error("[DeleteAccount]", {
+      requestId,
+      userId: user.id,
+      providers: userProviders(user),
+      error: message,
+    });
     return jsonResponse(500, {
       success: false,
-      message: error instanceof Error ? error.message : "Account deletion did not complete.",
+      code,
+      message: code === "DELETE_ACCOUNT_REVOKE_FAILED"
+        ? "We could not finish removing this sign-in right now. Please try again shortly."
+        : "We could not finish deleting this account right now. Please try again shortly.",
+      requestId,
     });
   }
 });

@@ -2,6 +2,7 @@ import createContextHook from "@nkzw/create-context-hook";
 import * as Linking from "expo-linking";
 import type { Session, User } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Platform } from "react-native";
 
 import { supabase, isSupabaseConfigured, supabaseConfigurationError } from "@/lib/supabase";
 
@@ -158,7 +159,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     return { ok: true };
   }, []);
 
-  const signInWithProvider = useCallback(async (provider: SocialAuthProvider): Promise<{ ok: boolean; error?: string; cancelled?: boolean }> => {
+  const signInWithOAuthBrowser = useCallback(async (provider: SocialAuthProvider): Promise<{ ok: boolean; error?: string; cancelled?: boolean }> => {
     setAuthError(null);
     if (!isSupabaseConfigured) return { ok: false, error: supabaseConfigurationError ?? "Supabase is not configured yet." };
 
@@ -205,6 +206,67 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
     return { ok: true };
   }, [restoreSessionFromUrl]);
+
+  const signInWithAppleNative = useCallback(async (): Promise<{ ok: boolean; error?: string; cancelled?: boolean }> => {
+    setAuthError(null);
+    if (!isSupabaseConfigured) return { ok: false, error: supabaseConfigurationError ?? "Supabase is not configured yet." };
+
+    const AppleAuthentication = await import("expo-apple-authentication");
+    const available = await AppleAuthentication.isAvailableAsync();
+    if (!available) {
+      return signInWithOAuthBrowser("apple");
+    }
+
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        const message = "Could not verify your Apple sign-in right now.";
+        setAuthError(message);
+        return { ok: false, error: message };
+      }
+
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: "apple",
+        token: credential.identityToken,
+        nonce: credential.nonce ?? undefined,
+        access_token: credential.authorizationCode ?? undefined,
+      });
+
+      if (error) {
+        setAuthError(error.message);
+        return { ok: false, error: error.message };
+      }
+
+      if (data.session) {
+        setSession(data.session);
+        setMode("signed_in");
+      }
+      setAuthError(null);
+      return { ok: true };
+    } catch (error: unknown) {
+      const code = typeof error === "object" && error && "code" in error ? String((error as { code?: unknown }).code ?? "") : "";
+      if (code === "ERR_REQUEST_CANCELED") {
+        return { ok: false, cancelled: true, error: "Sign-in was cancelled." };
+      }
+
+      const message = error instanceof Error ? error.message : "Could not complete Apple sign-in right now.";
+      setAuthError(message);
+      return { ok: false, error: message };
+    }
+  }, [setMode, setSession, signInWithOAuthBrowser]);
+
+  const signInWithProvider = useCallback(async (provider: SocialAuthProvider): Promise<{ ok: boolean; error?: string; cancelled?: boolean }> => {
+    if (provider === "apple" && Platform.OS === "ios") {
+      return signInWithAppleNative();
+    }
+    return signInWithOAuthBrowser(provider);
+  }, [signInWithAppleNative, signInWithOAuthBrowser]);
 
   const signOut = useCallback(async (): Promise<void> => {
     if (isSupabaseConfigured) await supabase.auth.signOut();

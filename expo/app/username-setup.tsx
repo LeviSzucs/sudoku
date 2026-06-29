@@ -105,7 +105,7 @@ export default function UsernameSetupScreen() {
               <Text style={styles.eyebrow}>One last step</Text>
               <Text style={styles.heroTitle}>Set up the name friends will see</Text>
               <Text style={styles.heroSubtitle}>
-                Choose a display name for your profile and a username people can search for. You can customise your avatar later in Profile.
+                Pick your display name and username now. You can update your avatar later in Profile.
               </Text>
             </View>
 
@@ -120,7 +120,7 @@ export default function UsernameSetupScreen() {
                   <Text style={styles.previewHandle}>{normalized ? `@${normalized}` : "@username"}</Text>
                   <View style={styles.previewHintRow}>
                     <Palette size={14} color={C.gold} />
-                    <Text style={styles.previewHint}>Avatar customisation can wait until after sign-up.</Text>
+                    <Text style={styles.previewHint}>Avatar can be updated later.</Text>
                   </View>
                 </View>
               </View>
