@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { ChevronLeft, LockKeyhole, Mail, Shield, Trophy, Users } from "lucide-react-native";
+import { Apple, ChevronLeft, LockKeyhole, Mail, Shield, Trophy, Users } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -52,6 +52,7 @@ export default function AuthScreen() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [socialLoading, setSocialLoading] = useState<"apple" | "google" | null>(null);
 
   const clearMessages = () => {
     setError(null);
@@ -137,6 +138,16 @@ export default function AuthScreen() {
       return;
     }
     setNotice("Your password has been updated. You can continue into SudoDuel.");
+  };
+
+  const startSocialSignIn = async (provider: "apple" | "google") => {
+    clearMessages();
+    setSocialLoading(provider);
+    const result = await auth.signInWithProvider(provider);
+    setSocialLoading(null);
+    if (!result.ok && !result.cancelled) {
+      setError(friendlyAuthError(result.error));
+    }
   };
 
   const headerCopy = useMemo(() => {
@@ -225,8 +236,16 @@ export default function AuthScreen() {
                   title="Keep your progress"
                   text="Your account keeps stats, streaks, badges, settings, and social activity together."
                 />
-                <PrimaryButton label="Create account" onPress={() => goTo("signup")} />
-                <SecondaryButton label="Log in" onPress={() => goTo("login")} />
+                <SocialSignInSection
+                  socialLoading={socialLoading}
+                  onApple={() => startSocialSignIn("apple")}
+                  onGoogle={() => startSocialSignIn("google")}
+                  onEmail={() => goTo("signup")}
+                  emailLabel="Continue with email"
+                  footer="Already have an account? Log in"
+                  onFooter={() => goTo("login")}
+                />
+                {error ? <MessageBanner tone="error" text={error} /> : null}
               </View>
             ) : null}
 
@@ -244,6 +263,10 @@ export default function AuthScreen() {
                 error={error}
                 notice={notice}
                 loading={loading}
+                disabled={loading || socialLoading !== null}
+                socialLoading={socialLoading}
+                onApple={() => startSocialSignIn("apple")}
+                onGoogle={() => startSocialSignIn("google")}
                 button={buttonLabel(step, loading)}
                 onSubmit={createAccount}
                 footer="Already have an account? Log in"
@@ -264,6 +287,10 @@ export default function AuthScreen() {
                 error={error}
                 notice={notice}
                 loading={loading}
+                disabled={loading || socialLoading !== null}
+                socialLoading={socialLoading}
+                onApple={() => startSocialSignIn("apple")}
+                onGoogle={() => startSocialSignIn("google")}
                 button={buttonLabel(step, loading)}
                 onSubmit={logIn}
                 footer="New here? Create account"
@@ -308,6 +335,10 @@ export default function AuthScreen() {
                 error={error}
                 notice={notice}
                 loading={loading}
+                disabled={loading || socialLoading !== null}
+                socialLoading={socialLoading}
+                onApple={() => startSocialSignIn("apple")}
+                onGoogle={() => startSocialSignIn("google")}
                 button={notice ? "Continue to SudoDuel" : buttonLabel(step, loading)}
                 onSubmit={notice ? () => router.replace("/(tabs)") : updatePassword}
                 footer="Back to log in"
@@ -358,11 +389,99 @@ function PrimaryButton({ label, onPress, disabled }: { label: string; onPress: (
   );
 }
 
-function SecondaryButton({ label, onPress }: { label: string; onPress: () => void }) {
+function SecondaryButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
   return (
-    <Pressable onPress={onPress} style={styles.secondary}>
+    <Pressable onPress={onPress} disabled={disabled} style={[styles.secondary, disabled && styles.disabledPrimary]}>
       <Text style={styles.secondaryText}>{label}</Text>
     </Pressable>
+  );
+}
+
+function SocialSignInSection(props: {
+  socialLoading: "apple" | "google" | null;
+  onApple: () => void;
+  onGoogle: () => void;
+  onEmail?: () => void;
+  emailLabel?: string;
+  footer?: string;
+  onFooter?: () => void;
+}) {
+  const busy = props.socialLoading !== null;
+  return (
+    <View style={styles.socialSection}>
+      {Platform.OS === "ios" ? (
+        <SocialButton
+          label="Continue with Apple"
+          icon={<Apple size={18} color="#FFFFFF" />}
+          tone="apple"
+          loading={props.socialLoading === "apple"}
+          disabled={busy}
+          onPress={props.onApple}
+        />
+      ) : null}
+      <SocialButton
+        label="Continue with Google"
+        icon={<View style={styles.googleBadge}><Text style={styles.googleBadgeText}>G</Text></View>}
+        tone="card"
+        loading={props.socialLoading === "google"}
+        disabled={busy}
+        onPress={props.onGoogle}
+      />
+      {props.onEmail && props.emailLabel ? (
+        <>
+          <Divider label="or" />
+          <SecondaryButton label={props.emailLabel} onPress={props.onEmail} disabled={busy} />
+        </>
+      ) : (
+        <Divider label="or use email" />
+      )}
+      {props.footer && props.onFooter ? (
+        <Pressable onPress={props.onFooter} style={styles.footerLink}><Text style={styles.link}>{props.footer}</Text></Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+function SocialButton({
+  label,
+  icon,
+  tone,
+  loading,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  tone: "apple" | "card";
+  loading: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  const dark = tone === "apple";
+  return (
+    <Pressable
+      disabled={disabled}
+      onPress={onPress}
+      style={[
+        styles.socialButton,
+        dark ? styles.socialButtonDark : styles.socialButtonLight,
+        disabled && styles.disabledPrimary,
+      ]}
+    >
+      <View style={styles.socialIconWrap}>{loading ? <ActivityIndicator color={dark ? "#FFFFFF" : C.ink} /> : icon}</View>
+      <Text style={[styles.socialButtonText, dark ? styles.socialButtonTextDark : styles.socialButtonTextLight]}>{label}</Text>
+      <View style={styles.socialButtonSpacer} />
+    </Pressable>
+  );
+}
+
+function Divider({ label }: { label: string }) {
+  return (
+    <View style={styles.dividerRow}>
+      <View style={styles.dividerLine} />
+      <Text style={styles.dividerText}>{label}</Text>
+      <View style={styles.dividerLine} />
+    </View>
   );
 }
 
@@ -446,6 +565,10 @@ function AuthForm(props: {
   error: string | null;
   notice: string | null;
   loading: boolean;
+  disabled?: boolean;
+  socialLoading: "apple" | "google" | null;
+  onApple: () => void;
+  onGoogle: () => void;
   button: string;
   onSubmit: () => void;
   footer: string;
@@ -457,6 +580,7 @@ function AuthForm(props: {
     <View style={styles.panel}>
       <Text style={styles.formTitle}>{props.title}</Text>
       <Text style={styles.formSubtitle}>{props.subtitle}</Text>
+      <SocialSignInSection socialLoading={props.socialLoading} onApple={props.onApple} onGoogle={props.onGoogle} />
       {!props.hideEmail ? (
         <Field icon={<Mail size={16} color={C.accent} />} label="Email">
           <TextInput
@@ -501,7 +625,7 @@ function AuthForm(props: {
       ) : null}
       {props.notice ? <MessageBanner tone="notice" text={props.notice} /> : null}
       {props.error ? <MessageBanner tone="error" text={props.error} /> : null}
-      <Pressable disabled={props.loading} onPress={props.onSubmit} style={[styles.primary, props.loading && styles.disabledPrimary]}>
+      <Pressable disabled={props.disabled || props.loading} onPress={props.onSubmit} style={[styles.primary, (props.disabled || props.loading) && styles.disabledPrimary]}>
         {props.loading ? <ActivityIndicator color="#FBF8F2" /> : <Text style={styles.primaryText}>{props.button}</Text>}
       </Pressable>
       <Pressable onPress={props.onFooter} style={styles.footerLink}><Text style={styles.link}>{props.footer}</Text></Pressable>
@@ -598,6 +722,73 @@ const styles = StyleSheet.create({
   featureText: { color: C.muted, fontSize: 13, lineHeight: 18, marginTop: 3, fontWeight: "600" },
   formTitle: { fontSize: 28, lineHeight: 32, fontWeight: "900", color: C.ink, marginBottom: 8 },
   formSubtitle: { color: C.muted, fontSize: 14, lineHeight: 21, fontWeight: "600", marginBottom: 6 },
+  socialSection: { marginTop: 18 },
+  socialButton: {
+    minHeight: 56,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    marginTop: 10,
+  },
+  socialButtonDark: {
+    backgroundColor: "#111111",
+    borderColor: "#111111",
+  },
+  socialButtonLight: {
+    backgroundColor: C.bgElevated,
+    borderColor: C.border,
+  },
+  socialIconWrap: {
+    width: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  socialButtonText: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  socialButtonTextDark: { color: "#FFFFFF" },
+  socialButtonTextLight: { color: C.ink },
+  socialButtonSpacer: { width: 24 },
+  googleBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  googleBadgeText: {
+    color: "#4285F4",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 16,
+    marginBottom: 2,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: C.border,
+  },
+  dividerText: {
+    color: C.muted,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
   fieldBlock: { marginTop: 14 },
   fieldHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
   fieldIcon: {
