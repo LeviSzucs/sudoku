@@ -2,12 +2,15 @@
 
 Use this guide to enable `Continue with Apple` and `Continue with Google` for SudoDuel.
 
-This repo now supports Supabase OAuth for:
+This repo now supports Supabase social sign-in for:
 
 - Apple
 - Google
 
-The mobile app uses Expo-compatible browser-based OAuth with a native deep link back into the app. It does **not** use separate native Google or Apple account-linking flows in this PR.
+The mobile app now uses:
+
+- native Apple sign-in on iOS via `expo-apple-authentication` and Supabase `signInWithIdToken`
+- browser-based Google OAuth with a native deep link back into the app
 
 ## App values used by this setup
 
@@ -50,6 +53,13 @@ In Google Cloud / Google Auth Platform:
 6. For authorised JavaScript origins, use your production-facing auth/site origin if you have one:
    - `https://sudoduel.app`
 7. Copy the Google Client ID and Client Secret.
+8. In the OAuth consent screen branding, set:
+   - App name: `SudoDuel`
+   - Support email: your real support address
+   - Home page: `https://sudoduel.app`
+   - Privacy Policy: `https://sudoduel.app/privacy`
+   - Terms of Service: `https://sudoduel.app/support` or your final terms page
+   - App logo: SudoDuel app icon if available
 
 In Supabase Dashboard:
 
@@ -62,22 +72,26 @@ Paste:
 
 Then enable the provider.
 
+### Google branding note
+
+Google sign-in in this PR still opens the Supabase-hosted OAuth hand-off in a browser session. That means the Supabase project host may still appear in parts of the browser flow.
+
+To make the Google flow look cleaner:
+
+1. make sure the Google OAuth consent screen branding is fully configured
+2. set the Supabase site URL to `https://sudoduel.app`
+3. if you want to remove the Supabase project host from the visible browser flow entirely, the next follow-up is a Supabase custom auth domain or a native Google ID-token flow
+
 ## Apple provider setup
 
 In Apple Developer:
 
 1. Open `Certificates, Identifiers & Profiles`.
 2. Confirm the App ID for `com.leviszucs.sudoduel` has `Sign in with Apple` enabled.
-3. Create a Services ID for the web OAuth client. Suggested value:
-   - `com.leviszucs.sudoduel.web`
-4. Configure the Services ID website settings:
-   - Domain: `bocnyzryikelpiupnigv.supabase.co`
-   - Return URL: `https://bocnyzryikelpiupnigv.supabase.co/auth/v1/callback`
-5. Create a Sign in with Apple key.
-6. Save:
+3. Create a Sign in with Apple key.
+4. Save:
    - Team ID
    - Key ID
-   - Services ID
    - the generated `.p8` key file
 
 In Supabase Dashboard:
@@ -86,8 +100,10 @@ In Supabase Dashboard:
 
 Paste:
 
-- Services ID as Client ID
-- generated Apple secret / key details as required by Supabase
+- Key ID
+- Team ID
+- Bundle ID / client identifier: `com.leviszucs.sudoduel`
+- the generated Apple private key contents as required by Supabase
 
 Then enable the provider.
 
@@ -99,16 +115,17 @@ The app now includes:
 - the `expo-apple-authentication` Expo plugin for capability sync
 - `expo-web-browser` for the OAuth session hand-off
 
-This PR uses:
+This app now uses:
 
-- `expo-web-browser`
+- native Apple sign-in on iOS with `signInWithIdToken`
+- `expo-web-browser` for Google OAuth
 - existing Expo deep linking via `scheme: "sudoduel"`
 
 Because the app already has the `sudoduel` scheme configured, the OAuth callback returns to:
 
 - `sudoduel://auth`
 
-Depending on the provider and Supabase response mode, the app can now handle either:
+Google OAuth can return either:
 
 - `access_token` + `refresh_token`, or
 - an auth `code`, which is exchanged with Supabase using `exchangeCodeForSession`

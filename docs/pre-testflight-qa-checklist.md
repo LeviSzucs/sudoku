@@ -30,6 +30,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Sign-in and sign-up forms have clear labels, helper copy, and disabled/loading button states.
 - [ ] Continue with Apple works on a real iPhone/TestFlight build after provider setup.
 - [ ] Continue with Google works on a real iPhone/TestFlight build after provider setup.
+- [ ] Apple sign-in uses the native iOS Apple sheet and does not show an ugly web service identifier to the user.
+- [ ] Google OAuth consent branding shows SudoDuel app naming, support, and public site details from the Google console setup.
 - [ ] Cancelling Apple or Google OAuth shows a clean state and does not leave the app stuck.
 - [ ] Sign-up validates email format.
 - [ ] Sign-up validates minimum password length.
@@ -41,7 +43,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] New password can be saved from the reset flow.
 - [ ] Username/profile setup works for a new user.
 - [ ] Username setup clearly separates display name from searchable username.
-- [ ] Username setup makes it clear avatar customisation can be done later.
+- [ ] Username setup says the avatar can be updated later without awkward sign-up copy.
 - [ ] New social user reaches username setup when their profile is incomplete.
 - [ ] Existing social user returns to Home without briefly seeing the wrong auth/setup state.
 - [ ] Returning user lands in the right state.
@@ -50,6 +52,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Session restore works after closing and reopening the app.
 - [ ] Account deletion still works after Apple sign-in.
 - [ ] Account deletion still works after Google sign-in.
+- [ ] Failed account deletion shows friendly support-oriented copy rather than a raw Edge Function status message.
 
 ## B. Home
 
