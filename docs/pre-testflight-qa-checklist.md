@@ -169,6 +169,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Cancelled search does not block a new queue.
 - [ ] Matched duel starts.
 - [ ] Both players receive the same puzzle.
+- [ ] Ranked Duel never grades a valid-looking entry against a mismatched fallback puzzle or stale session solution.
+- [ ] If a ranked session cannot load its exact server puzzle, the app fails safely instead of silently substituting a different Hard puzzle.
 - [ ] Both player completion states work.
 - [ ] Timeout/failure state works if testable.
 - [ ] Result finalises once.
@@ -187,6 +189,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Reopening the same ranked result does not replay the same promotion endlessly.
 - [ ] Repeat queue works after completed/cancelled/expired matches.
 - [ ] Completed/cancelled/expired matches do not block a new queue.
+- [ ] A stale or corrupt ranked session does not remain playable from Versus after the app refreshes the active match.
 - [ ] No Premium blocking.
 
 ## H. Ranks / Leaderboards
