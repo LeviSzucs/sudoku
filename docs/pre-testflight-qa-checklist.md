@@ -53,6 +53,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Account deletion still works after Apple sign-in.
 - [ ] Account deletion still works after Google sign-in.
 - [ ] Failed account deletion shows friendly support-oriented copy rather than a raw Edge Function status message.
+- [ ] Re-trying a deleted Apple/Google/email account never shows raw `User is banned` text.
+- [ ] If a deleted identity cannot yet be re-used automatically, the auth screen shows a clear support-guided message instead.
 
 ## B. Home
 
