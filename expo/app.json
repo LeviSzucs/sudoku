@@ -16,6 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.leviszucs.sudoduel",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -41,6 +42,7 @@
         }
       ],
       "expo-notifications",
+      "expo-apple-authentication",
       "expo-font",
       "expo-web-browser"
     ],
