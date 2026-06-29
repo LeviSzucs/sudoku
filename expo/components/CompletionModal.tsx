@@ -128,9 +128,9 @@ export default function CompletionModal({
     unlockedBadges.length,
   ].join("|");
   const isWaitingForCompetitiveOutcome = isCompetitiveMode && !celebrationReady;
-  const displayTitle = isWaitingForCompetitiveOutcome ? "Finalising result..." : outcomeTitle ?? "Puzzle complete";
+  const displayTitle = isWaitingForCompetitiveOutcome ? outcomeTitle ?? "Finalising result..." : outcomeTitle ?? "Puzzle complete";
   const completionCopy = isWaitingForCompetitiveOutcome
-    ? "Checking the final duel outcome."
+    ? outcomeSubtitle ?? "Checking the final duel outcome."
     : mistakes === 0 && hintsUsed === 0
     ? `You solved the ${difficulty} puzzle cleanly.`
     : mistakes === 0 && hintsUsed > 0

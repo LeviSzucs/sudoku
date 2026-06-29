@@ -42,29 +42,30 @@ const MIN_SAVE_INTERVAL_MS = 2_000;
 interface ChallengeOutcomeCopy {
   title: string;
   subtitle: string;
+  isResolved: boolean;
 }
 
 function challengeOutcomeCopy(entry: { status: string; winner_user_id: string | null; friend_display_name: string }, currentUserId?: string | null): ChallengeOutcomeCopy {
   if (entry.status === "completed") {
-    if (!entry.winner_user_id) return { title: "Draw", subtitle: "Challenge complete" };
+    if (!entry.winner_user_id) return { title: "Draw", subtitle: "Challenge complete", isResolved: true };
     return entry.winner_user_id === currentUserId
-      ? { title: "You won", subtitle: "Challenge complete" }
-      : { title: "You lost", subtitle: "Challenge complete" };
+      ? { title: "You won", subtitle: "Challenge complete", isResolved: true }
+      : { title: "You lost", subtitle: "Challenge complete", isResolved: true };
   }
 
-  return { title: "You finished", subtitle: `Waiting for ${entry.friend_display_name}` };
+  return { title: "You finished", subtitle: `Waiting for ${entry.friend_display_name}`, isResolved: false };
 }
 
 function rankedOutcomeCopy(entry: { status: string; winner_user_id: string | null; opponent_display_name?: string | null; rp_change?: number | null }, currentUserId?: string | null): ChallengeOutcomeCopy {
   if (entry.status === "completed") {
     const rpText = typeof entry.rp_change === "number" ? ` · ${entry.rp_change >= 0 ? "+" : ""}${entry.rp_change} RP` : "";
-    if (!entry.winner_user_id) return { title: "Draw", subtitle: `Ranked Duel complete${rpText}` };
+    if (!entry.winner_user_id) return { title: "Draw", subtitle: `Ranked Duel complete${rpText}`, isResolved: true };
     return entry.winner_user_id === currentUserId
-      ? { title: "You won", subtitle: `Ranked Duel complete${rpText}` }
-      : { title: "You lost", subtitle: `Ranked Duel complete${rpText}` };
+      ? { title: "You won", subtitle: `Ranked Duel complete${rpText}`, isResolved: true }
+      : { title: "You lost", subtitle: `Ranked Duel complete${rpText}`, isResolved: true };
   }
 
-  return { title: "You finished", subtitle: `Waiting for ${entry.opponent_display_name ?? "opponent"}` };
+  return { title: "You finished", subtitle: `Waiting for ${entry.opponent_display_name ?? "opponent"}`, isResolved: false };
 }
 
 function completionPrimaryLabel(mode: GameMode): string {
@@ -224,6 +225,7 @@ export default function GameScreen() {
   const [officialLeaderboardEligible, setOfficialLeaderboardEligible] = useState<boolean | null>(null);
   const [officialSubmitError, setOfficialSubmitError] = useState<string | null>(null);
   const [challengeOutcome, setChallengeOutcome] = useState<ChallengeOutcomeCopy | null>(null);
+  const [officialOutcomeSessionId, setOfficialOutcomeSessionId] = useState<string | null>(null);
   const [processedResultId, setProcessedResultId] = useState<string | null>(null);
   const [processedFailedSessionId, setProcessedFailedSessionId] = useState<string | null>(null);
   const [isSubmittingResult, setIsSubmittingResult] = useState<boolean>(false);
@@ -554,13 +556,13 @@ export default function GameScreen() {
     ? isSubmittingFailedResult
       ? "Saving this final attempt..."
       : officialSubmitError
-      ? "This game is over. We could not finish saving the final result right now."
+      ? "This game is over. We couldn't finish saving the final result right now. Please return to Versus and try again."
       : challengeOutcome
       ? `${challengeOutcome.title}. ${challengeOutcome.subtitle}.`
       : "This attempt has been recorded."
     : undefined;
   const completionNeedsResolvedOutcome = effectiveMode === "friend_challenge" || effectiveMode === "ranked" || effectiveMode === "ranked_duel";
-  const completionCelebrationReady = !completionNeedsResolvedOutcome || !!challengeOutcome || !!officialSubmitError;
+  const completionCelebrationReady = !completionNeedsResolvedOutcome || Boolean(challengeOutcome?.isResolved) || !!officialSubmitError;
   const completionCelebrationKey = game.result
     ? [
         MODE_LABEL[effectiveMode],
@@ -578,6 +580,7 @@ export default function GameScreen() {
     setOfficialLeaderboardEligible(null);
     setOfficialSubmitError(null);
     setChallengeOutcome(null);
+    setOfficialOutcomeSessionId(null);
     const outcome = effectiveMode === "duel" || effectiveMode === "ranked" || effectiveMode === "ranked_duel" ? "win" : undefined;
     cancelPendingSave();
     isSubmittingResultRef.current = true;
@@ -612,6 +615,7 @@ export default function GameScreen() {
         })
         .then(async (summary) => {
           setCompletionSummary(summary);
+          setOfficialOutcomeSessionId(completedSessionId ?? null);
           const officialResult = summary.updatedProfile.recent_results[0];
           setOfficialScore(officialResult?.final_score ?? null);
           setOfficialScoreBreakdown(officialResult?.score_breakdown ?? game.result?.score_breakdown ?? null);
@@ -669,6 +673,7 @@ export default function GameScreen() {
     setOfficialLeaderboardEligible(false);
     setOfficialSubmitError(null);
     setChallengeOutcome(null);
+    setOfficialOutcomeSessionId(failedSessionId);
     cancelPendingSave();
     isSubmittingResultRef.current = true;
     isCompletedRef.current = true;
@@ -743,13 +748,95 @@ export default function GameScreen() {
           mode: effectiveMode,
           error: message,
         });
+        if (effectiveMode === "ranked" || effectiveMode === "ranked_duel") {
+          void closeSessionForPuzzle(failedResult.puzzle_id, failedSessionId, "failed").finally(() => {
+            currentSessionIdRef.current = null;
+            setHasSavedOnce(false);
+          });
+        }
         setOfficialSubmitError(message);
         setOfficialLeaderboardEligible(false);
       })
       .finally(() => {
         setIsSubmittingFailedResult(false);
       });
-  }, [auth.isSignedIn, auth.user?.id, cancelPendingSave, effectiveMode, fetchFriendChallenges, fetchRankedDuel, game.completed, game.difficulty, game.gameOver, game.hintsUsed, game.mistakes, game.puzzleId, game.seconds, game.undoCount, isSubmittingFailedResult, processedFailedSessionId, saveSession, submitFailedPuzzleResult]);
+  }, [auth.isSignedIn, auth.user?.id, cancelPendingSave, closeSessionForPuzzle, effectiveMode, fetchFriendChallenges, fetchRankedDuel, game.completed, game.difficulty, game.gameOver, game.hintsUsed, game.mistakes, game.puzzleId, game.seconds, game.undoCount, isSubmittingFailedResult, processedFailedSessionId, saveSession, submitFailedPuzzleResult]);
+
+  useEffect(() => {
+    const shouldPollOfficialOutcome = auth.isSignedIn
+      && isFocused
+      && !!officialOutcomeSessionId
+      && !officialSubmitError
+      && (effectiveMode === "friend_challenge" || effectiveMode === "ranked" || effectiveMode === "ranked_duel")
+      && (game.completed || (game.gameOver && failedAttemptIsFinal))
+      && !challengeOutcome?.isResolved;
+
+    if (!shouldPollOfficialOutcome) return;
+
+    let cancelled = false;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+
+    const pollResolvedOutcome = async (): Promise<void> => {
+      try {
+        if (effectiveMode === "friend_challenge") {
+          const challenges = await fetchFriendChallenges();
+          if (cancelled) return;
+          const challenge = challenges.find((entry) =>
+            entry.current_user_session_id === officialOutcomeSessionId ||
+            entry.challenger_session_id === officialOutcomeSessionId ||
+            entry.challenged_session_id === officialOutcomeSessionId
+          );
+          if (challenge) {
+            const nextOutcome = challengeOutcomeCopy(challenge, auth.user?.id ?? null);
+            setChallengeOutcome(nextOutcome);
+            if (nextOutcome.isResolved) return;
+          }
+        } else {
+          const rankedDuel = await fetchRankedDuel(true);
+          if (cancelled) return;
+          if (rankedDuel) {
+            const nextOutcome = rankedOutcomeCopy(rankedDuel, auth.user?.id ?? null);
+            setChallengeOutcome(nextOutcome);
+            if (nextOutcome.isResolved) return;
+          }
+        }
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Unknown outcome refresh failure";
+        logDevDiagnostic("duel outcome refresh failed", {
+          authUserId: auth.user?.id ?? null,
+          sessionId: officialOutcomeSessionId,
+          mode: effectiveMode,
+          error: message,
+        });
+      }
+
+      if (!cancelled) {
+        timeout = setTimeout(() => {
+          void pollResolvedOutcome();
+        }, 2500);
+      }
+    };
+
+    void pollResolvedOutcome();
+
+    return () => {
+      cancelled = true;
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [
+    auth.isSignedIn,
+    auth.user?.id,
+    challengeOutcome?.isResolved,
+    effectiveMode,
+    failedAttemptIsFinal,
+    fetchFriendChallenges,
+    fetchRankedDuel,
+    game.completed,
+    game.gameOver,
+    isFocused,
+    officialOutcomeSessionId,
+    officialSubmitError,
+  ]);
 
   useEffect(() => {
     const shouldUseLocalFailureCleanup = !auth.isSignedIn || !supportsOfficialFailedFinalisation(effectiveMode);
@@ -786,6 +873,7 @@ export default function GameScreen() {
     setOfficialLeaderboardEligible(null);
     setOfficialSubmitError(null);
     setChallengeOutcome(null);
+    setOfficialOutcomeSessionId(null);
     setProcessedResultId(null);
     setProcessedFailedSessionId(null);
     if (effectiveMode === "classic") {
@@ -1024,6 +1112,8 @@ export default function GameScreen() {
             puzzleId: game.puzzleId,
             target: "/(tabs)",
           });
+          setChallengeOutcome(null);
+          setOfficialOutcomeSessionId(null);
           setIsFocused(false);
           clearTransientUiRef.current();
           router.replace("/(tabs)");
@@ -1068,6 +1158,7 @@ export default function GameScreen() {
           setOfficialLeaderboardEligible(null);
           setOfficialSubmitError(null);
           setChallengeOutcome(null);
+          setOfficialOutcomeSessionId(null);
           setIsFocused(false);
           router.replace("/(tabs)");
         }}
@@ -1078,6 +1169,7 @@ export default function GameScreen() {
           setOfficialLeaderboardEligible(null);
           setOfficialSubmitError(null);
           setChallengeOutcome(null);
+          setOfficialOutcomeSessionId(null);
           setIsFocused(false);
           router.replace("/(tabs)");
         }}

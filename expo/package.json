@@ -17,7 +17,10 @@
     "generate:technique-calibration": "node scripts/generate-technique-calibration-batch.js",
     "export:puzzles-sql": "node scripts/export-puzzles-sql.js",
     "validate:givens": "node scripts/validate-given-cells.js",
-    "qa:preflight": "npm run validate:puzzles && npm run validate:unique-puzzles && npm run validate:givens && npm run validate:scoring"
+    "qa:android-store": "node scripts/verify-android-store-config.js",
+    "qa:preflight": "npm run validate:puzzles && npm run validate:unique-puzzles && npm run validate:givens && npm run validate:scoring",
+    "build:android:preview": "eas build --platform android --profile preview",
+    "build:android:production": "eas build --platform android --profile production"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
