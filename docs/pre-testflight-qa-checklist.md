@@ -314,14 +314,14 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] EAS/Expo project ID is present through `extra.eas.projectId`, `Constants.easConfig.projectId`, or UUID-shaped `EXPO_PUBLIC_EAS_PROJECT_ID`.
 - [ ] `EXPO_PUBLIC_PROJECT_ID` may be a Rork slug and must not be treated as a valid EAS UUID unless UUID-shaped.
 - [ ] Phone push requires `EXPO_PUBLIC_EAS_PROJECT_ID` or another real UUID-shaped project ID source.
-- [ ] If Rork/EAS/APNs is not fully configured, TestFlight shows a calm unavailable message, not a raw Expo error.
-- [ ] In that parked state, Inbox notifications still load and remain fully usable.
-- [ ] Phone push is treated as pending Rork EAS/APNs setup for this build, not as a blocker for in-app notification QA.
+- [ ] If Expo/EAS/APNs push is unavailable in a given build, TestFlight shows a calm unavailable message, not a raw Expo error.
+- [ ] In that unavailable state, Inbox notifications still load and remain fully usable.
 - [ ] Push token registers after permission is granted.
 - [ ] TestFlight device creates an active `push_tokens` row after opening Notifications with permission granted.
 - [ ] Push token upsert does not create duplicate active token rows for the same user/token.
 - [ ] Notification preferences save and reload.
 - [ ] Marketing/news/offers defaults off.
+- [ ] `push_enabled = false` prevents future push delivery while leaving the in-app inbox usable.
 - [ ] Friend request received creates an in-app notification for the recipient.
 - [ ] Friend request accepted creates an in-app notification for the sender.
 - [ ] Friend Challenge created creates an in-app notification for the challenged player.
@@ -329,6 +329,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Friend Challenge completed creates result-ready notifications for both players.
 - [ ] Daily Duel matched creates match-ready notifications for both players.
 - [ ] Ranked Duel matched creates match-ready notifications for both players.
+- [ ] The currently live automated notification types are limited to friend requests, friend challenges, challenge results, Daily Duel matched, and Ranked Duel matched.
+- [ ] `reminder`, `duel_ready`, and `marketing` are treated as reserved/manual test types unless a specific release task adds live event creation for them.
 - [ ] Each in-app notification that should push immediately creates `pending` `push_notification_deliveries` rows for the user's active devices.
 - [ ] Disabled preferences suppress matching in-app notification types.
 - [ ] No duplicate spam notifications appear for the same event.
@@ -357,6 +359,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Client code does not send push notifications to other users.
 - [ ] After creating a new notification, matching `push_notification_deliveries` rows appear as `pending`.
 - [ ] Within the automation window, pending rows move to `sent`, `failed`, or `skipped` without manual PowerShell commands.
+- [ ] If automatic push delivery is enabled, GitHub Actions `Run Push Notifications` is active and `PUSH_DELIVERY_SECRET` matches the deployed Edge Function secret.
 
 ## L. Premium Foundation
 
