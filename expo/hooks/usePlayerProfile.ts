@@ -27,6 +27,7 @@ const GUEST_SESSIONS_KEY = "sudoku.guest_sessions.v1";
 const GUEST_COMPLETED_RESULTS_KEY = "sudoku.completed_results";
 
 type SaveResult = { ok: boolean; error?: string };
+type ClearRankedDuelResult = { ok: boolean; cleared: boolean; error?: string; status?: string | null };
 type SessionStatus = "in_progress" | "completed" | "failed" | "abandoned";
 type DailySessionMode = "daily" | "daily_duel";
 type UsernameAvailabilityStatus = "available" | "unavailable" | "invalid" | "error";
@@ -2863,6 +2864,36 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     };
   }, []);
 
+  const clearStaleRankedDuel = useCallback(async (
+    params?: { rankedDuelId?: string | null; sessionId?: string | null; reason?: string }
+  ): Promise<ClearRankedDuelResult> => {
+    if (!auth.user || !isSupabaseConfigured) {
+      return { ok: false, cleared: false, error: "Sign in before clearing Ranked Duel state." };
+    }
+
+    const { data, error } = await supabase.rpc("clear_stale_ranked_duel", {
+      p_ranked_duel_id: params?.rankedDuelId ?? null,
+      p_session_id: params?.sessionId ?? null,
+      p_reason: params?.reason ?? "restore_failed",
+    });
+
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return { ok: false, cleared: false, error: error.message };
+    }
+
+    const payload = (data ?? {}) as { cleared?: boolean; status?: string | null };
+    if (params?.sessionId) {
+      setActiveSessions((prev) => prev.filter((entry) => entry.session_id !== params.sessionId));
+    }
+
+    return {
+      ok: true,
+      cleared: payload.cleared === true,
+      status: payload.status ?? null,
+    };
+  }, [auth.user, updateDiagnostics]);
+
   const fetchRankedDuel = useCallback(async (includeCompleted = false): Promise<RankedDuelEntry | null> => {
     if (!auth.user || !isSupabaseConfigured) return null;
     const { data, error } = await supabase.rpc("ranked_duel_view", { p_ranked_duel_id: null });
@@ -2897,30 +2928,44 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     if (duel.session_id && !duel.current_user_result_id) {
       const hydratedSession = await hydrateAuthoritativeSession(duel.session_id);
       if (!hydratedSession) {
+        const cleared = await clearStaleRankedDuel({
+          rankedDuelId: duel.ranked_duel_id,
+          sessionId: duel.session_id,
+          reason: "restore_failed",
+        });
         logDevDiagnostic("ranked duel active session unavailable", {
           rankedDuelId: duel.ranked_duel_id,
           sessionId: duel.session_id,
           status: duel.status,
           sessionStatus: sessionState?.status ?? null,
           sessionMode: sessionState?.mode ?? null,
+          cleared: cleared.cleared,
+          clearStatus: cleared.status ?? null,
         });
-        return includeCompleted ? duel : null;
+        return null;
       }
     }
     if (sessionState && sessionState.status !== "in_progress" && !duel.current_user_result_id && ["waiting_for_opponent", "matched", "player_a_completed", "player_b_completed"].includes(duel.status)) {
+      const cleared = await clearStaleRankedDuel({
+        rankedDuelId: duel.ranked_duel_id,
+        sessionId: duel.session_id,
+        reason: "session_not_resumable",
+      });
       logDevDiagnostic("suppressing stale ranked duel state", {
         authUserId: auth.user.id,
         rankedDuelId: duel.ranked_duel_id,
         sessionId: duel.session_id,
         sessionStatus: sessionState.status,
         sessionMode: sessionState.mode,
+        cleared: cleared.cleared,
+        clearStatus: cleared.status ?? null,
       });
       setActiveSessions((prev) => prev.filter((entry) => entry.session_id !== duel?.session_id));
       return null;
     }
     if (includeCompleted) return duel;
     return ["waiting_for_opponent", "matched", "player_a_completed", "player_b_completed"].includes(duel.status) ? duel : null;
-  }, [auth.user, fetchPublicProfileMap, fetchRankTierForUser, hydrateAuthoritativeSession, mapRankedDuel, repairRankedDuelSessionMode, updateDiagnostics]);
+  }, [auth.user, clearStaleRankedDuel, fetchPublicProfileMap, fetchRankTierForUser, hydrateAuthoritativeSession, mapRankedDuel, repairRankedDuelSessionMode, updateDiagnostics]);
 
   const enterRankedDuel = useCallback(async (): Promise<{ ok: boolean; error?: string; duel?: RankedDuelEntry }> => {
     if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before entering Ranked Duel." };
@@ -2955,12 +3000,17 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       await repairRankedDuelSessionMode(duel.session_id, "ranked_duel");
       const hydratedSession = await hydrateAuthoritativeSession(duel.session_id);
       if (!hydratedSession) {
-        return { ok: false, error: "Ranked Duel could not be resumed. Please search again." };
+        await clearStaleRankedDuel({
+          rankedDuelId: duel.ranked_duel_id,
+          sessionId: duel.session_id,
+          reason: "enter_restore_failed",
+        });
+        return { ok: false, error: "That ranked match could not be restored, so it was cleared. Start a new match." };
       }
     }
 
     return { ok: true, duel };
-  }, [auth.user, fetchPublicProfileMap, fetchRankTierForUser, hydrateAuthoritativeSession, mapRankedDuel, repairRankedDuelSessionMode, updateDiagnostics]);
+  }, [auth.user, clearStaleRankedDuel, fetchPublicProfileMap, fetchRankTierForUser, hydrateAuthoritativeSession, mapRankedDuel, repairRankedDuelSessionMode, updateDiagnostics]);
 
   const cancelRankedDuel = useCallback(async (rankedDuelId: string): Promise<{ ok: boolean; error?: string; duel?: RankedDuelEntry | null }> => {
     if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before cancelling Ranked Duel search." };
@@ -3232,7 +3282,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, fetchRankedLeaderboard, simulateResult, simulateRankedWin, simulateRankedLoss,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
-    fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel, cancelRankedDuel,
+    fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel, cancelRankedDuel, clearStaleRankedDuel,
     fetchPublicPlayerProfile,
     refreshProfile: loadBackendProfile,
     resetLocalProfile, checkUsernameAvailable, completeProfileSetup, updateDisplayName, updateAvatar, updateNotificationSettings, updatePrivacySettings,
@@ -3244,7 +3294,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, fetchRankedLeaderboard,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
-    fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel, cancelRankedDuel,
+    fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel, cancelRankedDuel, clearStaleRankedDuel,
     fetchPublicPlayerProfile,
     repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
     simulateRankedLoss, simulateRankedWin, simulateResult,
