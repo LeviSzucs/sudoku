@@ -8,6 +8,14 @@ The mobile app must not send push notifications directly.
 
 ## Automatic Invocation
 
+SudoDuel supports two server-side invocation paths for the same Edge Function:
+
+1. **Immediate path**: Supabase Database Webhook on `public.app_notifications` insert
+2. **Fallback path**: GitHub Actions runner every 5 minutes
+
+The immediate webhook path is recommended for release so push delivery usually happens within seconds.
+The GitHub Actions workflow remains in place as a retry/fallback path if the webhook invoke fails.
+
 Queued `pending` rows in `public.push_notification_deliveries` are sent automatically
 by the GitHub Actions workflow:
 
@@ -20,6 +28,8 @@ The workflow:
 - calls the existing protected Edge Function with `limit: 100`
 - is safe to run repeatedly because the Edge Function only processes queued
   `pending` rows and marks them `sending`, `sent`, `failed`, or `skipped`
+
+See [instant-push-webhook.md](C:\Users\LeviS\Documents\Codex\2026-05-30\github-plugin-github-openai-curated-can\sudoku-onboarding-empty-state\docs\instant-push-webhook.md) for the exact Supabase Database Webhook setup steps.
 
 ## GitHub Repository Secrets
 

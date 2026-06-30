@@ -346,7 +346,9 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Reduced-motion devices still show the streak clearly without broken or busy animation.
 - [ ] Streak count remains accurate while the ambient flame animation runs.
 - [ ] `send-push-notifications` Edge Function is deployed and invoked automatically by the scheduled backend job, with manual invocation available for debugging.
+- [ ] For near-instant push, a Supabase Database Webhook is configured on `public.app_notifications` inserts and invokes `send-push-notifications` with the shared `PUSH_DELIVERY_SECRET`.
 - [ ] Push deployment setup follows `docs/deploy-push-notifications.md`.
+- [ ] Instant webhook setup follows `docs/instant-push-webhook.md`.
 - [ ] Edge Function uses `SUPABASE_SERVICE_ROLE_KEY` only in the server runtime.
 - [ ] `PUSH_DELIVERY_SECRET` is configured if invoking the function over HTTP.
 - [ ] Creating a Friend Challenge sends a phone push to the challenged player when push is enabled.
@@ -358,7 +360,9 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Push delivery failures do not remove in-app notifications.
 - [ ] Client code does not send push notifications to other users.
 - [ ] After creating a new notification, matching `push_notification_deliveries` rows appear as `pending`.
+- [ ] With the instant webhook enabled, queued rows move from `pending`/`sending` to `sent` within seconds and the device receives push promptly.
 - [ ] Within the automation window, pending rows move to `sent`, `failed`, or `skipped` without manual PowerShell commands.
+- [ ] If the immediate webhook is disabled or fails, the 5-minute GitHub Actions runner still delivers queued rows as fallback.
 - [ ] If automatic push delivery is enabled, GitHub Actions `Run Push Notifications` is active and `PUSH_DELIVERY_SECRET` matches the deployed Edge Function secret.
 
 ## L. Premium Foundation
