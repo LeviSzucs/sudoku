@@ -193,6 +193,7 @@ interface Options {
   restoreSnapshot?: SessionSnapshot;
   /** Raw puzzle data fetched from backend (preferred over difficulty lookup). */
   puzzleData?: RawPuzzleData;
+  isReady?: boolean;
   onValidPlacement?: (placement: { row: number; col: number; value: number; wasCorrect: boolean }) => void;
 }
 
@@ -205,6 +206,10 @@ function getFallbackGivens(difficulty: Difficulty): Board {
 function getFallbackSolution(difficulty: Difficulty): Board {
   const p = getPuzzleByDifficulty(difficulty);
   return p.solution.map((r) => [...r]);
+}
+
+function makeEmptyBoard(): Board {
+  return Array.from({ length: 9 }, () => Array(9).fill(0));
 }
 
 function firstEditableCell(givens: Board): { r: number; c: number } | null {
@@ -252,21 +257,24 @@ function cellBlockReason({
   return null;
 }
 
-export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnapshot, puzzleData, onValidPlacement }: Options): UseSudokuGame {
+export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnapshot, puzzleData, isReady = true, onValidPlacement }: Options): UseSudokuGame {
   // ── Resolve puzzle data ───────────────────────────────────────────
+  const puzzleReady = isReady && Boolean(puzzleData);
   const givens: Board = useMemo(
-    () => puzzleData?.givens ?? getFallbackGivens(difficulty),
-    [puzzleData?.givens, difficulty]
+    () => (puzzleReady ? puzzleData?.givens ?? getFallbackGivens(difficulty) : makeEmptyBoard()),
+    [difficulty, puzzleData?.givens, puzzleReady]
   );
   const solution: Board = useMemo(
-    () => puzzleData?.solution ?? getFallbackSolution(difficulty),
-    [puzzleData?.solution, difficulty]
+    () => (puzzleReady ? puzzleData?.solution ?? getFallbackSolution(difficulty) : makeEmptyBoard()),
+    [difficulty, puzzleData?.solution, puzzleReady]
   );
-  const resolvedPuzzleId = puzzleId ?? restoreSnapshot?.puzzle_id ?? puzzleData?.puzzle_id ?? "unknown";
+  const resolvedPuzzleId = puzzleReady
+    ? puzzleId ?? restoreSnapshot?.puzzle_id ?? puzzleData?.puzzle_id ?? "unknown"
+    : puzzleId ?? restoreSnapshot?.puzzle_id ?? puzzleData?.puzzle_id ?? "loading";
 
-  const [board, setBoard] = useState<Board>(() => restoreSnapshot?.board_state ?? givens.map((r) => [...r]));
-  const [notes, setNotes] = useState<NotesBoard>(() => restoreSnapshot?.notes_state ?? makeEmptyNotes());
-  const [selected, setSelected] = useState<{ r: number; c: number } | null>(() => firstEditableCell(givens));
+  const [board, setBoard] = useState<Board>(() => (puzzleReady ? restoreSnapshot?.board_state ?? givens.map((r) => [...r]) : makeEmptyBoard()));
+  const [notes, setNotes] = useState<NotesBoard>(() => (puzzleReady ? restoreSnapshot?.notes_state ?? makeEmptyNotes() : makeEmptyNotes()));
+  const [selected, setSelected] = useState<{ r: number; c: number } | null>(() => (puzzleReady ? firstEditableCell(givens) : null));
   const [errors, setErrors] = useState<Set<string>>(new Set());
   const [mistakes, setMistakes] = useState<number>(restoreSnapshot?.mistakes ?? 0);
   const [hintsUsed, setHintsUsed] = useState<number>(restoreSnapshot?.hints_used ?? 0);
@@ -286,7 +294,7 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
   const hydratedGameKeyRef = useRef<string | null>(null);
   const hydrateCountRef = useRef<number>(0);
   const timerTickCountRef = useRef<number>(0);
-  const hydrationKey = `${restoreSnapshot ? "restore" : "new"}:${resolvedPuzzleId}:${puzzleData?.puzzle_id ?? "fallback"}`;
+  const hydrationKey = `${puzzleReady ? "ready" : "loading"}:${restoreSnapshot ? "restore" : "new"}:${resolvedPuzzleId}:${puzzleData?.puzzle_id ?? "fallback"}`;
 
   useEffect(() => {
     logDevDiagnostic("useSudokuGame init", {
@@ -308,6 +316,7 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
   }, []);
 
   useEffect(() => {
+    if (!puzzleReady) return;
     if (hydratedGameKeyRef.current === hydrationKey) return;
     hydratedGameKeyRef.current = hydrationKey;
     hydrateCountRef.current += 1;
@@ -338,11 +347,11 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
     moveSequence.current = restoreSnapshot?.move_history?.length ?? 0;
     moveCountRef.current = restoreSnapshot?.move_history?.length ?? 0;
     secondsRef.current = restoreSnapshot?.elapsed_seconds ?? 0;
-  }, [givens, hydrationKey, resolvedPuzzleId, restoreSnapshot]);
+  }, [givens, hydrationKey, puzzleReady, resolvedPuzzleId, restoreSnapshot]);
 
   // Timer
   useEffect(() => {
-    if (paused || completed || gameOver) return;
+    if (!puzzleReady || paused || completed || gameOver) return;
     const id = setInterval(() => setSeconds((s) => {
       const next = s + 1;
       timerTickCountRef.current += 1;
@@ -355,7 +364,7 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
       return next;
     }), 1000);
     return () => clearInterval(id);
-  }, [paused, completed, gameOver]);
+  }, [paused, completed, gameOver, puzzleReady, resolvedPuzzleId]);
 
   const addMove = useCallback(
     (move: Omit<MoveHistoryEntry, "move_id" | "timestamp_seconds" | "mode">, elapsedSeconds: number = secondsRef.current) => {
@@ -727,9 +736,10 @@ export default function useSudokuGame({ mode, difficulty, puzzleId, restoreSnaps
   }), [resolvedPuzzleId, mode, difficulty, board, notes, seconds, mistakes, hintsUsed, undoCount, moveHistory]);
 
   const score = useMemo(() => {
+    if (!puzzleReady) return 0;
     if (finalScore !== null) return finalScore;
     return calculateScore(difficulty, seconds, mistakes, hintsUsed, undoCount, moveHistory, givens, solution, completed, gameOver);
-  }, [difficulty, finalScore, hintsUsed, mistakes, seconds, undoCount, moveHistory, givens, solution, completed, gameOver]);
+  }, [completed, difficulty, finalScore, gameOver, givens, hintsUsed, mistakes, moveHistory, puzzleReady, seconds, solution, undoCount]);
 
   return useMemo(() => ({
     puzzleId: resolvedPuzzleId,

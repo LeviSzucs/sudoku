@@ -38,6 +38,8 @@ const MODE_LABEL: Record<GameMode, string> = {
 const AUTO_SAVE_INTERVAL_MS = 10_000;
 /** Minimum interval between consecutive saves to avoid hammering Supabase */
 const MIN_SAVE_INTERVAL_MS = 2_000;
+/** Maximum time we allow a game session or puzzle payload to load before failing safely. */
+const PUZZLE_LOAD_TIMEOUT_MS = 15_000;
 
 interface ChallengeOutcomeCopy {
   title: string;
@@ -84,6 +86,13 @@ function supportsOfficialFailedFinalisation(mode: GameMode): boolean {
     || mode === "ranked_duel";
 }
 
+function getGameLoadBackTarget(mode: GameMode): { href: "/(tabs)/play" | "/(tabs)/versus"; label: string } {
+  if (mode === "daily_duel" || mode === "duel" || mode === "friend_challenge" || mode === "ranked" || mode === "ranked_duel") {
+    return { href: "/(tabs)/versus", label: "Back to Versus" };
+  }
+  return { href: "/(tabs)/play", label: "Back to Play" };
+}
+
 export default function GameScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -123,20 +132,56 @@ export default function GameScreen() {
   const [puzzleData, setPuzzleData] = useState<RawPuzzleData | undefined>(undefined);
   const [puzzleLoadError, setPuzzleLoadError] = useState<string | null>(null);
   const [isLoadingPuzzle, setIsLoadingPuzzle] = useState<boolean>(true);
+  const [puzzleLoadStage, setPuzzleLoadStage] = useState<string>("boot");
 
   useEffect(() => {
     let cancelled = false;
     async function load(): Promise<void> {
       setIsLoadingPuzzle(true);
       setPuzzleLoadError(null);
+      setPuzzleData(undefined);
+      setRestoreSnapshot(undefined);
+      setPuzzleLoadStage("boot");
+      let loadFailed = false;
+      let stage = "boot";
+      let resolvedSessionPuzzleId: string | null = routePuzzleId ?? null;
+      let resolvedSessionMode: GameMode | null = null;
+      let resolvedSessionStatus: string | null = null;
+      let resolvedSessionDifficulty: Difficulty | null = difficulty;
+      const setStage = (nextStage: string): void => {
+        stage = nextStage;
+        if (!cancelled) {
+          setPuzzleLoadStage(nextStage);
+        }
+        logDevDiagnostic("game load stage", {
+          stage: nextStage,
+          mode: effectiveMode,
+          sessionId: sessionIdParam ?? null,
+          routePuzzleId: routePuzzleId ?? null,
+          resolvedSessionPuzzleId,
+          sessionMode: resolvedSessionMode,
+          sessionStatus: resolvedSessionStatus,
+          difficulty: resolvedSessionDifficulty,
+        });
+      };
+      const runStage = async <T,>(nextStage: string, action: () => Promise<T>): Promise<T> => {
+        setStage(nextStage);
+        return Promise.race<T>([
+          action(),
+          new Promise<T>((_, reject) => {
+            setTimeout(() => reject(new Error(`__puzzle_load_timeout__:${nextStage}`)), PUZZLE_LOAD_TIMEOUT_MS);
+          }),
+        ]);
+      };
       try {
         if (auth.isSignedIn && !sessionIdParam) {
           throw new Error("Puzzle session missing. Return to Play and try again.");
         }
         const today = getDailyDateKey();
+        let data: RawPuzzleData | null = null;
         if (sessionIdParam) {
           const resolvedRestoreSnapshot = auth.isSignedIn
-            ? await getAuthoritativeSessionSnapshot(sessionIdParam)
+            ? await runStage("session_restore", () => getAuthoritativeSessionSnapshot(sessionIdParam))
             : localRestoreSnapshot;
           if (!resolvedRestoreSnapshot) {
             if (auth.isSignedIn && effectiveMode === "ranked_duel") {
@@ -145,6 +190,10 @@ export default function GameScreen() {
             }
             throw new Error("Saved puzzle could not be resumed. Return to Play and start a fresh puzzle.");
           }
+          resolvedSessionPuzzleId = resolvedRestoreSnapshot.puzzle_id || routePuzzleId || null;
+          resolvedSessionMode = resolvedRestoreSnapshot.mode;
+          resolvedSessionStatus = "in_progress";
+          resolvedSessionDifficulty = resolvedRestoreSnapshot.difficulty ?? difficulty;
           if (!cancelled) {
             setRestoreSnapshot(resolvedRestoreSnapshot);
           }
@@ -161,31 +210,68 @@ export default function GameScreen() {
           if (!sessionPuzzleId) {
             throw new Error("Saved puzzle could not be found.");
           }
-          const data = await measureAsync("puzzle fetch restore", () => fetchPuzzleById(sessionPuzzleId, sessionDifficulty, {
+          data = await runStage("puzzle_fetch_restore", () => measureAsync("puzzle fetch restore", () => fetchPuzzleById(sessionPuzzleId, sessionDifficulty, {
             allowFallback: false,
-          }));
-          if (!cancelled) setPuzzleData(data);
+          })));
         } else if (effectiveMode === "daily") {
-          if (!cancelled) setRestoreSnapshot(undefined);
-          const data = await measureAsync("puzzle fetch daily", () => fetchDailyPuzzle(today, "daily"));
-          if (!cancelled) setPuzzleData(data);
+          data = await runStage("puzzle_fetch_daily", () => measureAsync("puzzle fetch daily", () => fetchDailyPuzzle(today, "daily")));
         } else if (effectiveMode === "daily_duel" || effectiveMode === "duel") {
-          if (!cancelled) setRestoreSnapshot(undefined);
-          const data = await measureAsync("puzzle fetch daily_duel", () => fetchDailyPuzzle(today, "daily_duel"));
-          if (!cancelled) setPuzzleData(data);
+          data = await runStage("puzzle_fetch_daily_duel", () => measureAsync("puzzle fetch daily_duel", () => fetchDailyPuzzle(today, "daily_duel")));
         } else {
-          if (!cancelled) setRestoreSnapshot(undefined);
           // classic, friend challenge, or ranked without a restore session
-          const data = await measureAsync("puzzle fetch classic", () => fetchClassicPuzzle(auth.user?.id ?? null, difficulty, effectiveMode === "classic" ? excludePuzzleId : undefined));
-          if (!cancelled) setPuzzleData(data);
+          data = await runStage("puzzle_fetch_match_or_classic", () => measureAsync("puzzle fetch classic", () => fetchClassicPuzzle(auth.user?.id ?? null, difficulty, effectiveMode === "classic" ? excludePuzzleId : undefined)));
+        }
+        if (!data) {
+          throw new Error("Puzzle could not be loaded.");
+        }
+        setStage("game_init_ready");
+        if (!cancelled) {
+          setPuzzleData(data);
         }
       } catch (err: unknown) {
+        loadFailed = true;
+        const rawMessage = err instanceof Error ? err.message : "Puzzle could not be loaded.";
+        const timedOut = rawMessage.startsWith("__puzzle_load_timeout__:");
+        if (auth.isSignedIn && effectiveMode === "ranked_duel" && sessionIdParam) {
+          try {
+            await clearStaleRankedDuel({
+              sessionId: sessionIdParam,
+              reason: timedOut ? "game_load_timeout" : "game_load_failed",
+            });
+          } catch (clearError: unknown) {
+            logDevDiagnostic("ranked stale clear failed after game load error", {
+              stage,
+              sessionId: sessionIdParam,
+              error: clearError instanceof Error ? clearError.message : "Unknown clearStaleRankedDuel error",
+            });
+          }
+        }
+        logDevDiagnostic("game puzzle load failed", {
+          stage,
+          mode: effectiveMode,
+          sessionId: sessionIdParam ?? null,
+          routePuzzleId: routePuzzleId ?? null,
+          resolvedSessionPuzzleId,
+          sessionMode: resolvedSessionMode,
+          sessionStatus: resolvedSessionStatus,
+          difficulty: resolvedSessionDifficulty,
+          failureReason: rawMessage,
+          timedOut,
+        });
         if (!cancelled) {
-          const msg = err instanceof Error ? err.message : "Puzzle could not be loaded.";
+          const backTarget = getGameLoadBackTarget(effectiveMode);
+          const msg = effectiveMode === "ranked_duel" && sessionIdParam
+            ? "That ranked match could not be restored, so it was cleared. Start a new match."
+            : timedOut
+            ? `This puzzle is taking too long to load. Please return to ${backTarget.label === "Back to Versus" ? "Versus" : "Play"} and try again.`
+            : rawMessage;
           setPuzzleLoadError(msg);
         }
       } finally {
-        if (!cancelled) setIsLoadingPuzzle(false);
+        if (!cancelled) {
+          setPuzzleLoadStage((current) => (loadFailed ? current : "settled"));
+          setIsLoadingPuzzle(false);
+        }
       }
     }
     void load();
@@ -220,6 +306,7 @@ export default function GameScreen() {
     puzzleId: restoreSnapshot?.puzzle_id ?? routePuzzleId,
     restoreSnapshot,
     puzzleData,
+    isReady: !isLoadingPuzzle && !puzzleLoadError && Boolean(puzzleData),
     onValidPlacement: handleValidPlacement,
   });
   const { recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchFriendChallenges, fetchRankedDuel } = usePlayerProfile();
@@ -323,10 +410,11 @@ export default function GameScreen() {
       puzzleId: routePuzzleId ?? restorePuzzleId ?? null,
       mode: effectiveMode,
       difficulty,
+      stage: puzzleLoadStage,
       error: puzzleLoadError,
     });
     console.warn("[Game] Puzzle load error; staying on error screen", puzzleLoadError);
-  }, [difficulty, effectiveMode, puzzleLoadError, restorePuzzleId, routePuzzleId, sessionIdParam]);
+  }, [difficulty, effectiveMode, puzzleLoadError, puzzleLoadStage, restorePuzzleId, routePuzzleId, sessionIdParam]);
 
   // ── Stable refs for game callbacks (avoids re-render loops) ──────
   const getSnapshotRef = useRef(game.getSessionSnapshot);
@@ -358,6 +446,19 @@ export default function GameScreen() {
   // ── Stable saveSession — background only; never reactivates completed games ─
 
   const saveSession = useCallback(async (force = false): Promise<boolean> => {
+    if (isLoadingPuzzle || !puzzleData) {
+      logDevDiagnostic("session autosave blocked while loading", {
+        force,
+        stage: puzzleLoadStage,
+        sessionId: currentSessionIdRef.current,
+        routeSessionId: sessionIdParam ?? null,
+        routePuzzleId: routePuzzleId ?? null,
+        resolvedPuzzleId: gameIdentityRef.current.puzzleId,
+        mode: effectiveMode,
+        difficulty,
+      });
+      return false;
+    }
     if (!force && (isSubmittingResultRef.current || isCompletedRef.current)) return false;
     const snapshot = getSnapshotRef.current();
     if (!snapshot.puzzle_id) return false;
@@ -391,7 +492,7 @@ export default function GameScreen() {
       pendingSaveRef.current = false;
       return false;
     }
-  }, [upsertSession]);
+  }, [difficulty, effectiveMode, isLoadingPuzzle, puzzleData, puzzleLoadStage, routePuzzleId, sessionIdParam, upsertSession]);
 
   useEffect(() => {
     saveSessionRef.current = saveSession;
@@ -419,20 +520,20 @@ export default function GameScreen() {
   // ── Auto-save effect (every AUTO_SAVE_INTERVAL_MS while playing) ─
 
   useEffect(() => {
-    if (game.paused || game.completed || game.gameOver) return;
+    if (isLoadingPuzzle || !puzzleData || game.paused || game.completed || game.gameOver) return;
     const id = setInterval(() => {
       void saveSession();
     }, AUTO_SAVE_INTERVAL_MS);
     return () => clearInterval(id);
     // saveSession is stable (only depends on upsertSession)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game.paused, game.completed, game.gameOver]);
+  }, [game.paused, game.completed, game.gameOver, isLoadingPuzzle, puzzleData]);
 
   // ── Save on state changes (debounced) ────────────────────────────
 
   const lastBoardSnapshot = useRef<string>("");
   useEffect(() => {
-    if (game.paused || game.completed || game.gameOver) return;
+    if (isLoadingPuzzle || !puzzleData || game.paused || game.completed || game.gameOver) return;
     const currentSnapshot = JSON.stringify(game.board);
     if (currentSnapshot !== lastBoardSnapshot.current) {
       lastBoardSnapshot.current = currentSnapshot;
@@ -441,14 +542,14 @@ export default function GameScreen() {
       scheduleSaveSession(delay);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game.board, game.paused, game.completed, game.gameOver, hasSavedOnce, scheduleSaveSession]);
+  }, [game.board, game.paused, game.completed, game.gameOver, hasSavedOnce, isLoadingPuzzle, puzzleData, scheduleSaveSession]);
 
   // Save detailed progress changes in the background without blocking gameplay
   useEffect(() => {
-    if (game.paused || game.completed || game.gameOver || isSubmittingResult) return;
+    if (isLoadingPuzzle || !puzzleData || game.paused || game.completed || game.gameOver || isSubmittingResult) return;
     if (!hasSavedOnce) return;
     scheduleSaveSession(500);
-  }, [game.notes, game.mistakes, game.hintsUsed, game.undoCount, game.paused, game.completed, game.gameOver, hasSavedOnce, isSubmittingResult, scheduleSaveSession]);
+  }, [game.notes, game.mistakes, game.hintsUsed, game.undoCount, game.paused, game.completed, game.gameOver, hasSavedOnce, isLoadingPuzzle, isSubmittingResult, puzzleData, scheduleSaveSession]);
 
   // ── AppState listener: save when app goes to background ──────────
 
@@ -982,7 +1083,7 @@ export default function GameScreen() {
 
   // ── Puzzle load error ─────────────────────────────────────────────
   if (puzzleLoadError) {
-    const backLabel = effectiveMode === "ranked" || effectiveMode === "ranked_duel" ? "Back to Versus" : "Go back";
+    const backTarget = getGameLoadBackTarget(effectiveMode);
     return (
       <View style={{ flex: 1, backgroundColor: C.bg, alignItems: "center", justifyContent: "center", padding: 32 }}>
         <Stack.Screen options={{ headerShown: false }} />
@@ -990,15 +1091,9 @@ export default function GameScreen() {
         <Text style={{ fontSize: 13, color: C.muted, textAlign: "center", marginBottom: 20 }}>{puzzleLoadError}</Text>
         <Pressable
           style={{ backgroundColor: C.ink, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 }}
-          onPress={() => {
-            if (effectiveMode === "ranked" || effectiveMode === "ranked_duel") {
-              router.replace("/(tabs)/versus");
-              return;
-            }
-            router.back();
-          }}
+          onPress={() => router.replace(backTarget.href)}
         >
-          <Text style={{ color: "#FBF8F2", fontWeight: "700", fontSize: 14 }}>{backLabel}</Text>
+          <Text style={{ color: "#FBF8F2", fontWeight: "700", fontSize: 14 }}>{backTarget.label}</Text>
         </Pressable>
       </View>
     );
