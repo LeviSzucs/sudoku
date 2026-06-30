@@ -107,7 +107,7 @@ export default function GameScreen() {
   const excludePuzzleId = params.excludePuzzleId as string | undefined;
 
   const auth = useAuth();
-  const { findSessionSnapshot, getAuthoritativeSessionSnapshot, upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle } = usePlayerProfile();
+  const { findSessionSnapshot, getAuthoritativeSessionSnapshot, upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, clearStaleRankedDuel } = usePlayerProfile();
   const effectiveMode: GameMode = auth.isGuest && (mode === "ranked" || mode === "ranked_duel") ? "classic" : mode;
 
   // ── Resolve restore snapshot synchronously ────────────────────────
@@ -139,6 +139,10 @@ export default function GameScreen() {
             ? await getAuthoritativeSessionSnapshot(sessionIdParam)
             : localRestoreSnapshot;
           if (!resolvedRestoreSnapshot) {
+            if (auth.isSignedIn && effectiveMode === "ranked_duel") {
+              await clearStaleRankedDuel({ sessionId: sessionIdParam, reason: "game_restore_failed" });
+              throw new Error("That ranked match could not be restored, so it was cleared. Start a new match.");
+            }
             throw new Error("Saved puzzle could not be resumed. Return to Play and start a fresh puzzle.");
           }
           if (!cancelled) {
@@ -186,7 +190,7 @@ export default function GameScreen() {
     }
     void load();
     return () => { cancelled = true; };
-  }, [auth.isSignedIn, auth.user?.id, difficulty, effectiveMode, excludePuzzleId, getAuthoritativeSessionSnapshot, localRestoreSnapshot, routePuzzleId, sessionIdParam]);
+  }, [auth.isSignedIn, auth.user?.id, clearStaleRankedDuel, difficulty, effectiveMode, excludePuzzleId, getAuthoritativeSessionSnapshot, localRestoreSnapshot, routePuzzleId, sessionIdParam]);
 
   const handleValidPlacement = useCallback(({ row, col, value, wasCorrect }: { row: number; col: number; value: number; wasCorrect: boolean }) => {
     if (getCachedAppPreferences().hapticsEnabled) {
@@ -749,12 +753,22 @@ export default function GameScreen() {
           error: message,
         });
         if (effectiveMode === "ranked" || effectiveMode === "ranked_duel") {
-          void closeSessionForPuzzle(failedResult.puzzle_id, failedSessionId, "failed").finally(() => {
+          void (async () => {
+            const cleared = effectiveMode === "ranked_duel"
+              ? await clearStaleRankedDuel({ sessionId: failedSessionId, reason: "failed_finalisation_error" })
+              : { cleared: false };
+            await closeSessionForPuzzle(failedResult.puzzle_id, failedSessionId, "failed");
             currentSessionIdRef.current = null;
             setHasSavedOnce(false);
-          });
+            if (cleared.cleared) {
+              setOfficialSubmitError("That ranked match could not be saved, so it was cleared. Return to Versus to start a new match.");
+              return;
+            }
+            setOfficialSubmitError("This game is over. We couldn't finish saving the final result right now. Please return to Versus and try again.");
+          })();
+        } else {
+          setOfficialSubmitError(message);
         }
-        setOfficialSubmitError(message);
         setOfficialLeaderboardEligible(false);
       })
       .finally(() => {
@@ -968,6 +982,7 @@ export default function GameScreen() {
 
   // ── Puzzle load error ─────────────────────────────────────────────
   if (puzzleLoadError) {
+    const backLabel = effectiveMode === "ranked" || effectiveMode === "ranked_duel" ? "Back to Versus" : "Go back";
     return (
       <View style={{ flex: 1, backgroundColor: C.bg, alignItems: "center", justifyContent: "center", padding: 32 }}>
         <Stack.Screen options={{ headerShown: false }} />
@@ -975,9 +990,15 @@ export default function GameScreen() {
         <Text style={{ fontSize: 13, color: C.muted, textAlign: "center", marginBottom: 20 }}>{puzzleLoadError}</Text>
         <Pressable
           style={{ backgroundColor: C.ink, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 }}
-          onPress={() => router.back()}
+          onPress={() => {
+            if (effectiveMode === "ranked" || effectiveMode === "ranked_duel") {
+              router.replace("/(tabs)/versus");
+              return;
+            }
+            router.back();
+          }}
         >
-          <Text style={{ color: "#FBF8F2", fontWeight: "700", fontSize: 14 }}>Go back</Text>
+          <Text style={{ color: "#FBF8F2", fontWeight: "700", fontSize: 14 }}>{backLabel}</Text>
         </Pressable>
       </View>
     );
