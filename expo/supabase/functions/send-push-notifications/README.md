@@ -49,6 +49,22 @@ The function:
 3. This Edge Function reserves those `pending` rows, marks them `sending`, and
    updates them to `sent`, `failed`, or `skipped`.
 
+## Live notification coverage
+
+Today, SudoDuel automatically creates notifications for:
+
+- friend request received
+- friend request accepted
+- Friend Challenge received
+- Friend Challenge accepted
+- Friend Challenge completed
+- Daily Duel match found
+- Ranked Duel match found
+
+The schema/preferences also reserve `duel_ready`, `reminder`, and `marketing`,
+but normal gameplay does not currently create those rows. Use the admin/self-test
+helpers if you need to verify those categories manually.
+
 If `app_notifications` exist but no delivery rows exist, the SQL migration that
 adds the push fan-out trigger has not been applied yet.
 

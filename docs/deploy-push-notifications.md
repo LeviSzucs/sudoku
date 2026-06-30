@@ -41,6 +41,29 @@ The automatic runner lives at:
 
 It appears in GitHub Actions as **Run Push Notifications**.
 
+## What Is Live Today
+
+SudoDuel currently creates in-app notifications and queued push deliveries for:
+
+- friend request received
+- friend request accepted
+- Friend Challenge received
+- Friend Challenge accepted
+- Friend Challenge completed
+- Daily Duel match found
+- Ranked Duel match found
+
+These event rows should fan out into `public.push_notification_deliveries` automatically.
+
+The following notification categories exist in schema/preferences but are not currently
+created by normal gameplay flows:
+
+- `duel_ready`
+- `reminder`
+- `marketing`
+
+Treat those as reserved/manual test types unless a later PR adds live producers for them.
+
 ## Supabase Edge Function Secrets
 
 Set these in Supabase as Edge Function secrets:
