@@ -251,7 +251,12 @@ export function puzzleRowToData(row: PuzzleRow): RawPuzzleData {
   };
 }
 
-export async function fetchPuzzleById(puzzleId: string | null | undefined, difficulty: Difficulty): Promise<RawPuzzleData> {
+export async function fetchPuzzleById(
+  puzzleId: string | null | undefined,
+  difficulty: Difficulty,
+  options?: { allowFallback?: boolean }
+): Promise<RawPuzzleData> {
+  const allowFallback = options?.allowFallback ?? true;
   if (puzzleId && isSupabaseConfigured) {
     const { data, error } = await supabase
       .from("puzzles")
@@ -264,8 +269,17 @@ export async function fetchPuzzleById(puzzleId: string | null | undefined, diffi
     }
 
     if (error) {
+      if (!allowFallback) {
+        throw new Error(`Puzzle lookup failed for ${puzzleId}: ${error.message}`);
+      }
       console.warn(`[Puzzle] puzzle_id lookup failed: ${error.message}. Falling back.`);
+    } else if (!allowFallback) {
+      throw new Error(`Puzzle ${puzzleId} was not found.`);
     }
+  }
+
+  if (!allowFallback && puzzleId) {
+    throw new Error(`Puzzle ${puzzleId} could not be loaded.`);
   }
 
   return {

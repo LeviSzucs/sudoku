@@ -44,6 +44,21 @@ type PublicAvatarRow = PublicAvatarConfig & {
   username_handle?: string | null;
 };
 
+function snapshotFromSessionRow(session: PuzzleSessionRow): SessionSnapshot {
+  return {
+    puzzle_id: session.puzzle_id ?? "",
+    mode: session.mode as SessionSnapshot["mode"],
+    difficulty: session.difficulty as SessionSnapshot["difficulty"],
+    board_state: (session.board_state as number[][]) ?? [],
+    notes_state: (session.notes_state as number[][][]) ?? [],
+    elapsed_seconds: session.elapsed_seconds,
+    mistakes: session.mistakes,
+    hints_used: session.hints_used,
+    undo_count: session.undo_count,
+    move_history: (session.move_history as SessionSnapshot["move_history"]) ?? [],
+  };
+}
+
 function publicAvatarFields(value: unknown): PublicAvatarConfig {
   const row = value as PublicAvatarRow | null | undefined;
   return {
@@ -1423,6 +1438,35 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
 
     return session;
   }, [auth.user, updateDiagnostics]);
+
+  const hydrateAuthoritativeSession = useCallback(async (sessionId: string): Promise<PuzzleSessionRow | null> => {
+    if (!auth.user || !isSupabaseConfigured) return null;
+
+    const { data, error } = await supabase
+      .from("puzzle_sessions")
+      .select("*")
+      .eq("session_id", sessionId)
+      .maybeSingle();
+
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      throw new Error(error.message);
+    }
+
+    const session = await getResumableBackendSession((data as PuzzleSessionRow | null) ?? null);
+    if (!session) {
+      setActiveSessions((prev) => prev.filter((entry) => entry.session_id !== sessionId));
+      return null;
+    }
+
+    setActiveSessions((prev) => [session, ...prev.filter((entry) => entry.session_id !== session.session_id && entry.status === "in_progress")]);
+    return session;
+  }, [auth.user, getResumableBackendSession, updateDiagnostics]);
+
+  const getAuthoritativeSessionSnapshot = useCallback(async (sessionId: string): Promise<SessionSnapshot | null> => {
+    const session = await hydrateAuthoritativeSession(sessionId);
+    return session ? snapshotFromSessionRow(session) : null;
+  }, [hydrateAuthoritativeSession]);
 
   const deleteSessionById = useCallback(async (sessionId: string): Promise<void> => {
     if (auth.isSignedIn && auth.user && isSupabaseConfigured) {
@@ -2850,6 +2894,19 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
         };
       }
     }
+    if (duel.session_id && !duel.current_user_result_id) {
+      const hydratedSession = await hydrateAuthoritativeSession(duel.session_id);
+      if (!hydratedSession) {
+        logDevDiagnostic("ranked duel active session unavailable", {
+          rankedDuelId: duel.ranked_duel_id,
+          sessionId: duel.session_id,
+          status: duel.status,
+          sessionStatus: sessionState?.status ?? null,
+          sessionMode: sessionState?.mode ?? null,
+        });
+        return includeCompleted ? duel : null;
+      }
+    }
     if (sessionState && sessionState.status !== "in_progress" && !duel.current_user_result_id && ["waiting_for_opponent", "matched", "player_a_completed", "player_b_completed"].includes(duel.status)) {
       logDevDiagnostic("suppressing stale ranked duel state", {
         authUserId: auth.user.id,
@@ -2863,7 +2920,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }
     if (includeCompleted) return duel;
     return ["waiting_for_opponent", "matched", "player_a_completed", "player_b_completed"].includes(duel.status) ? duel : null;
-  }, [auth.user, fetchPublicProfileMap, fetchRankTierForUser, mapRankedDuel, repairRankedDuelSessionMode, updateDiagnostics]);
+  }, [auth.user, fetchPublicProfileMap, fetchRankTierForUser, hydrateAuthoritativeSession, mapRankedDuel, repairRankedDuelSessionMode, updateDiagnostics]);
 
   const enterRankedDuel = useCallback(async (): Promise<{ ok: boolean; error?: string; duel?: RankedDuelEntry }> => {
     if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before entering Ranked Duel." };
@@ -2896,20 +2953,14 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
 
     if (duel.session_id && !duel.current_user_result_id) {
       await repairRankedDuelSessionMode(duel.session_id, "ranked_duel");
-      const { data: sessionData, error: sessionError } = await supabase
-        .from("puzzle_sessions")
-        .select("*")
-        .eq("session_id", duel.session_id)
-        .maybeSingle();
-      if (sessionError) updateDiagnostics({ lastError: sessionError.message });
-      if (sessionData) {
-        const session = sessionData as PuzzleSessionRow;
-        setActiveSessions((prev) => [session, ...prev.filter((entry) => entry.session_id !== session.session_id && entry.status === "in_progress")]);
+      const hydratedSession = await hydrateAuthoritativeSession(duel.session_id);
+      if (!hydratedSession) {
+        return { ok: false, error: "Ranked Duel could not be resumed. Please search again." };
       }
     }
 
     return { ok: true, duel };
-  }, [auth.user, fetchPublicProfileMap, fetchRankTierForUser, mapRankedDuel, repairRankedDuelSessionMode, updateDiagnostics]);
+  }, [auth.user, fetchPublicProfileMap, fetchRankTierForUser, hydrateAuthoritativeSession, mapRankedDuel, repairRankedDuelSessionMode, updateDiagnostics]);
 
   const cancelRankedDuel = useCallback(async (rankedDuelId: string): Promise<{ ok: boolean; error?: string; duel?: RankedDuelEntry | null }> => {
     if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before cancelling Ranked Duel search." };
@@ -3186,7 +3237,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     refreshProfile: loadBackendProfile,
     resetLocalProfile, checkUsernameAvailable, completeProfileSetup, updateDisplayName, updateAvatar, updateNotificationSettings, updatePrivacySettings,
     repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, testDailyResultQuery, clearLastUpdate, clearLastStreakIncrease,
-    upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
+    upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getAuthoritativeSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
   }), [
     activeGuestSessions, activeSessions, auth.isSignedIn,
     checkUsernameAvailable, classicContinueSession, clearLastStreakIncrease, clearLastUpdate, completeProfileSetup, diagnostics, hasActiveSession, isLoaded, lastStreakIncreaseKey, lastUpdate, loadBackendProfile, loadError, profile, profileSetupRequired, visibleActiveSessions,
@@ -3199,6 +3250,6 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     simulateRankedLoss, simulateRankedWin, simulateResult,
     testSupabaseRead, testSupabaseWrite, testDailyResultQuery,
     updateAvatar, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
-    upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
+    upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, findSessionSnapshot, getAuthoritativeSessionSnapshot, getInProgressClassicSession, getInProgressDailySession, getCompletedDailyResult,
   ]);
 });

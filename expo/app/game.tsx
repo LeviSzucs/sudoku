@@ -107,24 +107,15 @@ export default function GameScreen() {
   const excludePuzzleId = params.excludePuzzleId as string | undefined;
 
   const auth = useAuth();
-  const { findSessionSnapshot, upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle } = usePlayerProfile();
+  const { findSessionSnapshot, getAuthoritativeSessionSnapshot, upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle } = usePlayerProfile();
   const effectiveMode: GameMode = auth.isGuest && (mode === "ranked" || mode === "ranked_duel") ? "classic" : mode;
 
   // ── Resolve restore snapshot synchronously ────────────────────────
-  const restoreSessionIdRef = useRef<string | undefined>(undefined);
-  const restoreSnapshotRef = useRef<SessionSnapshot | undefined>(undefined);
-  const restoreSnapshot = useMemo<SessionSnapshot | undefined>(() => {
-    if (!sessionIdParam) {
-      restoreSessionIdRef.current = undefined;
-      restoreSnapshotRef.current = undefined;
-      return undefined;
-    }
-    if (restoreSessionIdRef.current !== sessionIdParam || !restoreSnapshotRef.current) {
-      restoreSessionIdRef.current = sessionIdParam;
-      restoreSnapshotRef.current = findSessionSnapshot(sessionIdParam) ?? undefined;
-    }
-    return restoreSnapshotRef.current;
-  }, [sessionIdParam, findSessionSnapshot]);
+  const localRestoreSnapshot = useMemo<SessionSnapshot | undefined>(() => {
+    if (!sessionIdParam) return undefined;
+    return findSessionSnapshot(sessionIdParam) ?? undefined;
+  }, [findSessionSnapshot, sessionIdParam]);
+  const [restoreSnapshot, setRestoreSnapshot] = useState<SessionSnapshot | undefined>(undefined);
   const restorePuzzleId = restoreSnapshot?.puzzle_id;
   const restoreDifficulty = restoreSnapshot?.difficulty;
 
@@ -144,23 +135,42 @@ export default function GameScreen() {
         }
         const today = getDailyDateKey();
         if (sessionIdParam) {
-          if (!restoreSnapshot) {
+          const resolvedRestoreSnapshot = auth.isSignedIn
+            ? await getAuthoritativeSessionSnapshot(sessionIdParam)
+            : localRestoreSnapshot;
+          if (!resolvedRestoreSnapshot) {
             throw new Error("Saved puzzle could not be resumed. Return to Play and start a fresh puzzle.");
           }
-          const sessionPuzzleId = restorePuzzleId ?? routePuzzleId;
-          const sessionDifficulty = restoreDifficulty ?? difficulty;
+          if (!cancelled) {
+            setRestoreSnapshot(resolvedRestoreSnapshot);
+          }
+          if (routePuzzleId && resolvedRestoreSnapshot.puzzle_id && routePuzzleId !== resolvedRestoreSnapshot.puzzle_id) {
+            logDevDiagnostic("session puzzle mismatch", {
+              sessionId: sessionIdParam,
+              mode: effectiveMode,
+              routePuzzleId,
+              sessionPuzzleId: resolvedRestoreSnapshot.puzzle_id,
+            });
+          }
+          const sessionPuzzleId = resolvedRestoreSnapshot.puzzle_id || routePuzzleId;
+          const sessionDifficulty = resolvedRestoreSnapshot.difficulty ?? difficulty;
           if (!sessionPuzzleId) {
             throw new Error("Saved puzzle could not be found.");
           }
-          const data = await measureAsync("puzzle fetch restore", () => fetchPuzzleById(sessionPuzzleId, sessionDifficulty));
+          const data = await measureAsync("puzzle fetch restore", () => fetchPuzzleById(sessionPuzzleId, sessionDifficulty, {
+            allowFallback: false,
+          }));
           if (!cancelled) setPuzzleData(data);
         } else if (effectiveMode === "daily") {
+          if (!cancelled) setRestoreSnapshot(undefined);
           const data = await measureAsync("puzzle fetch daily", () => fetchDailyPuzzle(today, "daily"));
           if (!cancelled) setPuzzleData(data);
         } else if (effectiveMode === "daily_duel" || effectiveMode === "duel") {
+          if (!cancelled) setRestoreSnapshot(undefined);
           const data = await measureAsync("puzzle fetch daily_duel", () => fetchDailyPuzzle(today, "daily_duel"));
           if (!cancelled) setPuzzleData(data);
         } else {
+          if (!cancelled) setRestoreSnapshot(undefined);
           // classic, friend challenge, or ranked without a restore session
           const data = await measureAsync("puzzle fetch classic", () => fetchClassicPuzzle(auth.user?.id ?? null, difficulty, effectiveMode === "classic" ? excludePuzzleId : undefined));
           if (!cancelled) setPuzzleData(data);
@@ -176,20 +186,34 @@ export default function GameScreen() {
     }
     void load();
     return () => { cancelled = true; };
-  }, [effectiveMode, difficulty, auth.isSignedIn, auth.user?.id, sessionIdParam, restorePuzzleId, restoreDifficulty, routePuzzleId, excludePuzzleId]);
+  }, [auth.isSignedIn, auth.user?.id, difficulty, effectiveMode, excludePuzzleId, getAuthoritativeSessionSnapshot, localRestoreSnapshot, routePuzzleId, sessionIdParam]);
 
-  const handleValidPlacement = useCallback(({ row, col }: { row: number; col: number; value: number; wasCorrect: boolean }) => {
+  const handleValidPlacement = useCallback(({ row, col, value, wasCorrect }: { row: number; col: number; value: number; wasCorrect: boolean }) => {
     if (getCachedAppPreferences().hapticsEnabled) {
       void tapLight();
     }
     placementPulseTokenRef.current += 1;
     setPlacementPulse({ row, col, token: placementPulseTokenRef.current });
-  }, []);
+    if (!wasCorrect) {
+      logDevDiagnostic("placement validation failure", {
+        sessionId: sessionIdParam ?? null,
+        puzzleId: puzzleData?.puzzle_id ?? restoreSnapshot?.puzzle_id ?? routePuzzleId ?? null,
+        mode: effectiveMode,
+        difficulty,
+        cellIndex: row * 9 + col,
+        row,
+        col,
+        attemptedValue: value,
+        expectedSolutionValue: puzzleData?.solution?.[row]?.[col] ?? null,
+        givenCell: (puzzleData?.givens?.[row]?.[col] ?? 0) !== 0,
+      });
+    }
+  }, [difficulty, effectiveMode, puzzleData, restoreSnapshot, routePuzzleId, sessionIdParam]);
 
   const game = useSudokuGame({
     mode: effectiveMode,
     difficulty,
-    puzzleId: routePuzzleId,
+    puzzleId: restoreSnapshot?.puzzle_id ?? routePuzzleId,
     restoreSnapshot,
     puzzleData,
     onValidPlacement: handleValidPlacement,
