@@ -179,6 +179,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Losing a Ranked Duel by running out of mistakes saves a final loss or safe failed state without leaving a replayable dead match.
 - [ ] Returning to Versus after a ranked out-of-mistakes loss does not show a stuck matched duel that can be reopened.
 - [ ] If a corrupt or unrestorable ranked match is cleared, the user sees a clear “match was cleared” message and can start a new Ranked Duel immediately.
+- [ ] After clearing a corrupt ranked duel, tapping Find match does not rematch into the same stale duel/session again.
 - [ ] RP changes once only.
 - [ ] Ranked profile updates after finalisation.
 - [ ] Ranked leaderboard updates after finalisation.
