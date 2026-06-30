@@ -81,6 +81,10 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Expert opens.
 - [ ] Master opens.
 - [ ] Board renders correctly.
+- [ ] Solo puzzle never stays indefinitely on `Loading puzzle…`.
+- [ ] If Solo puzzle load fails or times out, a recoverable error screen appears with a Back to Play action.
+- [ ] Timer does not advance while the Solo puzzle is still on the loading screen.
+- [ ] Autosave/session progress does not mutate while the Solo puzzle is still on the loading screen.
 - [ ] Number pad works.
 - [ ] Number pad tap targets feel reliable on a small phone.
 - [ ] Notes/candidates work if present.
@@ -106,6 +110,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 ## D. Daily Sudoku
 
 - [ ] Daily puzzle opens.
+- [ ] Daily puzzle never stays indefinitely on `Loading puzzle…`.
+- [ ] If Daily puzzle load fails or times out, a recoverable error screen appears with a Back to Play action.
 - [ ] Same daily date displays correctly.
 - [ ] Puzzle is playable.
 - [ ] Completion saves result.
@@ -144,6 +150,9 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Empty friend/challenge states explain what to do next instead of ending in a dead end.
 - [ ] Challenge creation works.
 - [ ] Sending a Friend Challenge opens the sender's own run and the recipient can find the invite under Incoming challenges.
+- [ ] Friend Challenge sender puzzle never stays indefinitely on `Loading puzzle…`.
+- [ ] Friend Challenge recipient can accept and open the challenge puzzle without getting stuck on `Loading puzzle…`.
+- [ ] If a Friend Challenge puzzle load fails or times out, a recoverable error screen appears with a Back to Versus action.
 - [ ] User A customises avatar and User B sees User A's saved avatar in Friend Challenge.
 - [ ] User B customises avatar and User A sees User B's saved avatar in Friend Challenge.
 - [ ] Duplicate active challenge is blocked only for same friend plus same difficulty.
@@ -165,6 +174,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 ## G. Ranked Duel
 
 - [ ] Find match works.
+- [ ] Ranked Duel opens a fresh puzzle without staying indefinitely on `Loading puzzle…`.
+- [ ] If a Ranked Duel puzzle/session cannot be restored, the app clears it safely and shows a recoverable Back to Versus path.
 - [ ] Searching state appears.
 - [ ] Cancel search works while waiting.
 - [ ] Cancelled search does not change RP.
