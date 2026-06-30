@@ -118,7 +118,11 @@ begin
   set status = 'abandoned',
       updated_at = now()
   where ps.status = 'in_progress'
-    and ps.session_id in (select session_id from stale_mine_sessions where session_id is not null);
+    and ps.session_id in (
+      select sms.session_id
+      from stale_mine_sessions sms
+      where sms.session_id is not null
+    );
 
   -- Also cancel orphaned waiting rows from other users so matchmaking cannot pair into
   -- an old broken queue entry and reopen the same puzzle again.
@@ -158,17 +162,17 @@ begin
 
   if v_duel.ranked_duel_id is not null then
     if v_duel.player_a_id = v_user_id and v_duel.player_a_session_id is not null then
-      update public.puzzle_sessions
+      update public.puzzle_sessions ps
       set mode = 'ranked_duel',
           updated_at = now()
-      where session_id = v_duel.player_a_session_id
-        and mode = 'ranked';
+      where ps.session_id = v_duel.player_a_session_id
+        and ps.mode = 'ranked';
     elsif v_duel.player_b_id = v_user_id and v_duel.player_b_session_id is not null then
-      update public.puzzle_sessions
+      update public.puzzle_sessions ps
       set mode = 'ranked_duel',
           updated_at = now()
-      where session_id = v_duel.player_b_session_id
-        and mode = 'ranked';
+      where ps.session_id = v_duel.player_b_session_id
+        and ps.mode = 'ranked';
     end if;
 
     return query select * from public.ranked_duel_view(v_duel.ranked_duel_id);
@@ -193,11 +197,11 @@ begin
   for update skip locked;
 
   if v_waiting.ranked_duel_id is not null then
-    update public.puzzle_sessions
+    update public.puzzle_sessions ps
     set mode = 'ranked_duel',
         updated_at = now()
-    where session_id = v_waiting.player_a_session_id
-      and mode = 'ranked';
+    where ps.session_id = v_waiting.player_a_session_id
+      and ps.mode = 'ranked';
 
     insert into public.puzzle_sessions (
       user_id, puzzle_id, mode, difficulty, board_state, notes_state,
