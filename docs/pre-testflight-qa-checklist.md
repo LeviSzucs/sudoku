@@ -184,6 +184,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Profile Competitive Rank updates after finalisation.
 - [ ] Normal ranked game completes and awards RP.
 - [ ] Ranked completion uses server-derived elapsed time instead of trusting the client timer alone.
+- [ ] For Ranked and Duel modes, an implausibly small client elapsed value is clamped to the authoritative server/session duration or rejected.
 - [ ] Re-submitting the same ranked session is rejected or safely reused without double-awarding RP.
 - [ ] Submitting a wrong final board is rejected.
 - [ ] Implausibly low ranked elapsed time is rejected or replaced by the server-derived duration.
@@ -205,6 +206,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Ranked leaderboard loads.
 - [ ] Tapping a podium avatar/name opens that player's public profile.
 - [ ] Tapping a leaderboard row avatar/name opens that player's public profile.
+- [ ] Public player profile win rate matches authoritative completed duel records and does not fall back to stale 0% values for players with real wins.
 - [ ] Current user appears correctly where eligible.
 - [ ] Current user highlighting is correct.
 - [ ] RP/rank display matches Profile and Versus.
