@@ -118,6 +118,11 @@ export default function GameScreen() {
   const auth = useAuth();
   const { findSessionSnapshot, getAuthoritativeSessionSnapshot, upsertSession, startPuzzleSession, deleteSessionById, closeSessionForPuzzle, clearStaleRankedDuel } = usePlayerProfile();
   const effectiveMode: GameMode = auth.isGuest && (mode === "ranked" || mode === "ranked_duel") ? "classic" : mode;
+  const authMode = auth.mode;
+  const authUserId = auth.user?.id ?? null;
+  const dailyDateKey = effectiveMode === "daily" || effectiveMode === "daily_duel" || effectiveMode === "duel"
+    ? getDailyDateKey()
+    : null;
 
   // ── Resolve restore snapshot synchronously ────────────────────────
   const localRestoreSnapshot = useMemo<SessionSnapshot | undefined>(() => {
@@ -133,9 +138,38 @@ export default function GameScreen() {
   const [puzzleLoadError, setPuzzleLoadError] = useState<string | null>(null);
   const [isLoadingPuzzle, setIsLoadingPuzzle] = useState<boolean>(true);
   const [puzzleLoadStage, setPuzzleLoadStage] = useState<string>("boot");
+  const loadAttemptRef = useRef<number>(0);
+  const localRestoreSnapshotRef = useRef<SessionSnapshot | undefined>(localRestoreSnapshot);
+  const getAuthoritativeSessionSnapshotRef = useRef(getAuthoritativeSessionSnapshot);
+  const clearStaleRankedDuelRef = useRef(clearStaleRankedDuel);
+  const loadKey = useMemo(() => JSON.stringify({
+    authMode,
+    userId: authUserId,
+    mode: effectiveMode,
+    difficulty,
+    sessionId: sessionIdParam ?? null,
+    routePuzzleId: routePuzzleId ?? null,
+    excludePuzzleId: excludePuzzleId ?? null,
+    dailyDateKey,
+  }), [authMode, authUserId, dailyDateKey, difficulty, effectiveMode, excludePuzzleId, routePuzzleId, sessionIdParam]);
+
+  useEffect(() => {
+    localRestoreSnapshotRef.current = localRestoreSnapshot;
+  }, [localRestoreSnapshot]);
+
+  useEffect(() => {
+    getAuthoritativeSessionSnapshotRef.current = getAuthoritativeSessionSnapshot;
+  }, [getAuthoritativeSessionSnapshot]);
+
+  useEffect(() => {
+    clearStaleRankedDuelRef.current = clearStaleRankedDuel;
+  }, [clearStaleRankedDuel]);
 
   useEffect(() => {
     let cancelled = false;
+    const attempt = loadAttemptRef.current + 1;
+    loadAttemptRef.current = attempt;
+    const startedAt = Date.now();
     async function load(): Promise<void> {
       setIsLoadingPuzzle(true);
       setPuzzleLoadError(null);
@@ -148,13 +182,24 @@ export default function GameScreen() {
       let resolvedSessionMode: GameMode | null = null;
       let resolvedSessionStatus: string | null = null;
       let resolvedSessionDifficulty: Difficulty | null = difficulty;
+      logDevDiagnostic("game load attempt", {
+        attempt,
+        loadKey,
+        mode: effectiveMode,
+        sessionId: sessionIdParam ?? null,
+        routePuzzleId: routePuzzleId ?? null,
+        startedAt,
+      });
       const setStage = (nextStage: string): void => {
         stage = nextStage;
         if (!cancelled) {
           setPuzzleLoadStage(nextStage);
         }
         logDevDiagnostic("game load stage", {
+          attempt,
+          loadKey,
           stage: nextStage,
+          elapsedMs: Date.now() - startedAt,
           mode: effectiveMode,
           sessionId: sessionIdParam ?? null,
           routePuzzleId: routePuzzleId ?? null,
@@ -174,18 +219,22 @@ export default function GameScreen() {
         ]);
       };
       try {
+        if (authMode === "loading") {
+          setStage("awaiting_auth");
+          return;
+        }
         if (auth.isSignedIn && !sessionIdParam) {
           throw new Error("Puzzle session missing. Return to Play and try again.");
         }
-        const today = getDailyDateKey();
+        const today = dailyDateKey ?? getDailyDateKey();
         let data: RawPuzzleData | null = null;
         if (sessionIdParam) {
           const resolvedRestoreSnapshot = auth.isSignedIn
-            ? await runStage("session_restore", () => getAuthoritativeSessionSnapshot(sessionIdParam))
-            : localRestoreSnapshot;
+            ? await runStage("session_restore", () => getAuthoritativeSessionSnapshotRef.current(sessionIdParam))
+            : localRestoreSnapshotRef.current;
           if (!resolvedRestoreSnapshot) {
             if (auth.isSignedIn && effectiveMode === "ranked_duel") {
-              await clearStaleRankedDuel({ sessionId: sessionIdParam, reason: "game_restore_failed" });
+              await clearStaleRankedDuelRef.current({ sessionId: sessionIdParam, reason: "game_restore_failed" });
               throw new Error("That ranked match could not be restored, so it was cleared. Start a new match.");
             }
             throw new Error("Saved puzzle could not be resumed. Return to Play and start a fresh puzzle.");
@@ -234,20 +283,26 @@ export default function GameScreen() {
         const timedOut = rawMessage.startsWith("__puzzle_load_timeout__:");
         if (auth.isSignedIn && effectiveMode === "ranked_duel" && sessionIdParam) {
           try {
-            await clearStaleRankedDuel({
+            await clearStaleRankedDuelRef.current({
               sessionId: sessionIdParam,
               reason: timedOut ? "game_load_timeout" : "game_load_failed",
             });
           } catch (clearError: unknown) {
             logDevDiagnostic("ranked stale clear failed after game load error", {
+              attempt,
+              loadKey,
               stage,
               sessionId: sessionIdParam,
+              elapsedMs: Date.now() - startedAt,
               error: clearError instanceof Error ? clearError.message : "Unknown clearStaleRankedDuel error",
             });
           }
         }
         logDevDiagnostic("game puzzle load failed", {
+          attempt,
+          loadKey,
           stage,
+          elapsedMs: Date.now() - startedAt,
           mode: effectiveMode,
           sessionId: sessionIdParam ?? null,
           routePuzzleId: routePuzzleId ?? null,
@@ -272,11 +327,34 @@ export default function GameScreen() {
           setPuzzleLoadStage((current) => (loadFailed ? current : "settled"));
           setIsLoadingPuzzle(false);
         }
+        logDevDiagnostic("game load settled", {
+          attempt,
+          loadKey,
+          stage,
+          elapsedMs: Date.now() - startedAt,
+          cancelled,
+          failed: loadFailed,
+          mode: effectiveMode,
+          sessionId: sessionIdParam ?? null,
+          routePuzzleId: routePuzzleId ?? null,
+        });
       }
     }
     void load();
-    return () => { cancelled = true; };
-  }, [auth.isSignedIn, auth.user?.id, clearStaleRankedDuel, difficulty, effectiveMode, excludePuzzleId, getAuthoritativeSessionSnapshot, localRestoreSnapshot, routePuzzleId, sessionIdParam]);
+    return () => {
+      cancelled = true;
+      logDevDiagnostic("game load cleanup", {
+        attempt,
+        loadKey,
+        stage: puzzleLoadStage,
+        elapsedMs: Date.now() - startedAt,
+        mode: effectiveMode,
+        sessionId: sessionIdParam ?? null,
+        routePuzzleId: routePuzzleId ?? null,
+        reason: "load_key_changed_or_unmount",
+      });
+    };
+  }, [auth.isSignedIn, authMode, dailyDateKey, difficulty, effectiveMode, loadKey, routePuzzleId, sessionIdParam]);
 
   const handleValidPlacement = useCallback(({ row, col, value, wasCorrect }: { row: number; col: number; value: number; wasCorrect: boolean }) => {
     if (getCachedAppPreferences().hapticsEnabled) {
