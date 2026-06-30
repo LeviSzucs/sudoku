@@ -257,9 +257,29 @@ as $$
 
       union all
 
-      select fc.winner_user_id
+      select
+        case
+          when cr.won = false and tr.won = false then null::uuid
+          when cr.won = false and tr.won is distinct from false then fc.challenged_id
+          when tr.won = false and cr.won is distinct from false then fc.challenger_id
+          when coalesce(cr.final_score, 0) > coalesce(tr.final_score, 0) then fc.challenger_id
+          when coalesce(tr.final_score, 0) > coalesce(cr.final_score, 0) then fc.challenged_id
+          when coalesce(cr.elapsed_seconds, 2147483647) < coalesce(tr.elapsed_seconds, 2147483647) then fc.challenger_id
+          when coalesce(tr.elapsed_seconds, 2147483647) < coalesce(cr.elapsed_seconds, 2147483647) then fc.challenged_id
+          when cr.completed_at < tr.completed_at then fc.challenger_id
+          when tr.completed_at < cr.completed_at then fc.challenged_id
+          else null::uuid
+        end as winner_user_id
       from public.friend_challenges fc
+      join public.game_results cr on cr.result_id = fc.challenger_result_id
+      join public.game_results tr on tr.result_id = fc.challenged_result_id
       where fc.status = 'completed'
+        and fc.challenger_result_id is not null
+        and fc.challenged_result_id is not null
+        and cr.mode = 'friend_challenge'
+        and tr.mode = 'friend_challenge'
+        and cr.completed = true
+        and tr.completed = true
         and (fc.challenger_id = p_user_id or fc.challenged_id = p_user_id)
     ) completed_duels
   ),
