@@ -14,6 +14,10 @@ Use this checklist before TestFlight builds and before adding another major feat
 - Date:
 - Notes:
 
+## Production SQL Readiness
+
+- [ ] Production Supabase includes the ranked result core dependencies listed in [ranked-result-sql-readiness.md](C:/Users/LeviS/Documents/Codex/2026-05-30/github-plugin-github-openai-curated-can/sudoku-onboarding-empty-state/docs/ranked-result-sql-readiness.md) before testing Ranked Duel saves.
+
 ## A. App Launch And Auth
 
 - [ ] App opens cleanly.
