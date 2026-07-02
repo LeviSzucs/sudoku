@@ -353,6 +353,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] In-app notification read state works.
 - [ ] While the app is foregrounded, a new in-app notification shows one compact toast with the correct title and body.
 - [ ] Tapping the foreground toast follows the same safe navigation rules as Inbox notifications.
+- [ ] Foreground toast subscription and Settings > Notifications inbox subscription can both be mounted at the same time without a realtime channel crash.
 - [ ] Notification deep links open the relevant Friends/Duel screen where safe.
 - [ ] Tapping a valid notification deep link marks it read and navigates safely without crashing.
 - [ ] Tapping a null, malformed, unsupported, external, or current-screen notification deep link does not crash and safely stays on Notifications.

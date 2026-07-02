@@ -103,6 +103,7 @@ const DEFAULT_NOTIFICATION_PREFERENCES: Omit<NotificationPreferenceRow, "user_id
 let notificationsModule: ExpoNotificationsModule | null = null;
 let lastPushTokenError: { category: string; message: string } | null = null;
 let notificationRuntimeConfigured = false;
+let notificationChannelCounter = 0;
 
 function logNotificationDiagnostic(message: string, details?: Record<string, unknown>) {
   if (details) {
@@ -486,33 +487,46 @@ export async function markNotificationRead(notificationId: string): Promise<Resu
 export function subscribeToInAppNotifications(userId: string, onChange: () => void): () => void {
   return subscribeToNotificationEvents(userId, () => {
     onChange();
-  });
+  }, { source: "settings-inbox" });
 }
 
 export function subscribeToNotificationEvents(
   userId: string,
   onEvent: (event: NotificationEvent) => void,
+  options?: { source?: string },
 ): () => void {
   if (!isSupabaseConfigured || !userId) return () => {};
 
-  const channel = supabase
-    .channel(`app-notifications:${userId}`)
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "app_notifications", filter: `user_id=eq.${userId}` },
-      (payload: NotificationRealtimePayload) => {
-        const eventType = payload.eventType;
-        const next = payload.new as AppNotification | undefined;
-        if (!next) return;
-        if (eventType !== "INSERT" && eventType !== "UPDATE" && eventType !== "DELETE") return;
-        onEvent({ eventType, notification: next });
-      },
-    )
-    .subscribe();
+  try {
+    notificationChannelCounter += 1;
+    const source = nonEmptyString(options?.source) ?? "consumer";
+    const channelName = `app-notifications:${userId}:${source}:${notificationChannelCounter}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "app_notifications", filter: `user_id=eq.${userId}` },
+        (payload: NotificationRealtimePayload) => {
+          const eventType = payload.eventType;
+          const next = payload.new as AppNotification | undefined;
+          if (!next) return;
+          if (eventType !== "INSERT" && eventType !== "UPDATE" && eventType !== "DELETE") return;
+          onEvent({ eventType, notification: next });
+        },
+      )
+      .subscribe();
 
-  return () => {
-    void supabase.removeChannel(channel);
-  };
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  } catch (error) {
+    console.warn("[Notifications] Could not subscribe to notification events.", {
+      userId,
+      source: options?.source ?? "consumer",
+      message: safeErrorMessage(error),
+    });
+    return () => {};
+  }
 }
 
 export async function getLastNotificationResponsePayload(): Promise<NotificationResponsePayload | null> {
