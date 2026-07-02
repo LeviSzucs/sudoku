@@ -17,7 +17,7 @@ const MIN_PASSWORD_LENGTH = 6;
 function friendlyAuthError(message?: string): string {
   const text = (message ?? "").toLowerCase();
   if (text.includes("user is banned") || text.includes("banned")) {
-    return `This account was previously deleted and cannot be restored automatically yet. Please contact support at ${SUPPORT_EMAIL_LABEL} if you want to use the same sign-in again.`;
+    return `This sign-in was used for a deleted SudoDuel account. Starting fresh with the same sign-in is not available automatically yet. Please contact support at ${SUPPORT_EMAIL_LABEL} if you want help using it again.`;
   }
   if (text.includes("invalid login") || text.includes("invalid credentials")) return "That email or password does not look right. Please try again.";
   if (text.includes("already registered") || text.includes("already exists")) return "An account with this email already exists. Try logging in instead.";

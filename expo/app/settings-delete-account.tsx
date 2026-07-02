@@ -110,7 +110,7 @@ export default function SettingsDeleteAccountScreen() {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Before you confirm</Text>
-            <Text style={styles.body}>You will be signed out immediately after deletion. If you want to keep using SudoDuel later, you will need to create a fresh account.</Text>
+            <Text style={styles.body}>You will be signed out immediately after deletion. For now, starting fresh with the same email, Apple sign-in, or Google sign-in is not automatic. If you come back later, you may need a different sign-in or help from support.</Text>
           </View>
         </Card>
 
