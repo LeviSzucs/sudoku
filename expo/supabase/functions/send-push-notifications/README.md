@@ -38,7 +38,7 @@ The function:
 
 - reserves queued `pending` delivery rows atomically,
 - honours `notification_preferences`,
-- sends to all active devices for the user,
+- sends one Expo request per reserved delivery row so mixed Expo project tokens cannot poison unrelated notifications,
 - records each attempt in `push_notification_deliveries`,
 - deactivates Expo tokens rejected as `DeviceNotRegistered`,
 - never creates app notifications itself.
@@ -105,3 +105,6 @@ select public.repair_push_notification_deliveries(now() - interval '30 days');
 
 If push delivery fails, in-app notifications still remain available in SudoDuel.
 Failed delivery rows are not automatically retried, which prevents duplicate push spam.
+
+If Expo returns `PUSH_TOO_MANY_EXPERIENCE_IDS`, inspect `public.push_tokens` for stale
+active tokens from older Rork/EAS projects and deactivate the duplicates that are no longer valid.

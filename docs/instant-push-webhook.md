@@ -88,6 +88,11 @@ This instant path is intentionally **best-effort**:
 Because `send-push-notifications` reserves queued rows through
 `reserve_pending_push_notification_deliveries(...)`, duplicate webhook/cron invocations are safe.
 
+The Edge Function now sends one Expo request per reserved delivery row. That is
+slightly less efficient than batching, but it prevents stale tokens from mixed
+Expo experiences/projects from causing `PUSH_TOO_MANY_EXPERIENCE_IDS` failures
+that block unrelated notifications in the same send pass.
+
 ## End-to-end verification
 
 1. Ensure:
@@ -124,6 +129,20 @@ Expected near-instant behaviour:
 - row appears in `app_notifications`
 - matching delivery row moves from `pending` -> `sending` -> `sent` within seconds
 - device receives a push promptly
+
+If some rows fail with `PUSH_TOO_MANY_EXPERIENCE_IDS`, review active token rows:
+
+```sql
+select left(expo_push_token, 24) as token_preview,
+       count(*) as active_rows,
+       array_agg(user_id order by last_seen_at desc nulls last) as user_ids,
+       max(last_seen_at) as latest_seen_at
+from public.push_tokens
+where is_active = true
+group by expo_push_token
+having count(*) > 1
+order by latest_seen_at desc nulls last;
+```
 
 ## Fallback verification
 

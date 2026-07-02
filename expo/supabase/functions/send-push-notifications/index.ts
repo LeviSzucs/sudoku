@@ -25,7 +25,6 @@ type ExpoTicket = {
 type DeliveryStatus = "sending" | "sent" | "failed" | "skipped";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
-const MAX_BATCH_SIZE = 100;
 
 function jsonResponse(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), {
@@ -50,20 +49,16 @@ function clampLimit(value: unknown): number {
   return Math.max(1, Math.min(Math.trunc(parsed), 500));
 }
 
-function chunk<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-  return chunks;
-}
-
 function isDeviceNotRegistered(ticket: ExpoTicket): boolean {
   return ticket.details?.error === "DeviceNotRegistered";
 }
 
 function errorMessage(ticket: ExpoTicket): string {
   return ticket.message ?? ticket.details?.error ?? "Expo push delivery failed.";
+}
+
+function tokenPreview(token: string): string {
+  return token.length <= 24 ? token : `${token.slice(0, 24)}...`;
 }
 
 function createExpoMessage(row: PendingDelivery) {
@@ -81,6 +76,26 @@ function createExpoMessage(row: PendingDelivery) {
       related_entity_id: row.related_entity_id,
     },
   };
+}
+
+async function parseFailedExpoResponse(response: Response) {
+  const text = await response.text().catch(() => "");
+
+  try {
+    const payload = JSON.parse(text) as {
+      errors?: Array<{ code?: string; message?: string }>;
+      data?: ExpoTicket[];
+    };
+    const firstError = Array.isArray(payload.errors) ? payload.errors[0] : undefined;
+    const firstTicket = Array.isArray(payload.data) ? payload.data[0] : undefined;
+    return {
+      text,
+      code: firstError?.code ?? firstTicket?.details?.error ?? undefined,
+      message: firstError?.message ?? firstTicket?.message ?? undefined,
+    };
+  } catch {
+    return { text, code: undefined, message: undefined };
+  }
 }
 
 Deno.serve(async (request) => {
@@ -135,8 +150,7 @@ Deno.serve(async (request) => {
   let failed = 0;
   let deactivatedTokens = 0;
 
-  for (const rowChunk of chunk(rows, MAX_BATCH_SIZE)) {
-    const messages = rowChunk.map(createExpoMessage);
+  for (const row of rows) {
     const response = await fetch(EXPO_PUSH_URL, {
       method: "POST",
       headers: {
@@ -144,64 +158,86 @@ Deno.serve(async (request) => {
         accept: "application/json",
         ...(expoAccessToken ? { authorization: `Bearer ${expoAccessToken}` } : {}),
       },
-      body: JSON.stringify(messages),
+      body: JSON.stringify(createExpoMessage(row)),
     });
 
     if (!response.ok) {
-      const text = await response.text().catch(() => "");
-      const message = `Expo push API returned ${response.status}${text ? `: ${text.slice(0, 300)}` : ""}`;
-      console.error("[PushDelivery]", message);
+      const parsed = await parseFailedExpoResponse(response);
+      const mixedProjects = parsed.code === "PUSH_TOO_MANY_EXPERIENCE_IDS"
+        || parsed.message?.includes("same project")
+        || parsed.text.includes("PUSH_TOO_MANY_EXPERIENCE_IDS");
+      const message = [
+        `Expo push API returned ${response.status}`,
+        parsed.code ? `code=${parsed.code}` : null,
+        parsed.message ? `message=${parsed.message}` : null,
+        mixedProjects ? "Likely mixed Expo project tokens remain active." : null,
+      ].filter(Boolean).join(" | ");
+      console.error("[PushDelivery] HTTP failure.", {
+        notificationId: row.notification_id,
+        tokenId: row.token_id,
+        tokenPreview: tokenPreview(row.expo_push_token),
+        type: row.type,
+        message,
+      });
 
-      failed += rowChunk.length;
-      await Promise.all(rowChunk.map((row) => updateDelivery(supabase, row, {
+      failed += 1;
+      await updateDelivery(supabase, row, {
         status: "failed",
         error_message: message,
         provider_message_id: null,
-      })));
+      });
       continue;
     }
 
     const payload = await response.json().catch(() => null);
-    const tickets = Array.isArray(payload?.data) ? payload.data as ExpoTicket[] : [];
+    const ticket = Array.isArray(payload?.data)
+      ? payload.data[0] as ExpoTicket | undefined
+      : (payload?.data as ExpoTicket | undefined);
 
-    await Promise.all(rowChunk.map(async (row, index) => {
-      const ticket = tickets[index];
-      if (!ticket) {
-        failed += 1;
-        await updateDelivery(supabase, row, {
-          status: "failed",
-          error_message: "Expo did not return a delivery ticket.",
-          provider_message_id: null,
-        });
-        return;
-      }
-
-      if (ticket.status === "ok") {
-        sent += 1;
-        await updateDelivery(supabase, row, {
-          status: "sent",
-          error_message: null,
-          provider_message_id: ticket.id ?? null,
-        });
-        return;
-      }
-
+    if (!ticket) {
       failed += 1;
-      if (isDeviceNotRegistered(ticket)) {
-        deactivatedTokens += 1;
-        const { error } = await supabase
-          .from("push_tokens")
-          .update({ is_active: false, last_seen_at: new Date().toISOString() })
-          .eq("token_id", row.token_id);
-        if (error) console.warn("[PushDelivery] Could not deactivate push token.", error);
-      }
-
       await updateDelivery(supabase, row, {
         status: "failed",
-        error_message: errorMessage(ticket),
+        error_message: "Expo did not return a delivery ticket.",
+        provider_message_id: null,
+      });
+      continue;
+    }
+
+    if (ticket.status === "ok") {
+      sent += 1;
+      await updateDelivery(supabase, row, {
+        status: "sent",
+        error_message: null,
         provider_message_id: ticket.id ?? null,
       });
-    }));
+      continue;
+    }
+
+    failed += 1;
+    if (isDeviceNotRegistered(ticket)) {
+      deactivatedTokens += 1;
+      const { error } = await supabase
+        .from("push_tokens")
+        .update({ is_active: false, last_seen_at: new Date().toISOString() })
+        .eq("token_id", row.token_id);
+      if (error) console.warn("[PushDelivery] Could not deactivate push token.", error);
+    }
+
+    console.warn("[PushDelivery] Expo ticket failure.", {
+      notificationId: row.notification_id,
+      tokenId: row.token_id,
+      tokenPreview: tokenPreview(row.expo_push_token),
+      type: row.type,
+      error: errorMessage(ticket),
+      code: ticket.details?.error ?? null,
+    });
+
+    await updateDelivery(supabase, row, {
+      status: "failed",
+      error_message: errorMessage(ticket),
+      provider_message_id: ticket.id ?? null,
+    });
   }
 
   return jsonResponse(200, {
