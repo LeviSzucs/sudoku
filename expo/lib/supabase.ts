@@ -8,7 +8,10 @@ const rawSupabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
 const supabaseAnonKey = rawSupabaseAnonKey.trim();
 const sanitizedSupabaseUrl = rawSupabaseUrl.trim().replace(/\/+$/, "");
-const rootUrlError = "Supabase URL should be the project root only, e.g. https://project-ref.supabase.co";
+const approvedCustomSupabaseHosts = new Set([
+  "auth.sudoduel.app",
+]);
+const rootUrlError = "Supabase URL must be the HTTPS project root only, using either https://project-ref.supabase.co or an approved auth domain such as https://auth.sudoduel.app";
 
 function parseSupabaseUrl(url: string): { host: string; path: string; isValid: boolean; error: string | null } {
   if (url.length === 0) return { host: "", path: "", isValid: false, error: null };
@@ -17,7 +20,8 @@ function parseSupabaseUrl(url: string): { host: string; path: string; isValid: b
     const parsed = new URL(url);
     const path = parsed.pathname === "/" ? "" : parsed.pathname;
     const hasSearchOrHash = parsed.search.length > 0 || parsed.hash.length > 0;
-    const isValid = parsed.protocol === "https:" && parsed.hostname.endsWith(".supabase.co") && path.length === 0 && !hasSearchOrHash;
+    const isApprovedHost = parsed.hostname.endsWith(".supabase.co") || approvedCustomSupabaseHosts.has(parsed.hostname);
+    const isValid = parsed.protocol === "https:" && isApprovedHost && path.length === 0 && !hasSearchOrHash;
     return {
       host: parsed.hostname,
       path: path || "none",

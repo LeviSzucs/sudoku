@@ -36,6 +36,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Continue with Google works on a real iPhone/TestFlight build after provider setup.
 - [ ] Apple sign-in uses the native iOS Apple sheet and does not show an ugly web service identifier to the user.
 - [ ] Google OAuth consent branding shows SudoDuel app naming, support, and public site details from the Google console setup.
+- [ ] If Supabase custom auth domain is enabled, Google OAuth browser flow shows `auth.sudoduel.app` instead of the raw Supabase project host.
 - [ ] Cancelling Apple or Google OAuth shows a clean state and does not leave the app stuck.
 - [ ] Sign-up validates email format.
 - [ ] Sign-up validates minimum password length.

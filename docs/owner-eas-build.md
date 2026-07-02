@@ -50,6 +50,9 @@ Set these in your local shell and in your Expo/EAS project environment as approp
 
 Important:
 
+- `EXPO_PUBLIC_SUPABASE_URL` can be either:
+  - `https://bocnyzryikelpiupnigv.supabase.co`, or
+  - `https://auth.sudoduel.app` after the Supabase custom auth domain is verified and active
 - `EXPO_PUBLIC_EAS_PROJECT_ID` must be your real Expo/EAS project UUID
 - the app already validates that the project ID is UUID-shaped before injecting it into `extra.eas.projectId`
 - `EXPO_PUBLIC_PROJECT_ID` is only kept as a backwards-compatibility fallback and must not be relied on unless it is also UUID-shaped
@@ -140,6 +143,21 @@ After the first owner-managed preview/TestFlight build:
 4. Confirm in-app Inbox notifications still work.
 5. Confirm missing or denied phone push permission does not break the app.
 6. Send a Friend Challenge or friend request and verify the in-app notification path still works even if phone push is not ready yet.
+
+## Supabase Custom Auth Domain Transition
+
+To remove the raw Supabase project URL from the Google OAuth browser flow:
+
+1. Configure `auth.sudoduel.app` in Supabase Custom Domains.
+2. Add the DNS records Supabase requests, usually:
+   - a CNAME for `auth.sudoduel.app`
+   - a TXT verification record
+3. Add both Google OAuth redirect URIs during the transition:
+   - `https://bocnyzryikelpiupnigv.supabase.co/auth/v1/callback`
+   - `https://auth.sudoduel.app/auth/v1/callback`
+4. After the custom domain is active, set:
+   - `EXPO_PUBLIC_SUPABASE_URL=https://auth.sudoduel.app`
+5. Rebuild the TestFlight app so the branded auth host is used by the mobile client.
 
 ## Rork/Codex Workflow Note
 
