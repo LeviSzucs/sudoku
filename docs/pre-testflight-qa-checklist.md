@@ -334,6 +334,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Push token registers after permission is granted.
 - [ ] TestFlight device creates an active `push_tokens` row after opening Notifications with permission granted.
 - [ ] Push token upsert does not create duplicate active token rows for the same user/token.
+- [ ] Registering a token deactivates that same exact Expo token for any other stale user rows from older installs or projects.
 - [ ] Notification preferences save and reload.
 - [ ] Marketing/news/offers defaults off.
 - [ ] `push_enabled = false` prevents future push delivery while leaving the in-app inbox usable.
@@ -350,6 +351,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Disabled preferences suppress matching in-app notification types.
 - [ ] No duplicate spam notifications appear for the same event.
 - [ ] In-app notification read state works.
+- [ ] While the app is foregrounded, a new in-app notification shows one compact toast with the correct title and body.
+- [ ] Tapping the foreground toast follows the same safe navigation rules as Inbox notifications.
 - [ ] Notification deep links open the relevant Friends/Duel screen where safe.
 - [ ] Tapping a valid notification deep link marks it read and navigates safely without crashing.
 - [ ] Tapping a null, malformed, unsupported, external, or current-screen notification deep link does not crash and safely stays on Notifications.
@@ -372,6 +375,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Daily Duel and Ranked Duel match-found events send phone pushes when push is enabled.
 - [ ] Disabled preferences suppress matching phone pushes.
 - [ ] Invalid/dead Expo tokens are marked inactive.
+- [ ] Mixed Expo project tokens do not cause one bad token to block unrelated push deliveries in the same send pass.
 - [ ] Push delivery failures do not remove in-app notifications.
 - [ ] Client code does not send push notifications to other users.
 - [ ] After creating a new notification, matching `push_notification_deliveries` rows appear as `pending`.
@@ -601,6 +605,33 @@ where user_id = '6c90ea5a-ac2b-4660-accd-b03c2a35ebf0'
 order by last_seen_at desc;
 ```
 
+### Duplicate Active Expo Push Tokens Across Users
+
+```sql
+select left(expo_push_token, 24) as token_preview,
+       count(*) as active_rows,
+       array_agg(user_id order by last_seen_at desc nulls last) as user_ids,
+       max(last_seen_at) as latest_seen_at
+from public.push_tokens
+where is_active = true
+group by expo_push_token
+having count(*) > 1
+order by latest_seen_at desc nulls last;
+```
+
+### Users With Multiple Active Push Tokens
+
+```sql
+select user_id,
+       count(*) as active_token_count,
+       max(last_seen_at) as latest_seen_at
+from public.push_tokens
+where is_active = true
+group by user_id
+having count(*) > 1
+order by latest_seen_at desc nulls last;
+```
+
 ### Latest In-App Notifications
 
 ```sql
@@ -621,6 +652,27 @@ select pnd.delivery_id, pnd.notification_id, pnd.token_id, pnd.user_id,
 from public.push_notification_deliveries pnd
 where pnd.user_id = '6c90ea5a-ac2b-4660-accd-b03c2a35ebf0'
 order by pnd.attempted_at desc
+limit 50;
+```
+
+### Latest Notifications Joined To Delivery Status
+
+```sql
+select an.notification_id,
+       an.user_id,
+       an.type,
+       an.title,
+       an.created_at,
+       pnd.status,
+       left(coalesce(pnd.error_message, ''), 200) as error_preview,
+       pnd.attempted_at,
+       left(pt.expo_push_token, 24) as token_preview
+from public.app_notifications an
+left join public.push_notification_deliveries pnd
+  on pnd.notification_id = an.notification_id
+left join public.push_tokens pt
+  on pt.token_id = pnd.token_id
+order by an.created_at desc, pnd.attempted_at desc nulls last
 limit 50;
 ```
 
@@ -712,6 +764,33 @@ select user_id, platform, is_active, count(*) as token_count,
 from public.push_tokens
 group by user_id, platform, is_active
 order by latest_seen_at desc nulls last;
+```
+
+### One-Off Cleanup For Duplicate Active Tokens Across Users
+
+Run only from the Supabase SQL editor after reviewing the duplicate query above.
+This keeps the newest active row for each exact Expo token string and deactivates
+older duplicates, which is useful when stale Rork/EAS tokens are still active:
+
+```sql
+with ranked_tokens as (
+  select token_id,
+         expo_push_token,
+         row_number() over (
+           partition by expo_push_token
+           order by last_seen_at desc nulls last, created_at desc, token_id desc
+         ) as row_rank,
+         count(*) over (partition by expo_push_token) as token_count
+  from public.push_tokens
+  where is_active = true
+)
+update public.push_tokens pt
+set is_active = false,
+    last_seen_at = now()
+from ranked_tokens rt
+where pt.token_id = rt.token_id
+  and rt.token_count > 1
+  and rt.row_rank > 1;
 ```
 
 ### Notification Trigger Existence

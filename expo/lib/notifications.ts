@@ -38,6 +38,25 @@ type ExpoNotificationsModule = {
   getPermissionsAsync: () => Promise<{ status?: string; granted?: boolean }>;
   requestPermissionsAsync: () => Promise<{ status?: string; granted?: boolean }>;
   getExpoPushTokenAsync: (options?: { projectId?: string }) => Promise<{ data: string } | string>;
+  setNotificationHandler?: (handler: {
+    handleNotification: () => Promise<{
+      shouldShowBanner?: boolean;
+      shouldShowList?: boolean;
+      shouldPlaySound?: boolean;
+      shouldSetBadge?: boolean;
+    }>;
+  }) => void;
+  addNotificationResponseReceivedListener?: (listener: (response: {
+    notification?: { request?: { content?: { data?: Record<string, unknown> } } };
+  }) => void) => { remove?: () => void; subscription?: { remove?: () => void } };
+  getLastNotificationResponseAsync?: () => Promise<{
+    notification?: { request?: { content?: { data?: Record<string, unknown> } } };
+  } | null>;
+};
+
+type NotificationRealtimePayload = {
+  eventType?: string;
+  new?: Record<string, unknown>;
 };
 
 export type PushProjectDiagnostics = {
@@ -60,6 +79,16 @@ export type PushAvailabilityState = {
   message: string | null;
 };
 
+export type NotificationEvent = {
+  eventType: "INSERT" | "UPDATE" | "DELETE";
+  notification: AppNotification;
+};
+
+export type NotificationResponsePayload = {
+  notificationId: string | null;
+  deepLink: string | null;
+};
+
 const DEFAULT_NOTIFICATION_PREFERENCES: Omit<NotificationPreferenceRow, "user_id"> = {
   push_enabled: true,
   friend_requests: true,
@@ -73,6 +102,7 @@ const DEFAULT_NOTIFICATION_PREFERENCES: Omit<NotificationPreferenceRow, "user_id
 
 let notificationsModule: ExpoNotificationsModule | null = null;
 let lastPushTokenError: { category: string; message: string } | null = null;
+let notificationRuntimeConfigured = false;
 
 function logNotificationDiagnostic(message: string, details?: Record<string, unknown>) {
   if (details) {
@@ -90,6 +120,16 @@ function safeErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) return error.message;
   if (typeof error === "string") return error;
   return "Unknown error";
+}
+
+function responsePayload(response: {
+  notification?: { request?: { content?: { data?: Record<string, unknown> } } };
+} | null | undefined): NotificationResponsePayload {
+  const data = response?.notification?.request?.content?.data;
+  return {
+    notificationId: typeof data?.notification_id === "string" ? data.notification_id : null,
+    deepLink: typeof data?.deep_link === "string" ? data.deep_link : null,
+  };
 }
 
 function nonEmptyString(value: unknown): string | undefined {
@@ -126,6 +166,27 @@ async function loadNotificationsModule(): Promise<Result<ExpoNotificationsModule
   } catch (error) {
     console.warn("[Notifications] expo-notifications is unavailable.", error);
     return { ok: false, error: "Push notifications are unavailable in this build." };
+  }
+}
+
+export async function configureNotificationRuntime(): Promise<void> {
+  if (notificationRuntimeConfigured) return;
+
+  const loaded = await loadNotificationsModule();
+  if (!loaded.ok) return;
+
+  try {
+    loaded.data.setNotificationHandler?.({
+      handleNotification: async () => ({
+        shouldShowBanner: false,
+        shouldShowList: true,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+      }),
+    });
+    notificationRuntimeConfigured = true;
+  } catch (error) {
+    console.warn("[Notifications] Could not configure notification runtime.", error);
   }
 }
 
@@ -336,20 +397,31 @@ export async function registerPushToken(userId: string): Promise<Result<string |
     logNotificationDiagnostic("Expo push token obtained.", tokenDiagnostic(token));
 
     if (isSupabaseConfigured) {
-      const { error } = await supabase.from("push_tokens").upsert({
-        user_id: userId,
-        expo_push_token: token,
-        device_id: null,
-        platform: Platform.OS === "ios" || Platform.OS === "android" ? Platform.OS : "unknown",
-        app_version: Constants.expoConfig?.version ?? null,
-        is_active: true,
-        last_seen_at: new Date().toISOString(),
-      }, { onConflict: "user_id,expo_push_token" });
+      const platform = Platform.OS === "ios" || Platform.OS === "android" ? Platform.OS : "unknown";
+      const { error } = await supabase.rpc("register_push_token", {
+        p_user_id: userId,
+        p_expo_push_token: token,
+        p_platform: platform,
+        p_app_version: Constants.expoConfig?.version ?? null,
+        p_device_id: null,
+      });
       if (error) {
-        console.warn("[Notifications] Push token upsert failed.", { message: error.message, code: error.code });
-        logNotificationDiagnostic("Push token upsert failed.", { category: "supabase_upsert_failed", code: error.code, platform: Platform.OS });
-        setLastPushTokenError("supabase_upsert_failed", "Could not save push token.");
-        return { ok: false, error: "Could not save push token." };
+        console.warn("[Notifications] Push token RPC failed; falling back to direct upsert.", { message: error.message, code: error.code });
+        const fallback = await supabase.from("push_tokens").upsert({
+          user_id: userId,
+          expo_push_token: token,
+          device_id: null,
+          platform,
+          app_version: Constants.expoConfig?.version ?? null,
+          is_active: true,
+          last_seen_at: new Date().toISOString(),
+        }, { onConflict: "user_id,expo_push_token" });
+        if (fallback.error) {
+          console.warn("[Notifications] Push token upsert failed.", { message: fallback.error.message, code: fallback.error.code });
+          logNotificationDiagnostic("Push token upsert failed.", { category: "supabase_upsert_failed", code: fallback.error.code, platform: Platform.OS });
+          setLastPushTokenError("supabase_upsert_failed", "Could not save push token.");
+          return { ok: false, error: "Could not save push token." };
+        }
       }
       logNotificationDiagnostic("Push token upsert succeeded.", { platform: Platform.OS });
     }
@@ -412,6 +484,15 @@ export async function markNotificationRead(notificationId: string): Promise<Resu
 }
 
 export function subscribeToInAppNotifications(userId: string, onChange: () => void): () => void {
+  return subscribeToNotificationEvents(userId, () => {
+    onChange();
+  });
+}
+
+export function subscribeToNotificationEvents(
+  userId: string,
+  onEvent: (event: NotificationEvent) => void,
+): () => void {
   if (!isSupabaseConfigured || !userId) return () => {};
 
   const channel = supabase
@@ -419,11 +500,51 @@ export function subscribeToInAppNotifications(userId: string, onChange: () => vo
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "app_notifications", filter: `user_id=eq.${userId}` },
-      () => onChange(),
+      (payload: NotificationRealtimePayload) => {
+        const eventType = payload.eventType;
+        const next = payload.new as AppNotification | undefined;
+        if (!next) return;
+        if (eventType !== "INSERT" && eventType !== "UPDATE" && eventType !== "DELETE") return;
+        onEvent({ eventType, notification: next });
+      },
     )
     .subscribe();
 
   return () => {
     void supabase.removeChannel(channel);
   };
+}
+
+export async function getLastNotificationResponsePayload(): Promise<NotificationResponsePayload | null> {
+  const loaded = await loadNotificationsModule();
+  if (!loaded.ok) return null;
+
+  try {
+    const response = await loaded.data.getLastNotificationResponseAsync?.();
+    return responsePayload(response);
+  } catch (error) {
+    console.warn("[Notifications] Could not read the last notification response.", error);
+    return null;
+  }
+}
+
+export async function subscribeToNotificationResponses(
+  onResponse: (payload: NotificationResponsePayload) => void,
+): Promise<() => void> {
+  const loaded = await loadNotificationsModule();
+  if (!loaded.ok || !loaded.data.addNotificationResponseReceivedListener) return () => {};
+
+  try {
+    const subscription = loaded.data.addNotificationResponseReceivedListener((response) => {
+      onResponse(responsePayload(response));
+    });
+
+    return () => {
+      subscription?.remove?.();
+      subscription?.subscription?.remove?.();
+    };
+  } catch (error) {
+    console.warn("[Notifications] Could not subscribe to notification responses.", error);
+    return () => {};
+  }
 }

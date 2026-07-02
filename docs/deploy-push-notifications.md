@@ -164,3 +164,18 @@ limit 20;
 3. Wait up to 5 minutes for the **Run Push Notifications** workflow, or run it manually from GitHub Actions.
 4. Re-run the delivery-status query.
 5. Confirm pending rows become `sent`, `failed`, or `skipped`.
+
+If rows fail with `PUSH_TOO_MANY_EXPERIENCE_IDS`, inspect active push tokens for
+stale duplicates from older Expo projects before retrying:
+
+```sql
+select left(expo_push_token, 24) as token_preview,
+       count(*) as active_rows,
+       array_agg(user_id order by last_seen_at desc nulls last) as user_ids,
+       max(last_seen_at) as latest_seen_at
+from public.push_tokens
+where is_active = true
+group by expo_push_token
+having count(*) > 1
+order by latest_seen_at desc nulls last;
+```
