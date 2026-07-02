@@ -18,6 +18,7 @@ The mobile app now uses:
 - app scheme: `sudoduel`
 - Supabase project ref: `bocnyzryikelpiupnigv`
 - Supabase callback URL: `https://bocnyzryikelpiupnigv.supabase.co/auth/v1/callback`
+- Planned branded auth domain: `https://auth.sudoduel.app`
 - Native auth redirect URL: `sudoduel://auth`
 
 ## Supabase Auth URL configuration
@@ -104,10 +105,28 @@ Manual steps for Levi:
    - `https://auth.sudoduel.app/auth/v1/callback`
 6. Keep the existing Supabase project callback in Google until the custom domain is fully verified and working.
 7. Update any Supabase Auth URL configuration or provider callback settings that still point only at the project subdomain.
+8. After the custom domain is live, set:
+   - `EXPO_PUBLIC_SUPABASE_URL=https://auth.sudoduel.app`
+9. Rebuild the TestFlight app after the environment change so Google OAuth uses the branded auth host.
 
 Result:
 
 - the Google browser/interstitial flow should show an `auth.sudoduel.app` domain instead of the Supabase project URL
+
+## App readiness for Supabase custom auth domains
+
+The app now accepts either:
+
+- a standard Supabase root URL such as `https://bocnyzryikelpiupnigv.supabase.co`
+- the approved branded auth domain `https://auth.sudoduel.app`
+
+Validation remains strict:
+
+- HTTPS only
+- no path, query string, or hash
+- arbitrary custom hosts are still rejected
+
+This means you can switch `EXPO_PUBLIC_SUPABASE_URL` to the branded domain once Supabase custom-domain setup is complete, without changing app code again.
 
 #### Option B: Native Google ID-token flow
 
