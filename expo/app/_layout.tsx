@@ -101,7 +101,7 @@ function NotificationRuntimeBridge({ enabled, userId, currentPath }: { enabled: 
       setQueue((current) => current.some((item) => item.notification_id === notification.notification_id)
         ? current
         : [...current, notification]);
-    });
+    }, { source: "foreground-toast" });
   }, [currentPath, enabled, userId]);
 
   useEffect(() => {
