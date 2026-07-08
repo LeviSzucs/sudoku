@@ -4,7 +4,6 @@ import {
   ChevronRight,
   Crown,
   Play,
-  Sparkles,
   Swords,
   Trophy,
 } from "lucide-react-native";
@@ -17,7 +16,6 @@ import Card from "@/components/Card";
 import Pill from "@/components/Pill";
 import SectionHeader from "@/components/SectionHeader";
 import StreakFlame from "@/components/StreakFlame";
-import { PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { buttonShadow, premiumShadow } from "@/constants/depth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
@@ -324,36 +322,6 @@ export default function HomeScreen() {
           </Card>
         ) : null}
 
-        {/* Premium */}
-        <View style={{ marginTop: 22 }}>
-          <Pressable onPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })}>
-            {({ pressed }) => (
-              <View style={[styles.premiumCard, pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}>
-                <LinearGradient
-                  colors={["#1E1B4B", "#3B2A6A"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={StyleSheet.absoluteFillObject}
-                />
-                <View style={styles.premiumGlow} />
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Crown size={14} color={C.gold} fill={C.gold} />
-                    <Text style={styles.premiumKicker}>{PREMIUM_NAME.toUpperCase()}</Text>
-                  </View>
-                  <Text style={styles.premiumTitle}>SudoDuel Premium</Text>
-                  <Text style={styles.premiumSub}>
-                    Full history, advanced stats, friend challenge extras, and cosmetics
-                  </Text>
-                </View>
-                <View style={styles.premiumCTA}>
-                  <Sparkles size={14} color={C.ink} />
-                  <Text style={styles.premiumCTAText}>Learn more</Text>
-                </View>
-              </View>
-            )}
-          </Pressable>
-        </View>
       </ScrollView>
     </View>
   );
@@ -607,56 +575,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: C.muted,
     marginTop: 2,
-  },
-  premiumCard: {
-    borderRadius: 20,
-    padding: 20,
-    overflow: "hidden",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    ...premiumShadow,
-  },
-  premiumGlow: {
-    position: "absolute",
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: "#B7912F30",
-    right: -60,
-    top: -60,
-  },
-  premiumKicker: {
-    color: C.gold,
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1.4,
-  },
-  premiumTitle: {
-    color: "#FBF8F2",
-    fontSize: 17,
-    fontWeight: "700",
-    marginTop: 4,
-    letterSpacing: -0.3,
-  },
-  premiumSub: {
-    color: "#FBF8F2AA",
-    fontSize: 13,
-    marginTop: 3,
-  },
-  premiumCTA: {
-    backgroundColor: C.gold,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    ...buttonShadow,
-  },
-  premiumCTAText: {
-    color: C.ink,
-    fontWeight: "700",
-    fontSize: 13,
   },
 });

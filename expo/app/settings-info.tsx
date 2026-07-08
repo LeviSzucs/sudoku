@@ -9,7 +9,6 @@ import Card from "@/components/Card";
 import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { LEGAL_LAST_UPDATED, SUPPORT_EMAIL_LABEL } from "@/constants/legal";
-import { FREE_FIRST_LAUNCH_NOTE, PREMIUM_FAIRNESS_NOTE } from "@/constants/premium";
 import { openSupportEmail } from "@/lib/support";
 
 type InfoPage = "premium" | "help" | "support" | "terms" | "privacy" | "delete-account";
@@ -33,14 +32,12 @@ const CONTENT: Record<InfoPage, {
   premium: {
     eyebrow: "PREMIUM",
     title: PREMIUM_NAME,
-    subtitle: "Free during beta.",
+    subtitle: "SudoDuel is free in this release.",
     icon: "premium",
     sections: [
-      { title: "Free during beta", body: `${APP_NAME} is free during the current beta. Premium purchases and subscriptions are not currently active.` },
-      { title: "What stays free", body: "All Classic difficulties, Daily Sudoku, Daily Duel, Friend Challenges, Ranked Duel, leaderboards, public profiles, achievements, streaks, core stats, and current avatar customisation remain available without payment." },
-      { title: "What Premium may become", body: "As SudoDuel grows, Premium may focus on supporter perks, cosmetics, richer history, deeper stats, and convenience extras that do not block the core game loop." },
-      { title: "Fairness promise", body: PREMIUM_FAIRNESS_NOTE },
-      { title: "Status", body: FREE_FIRST_LAUNCH_NOTE },
+      { title: "Current release", body: `${APP_NAME} is fully playable in this release without a purchase flow.` },
+      { title: "What stays available", body: "All Classic difficulties, Daily Sudoku, Daily Duel, Friend Challenges, Ranked Duel, leaderboards, public profiles, achievements, streaks, core stats, and current avatar customisation remain available." },
+      { title: "Looking ahead", body: "If supporter perks or cosmetics are added later, they will be introduced without affecting competitive fairness or core gameplay access." },
     ],
   },
   help: {
@@ -53,22 +50,22 @@ const CONTENT: Record<InfoPage, {
       { title: "How do Friend Challenges work?", body: "Choose a friend, pick a difficulty, and send a challenge. Both players get the same puzzle and the final result is compared once both attempts are complete." },
       { title: "How do notifications work?", body: "Inbox notifications work inside the app. Phone push notifications may depend on the current build environment, but gameplay still works if device push is unavailable." },
       { title: "Can I customise my profile and avatar?", body: "Yes. You can update your display name, avatar appearance, and privacy settings from Settings. Other players only see public profile information that your privacy settings allow." },
-      { title: "What about Premium?", body: `${APP_NAME} is free during beta. Premium infrastructure may be used later for supporter perks and cosmetics, but core gameplay is not paywalled right now.` },
-      { title: "How do I report a problem?", body: "Use Settings > Report a problem and include the mode you were in, what you expected, and what actually happened. Adding app diagnostics can help us reproduce issues faster." },
+      { title: "What about Premium?", body: `${APP_NAME} is fully playable in this release. If supporter perks or cosmetics arrive later, they will not block the core game loop.` },
+      { title: "How do I get help?", body: `Open Settings > Contact support to email us, or use Settings > Message support to send a support request from inside the app.` },
       { title: "How do I delete my account?", body: `Open Settings > Delete account to permanently delete or anonymise your account in-app. If deletion cannot complete, you can still contact ${SUPPORT_EMAIL_LABEL} for help.` },
     ],
   },
   support: {
     eyebrow: "SUPPORT",
     title: "Contact Support",
-    subtitle: "Help, feedback, bug reports, and account requests.",
+    subtitle: "Help, account, and privacy requests.",
     icon: "help",
     sections: [
-      { title: "Contact support", body: `Need help with ${APP_NAME}? Email ${SUPPORT_EMAIL_LABEL} for account, privacy, or data requests, or use the in-app forms for feedback and bug reports.` },
-      { title: "Report a problem", body: "Use the bug report flow for crashes, blocked progress, missing results, incorrect stats, or anything that stops normal play." },
-      { title: "Send feedback", body: "Use feedback for ideas, polish notes, puzzle feel comments, avatar requests, and anything that would make SudoDuel better." },
+      { title: "Contact support", body: `Need help with ${APP_NAME}? Email ${SUPPORT_EMAIL_LABEL} for account, privacy, or data requests, or use the in-app support form to send a message.` },
+      { title: "When to use support", body: "Contact us for account access issues, puzzle progress problems, missing results, privacy questions, social feature issues, or anything else that blocks normal play." },
+      { title: "What to include", body: "Include the mode you were in, what you expected, and what happened so we can investigate quickly." },
       { title: "Account and privacy requests", body: "You can use the in-app Delete account flow for permanent deletion. If something fails or you need privacy help first, email support and include the email address or username linked to your account." },
-      { title: "Response expectations", body: "During TestFlight, we prioritise account, privacy, result-integrity, and crash issues first. Replies may be slower than a full public release." },
+      { title: "Response expectations", body: "We aim to respond as soon as we can, with priority given to account, privacy, and gameplay-blocking issues." },
     ],
   },
   terms: {
@@ -77,14 +74,14 @@ const CONTENT: Record<InfoPage, {
     subtitle: `Last updated ${LEGAL_LAST_UPDATED}`,
     icon: "legal",
     sections: [
-      { title: "About SudoDuel", body: `${APP_NAME} is a puzzle and social game app built around solo Sudoku, daily play, asynchronous duels, ranked competition, profile identity, and feedback tools.` },
+      { title: "About SudoDuel", body: `${APP_NAME} is a puzzle and social game app built around solo Sudoku, daily play, asynchronous duels, ranked competition, and profile identity.` },
       { title: "Eligibility", body: "Use SudoDuel only if you are allowed to use online game services in your location. If your region requires parental or guardian permission, please use the app only with that permission." },
       { title: "Your account", body: "You are responsible for your sign-in method, account activity, username, display name, avatar choices, and keeping access to your account secure." },
-      { title: "Fair use", body: "Do not cheat, automate play, manipulate rankings, exploit bugs, impersonate others, spam other users, or misuse social features, feedback tools, or backend services." },
+      { title: "Fair use", body: "Do not cheat, automate play, manipulate rankings, exploit bugs, impersonate others, spam other users, or misuse social features, support channels, or backend services." },
       { title: "Results, rankings, and stats", body: "Scores, streaks, results, achievements, RP, and leaderboard positions may be corrected if we detect bugs, duplicate results, abuse, or data integrity issues." },
       { title: "Profile content", body: "Choose respectful usernames, display names, avatars, and messages. Do not use content that is abusive, misleading, hateful, or infringes someone else's rights." },
-      { title: "Beta status", body: `${APP_NAME} is still in beta. Features may change, move, or be removed, and the app may occasionally be unavailable while we improve reliability.` },
-      { title: "Limitation of liability", body: "To the fullest extent allowed by law, SudoDuel is provided as-is for testing and entertainment. We are not responsible for indirect losses, unavailable service, or issues outside our reasonable control." },
+      { title: "Service changes", body: `${APP_NAME} may change over time, and some features or online services may be updated, paused, or removed as the app evolves.` },
+      { title: "Limitation of liability", body: "To the fullest extent allowed by law, SudoDuel is provided as-is for entertainment. We are not responsible for indirect losses, unavailable service, or issues outside our reasonable control." },
       { title: "Contact us", body: CONTACT },
     ],
   },
@@ -98,9 +95,9 @@ const CONTENT: Record<InfoPage, {
       { title: "Gameplay and progress data", body: "We store puzzle sessions, continue state, completed and failed results, scores, timings, mistakes, hints, undos, streak progress, achievements, leaderboards, ranked records, daily duel records, and friend challenge records." },
       { title: "Social data", body: "We store friend relationships, friend requests, challenge records, public profile details that your settings allow, and in-app notifications needed to support social and competitive play." },
       { title: "Push notifications", body: "If you allow device notifications, we store push token information so we can deliver duel, challenge, and account-related notifications to your devices." },
-      { title: "Feedback and reports", body: "When you send feedback or report a problem, we store the category, message, app version, and any optional diagnostics you choose to include so we can investigate and respond." },
-      { title: "Analytics and crash data", body: "SudoDuel does not currently use a dedicated third-party analytics or crash provider in this client flow. We may store limited in-app runtime error reports such as app version, platform, screen route, and error messages through our own support backend so we can investigate crashes and broken flows. We do not intentionally include puzzle boards, passwords, auth tokens, or full push tokens in these reports." },
-      { title: "Payments and subscriptions", body: `${APP_NAME} is free during beta and does not currently process subscriptions in this release flow.` },
+      { title: "Support messages and error reports", body: "When you contact support, we store the category, message, and app version so we can investigate and respond. We may also store limited in-app runtime error reports such as platform, screen route, and error messages through our own support backend. We do not intentionally include puzzle boards, passwords, auth tokens, or full push tokens in these reports." },
+      { title: "Analytics and crash data", body: "SudoDuel does not currently use a dedicated third-party analytics or crash provider in this client flow." },
+      { title: "Payments and subscriptions", body: `${APP_NAME} does not currently offer in-app purchases or subscriptions in this release.` },
       { title: "How we use data", body: "We use stored data to run the app, save progress, calculate results, support social play, maintain leaderboards, deliver notifications, investigate issues, and keep the game fair and reliable." },
       { title: "Your choices", body: "You can update profile, avatar, privacy, and notification settings in the app. Some competitive records and result history may be retained to preserve match integrity." },
       { title: "Account deletion", body: `You can delete your account inside the app. Public profile details, active social links, push tokens, and account-linked settings are removed or anonymised. Some completed match records may be retained in minimal anonymised form so other players do not lose legitimate history.` },
@@ -154,8 +151,7 @@ export default function SettingsInfoScreen() {
             });
           },
         },
-        { label: "Report a problem", variant: "secondary", onPress: () => router.push({ pathname: "/settings-feedback", params: { category: "problem" } }) },
-        { label: "Send feedback", variant: "secondary", onPress: () => router.push({ pathname: "/settings-feedback", params: { category: "feedback" } }) },
+        { label: "Message support", variant: "secondary", onPress: () => router.push("/settings-feedback") },
         { label: "Delete account", variant: "danger", onPress: () => router.push("/settings-delete-account") },
       ];
     }

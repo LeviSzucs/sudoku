@@ -104,8 +104,8 @@ export default function SettingsDeleteAccountScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Support and feedback records</Text>
-            <Text style={styles.body}>Feedback, support requests, and device push tokens linked to this account will be removed or detached where safe.</Text>
+            <Text style={styles.sectionTitle}>Support records</Text>
+            <Text style={styles.body}>Support requests and device push tokens linked to this account will be removed or detached where safe.</Text>
           </View>
 
           <View style={styles.section}>

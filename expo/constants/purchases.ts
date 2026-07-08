@@ -18,4 +18,4 @@ export const PURCHASES_ENABLED = Platform.OS === "ios" || Platform.OS === "andro
   ? getRevenueCatApiKey().trim().length > 0
   : false;
 
-export const PURCHASES_UNAVAILABLE_MESSAGE = "Purchases are unavailable in this preview build.";
+export const PURCHASES_UNAVAILABLE_MESSAGE = "Purchases are not available in this release.";

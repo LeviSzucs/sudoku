@@ -1,5 +1,5 @@
 import { Stack, router, useLocalSearchParams } from "expo-router";
-import { Bell, Brush, ChevronLeft, Crown, Database, FlaskConical, HelpCircle, LifeBuoy, LogOut, MessageSquare, Palette, Shield, Trash2, UserRound } from "lucide-react-native";
+import { Bell, Brush, ChevronLeft, Database, FlaskConical, HelpCircle, LifeBuoy, LogOut, MessageSquare, Palette, Shield, Trash2, UserRound } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,13 +8,12 @@ import AvatarEditor from "@/components/AvatarEditor";
 import BrandMark from "@/components/BrandMark";
 import Card from "@/components/Card";
 import { formatAppVersionLabel } from "@/constants/appInfo";
-import { APP_NAME, PREMIUM_NAME } from "@/constants/branding";
+import { APP_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { buttonShadow } from "@/constants/depth";
 import { SHOW_DEVELOPER_TOOLS } from "@/constants/developer";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
-import { usePremiumStatus } from "@/hooks/usePremiumStatus";
 import { printActionAuditReport } from "@/lib/actionAudit";
 import { loadAppPreferences, saveAppPreferences, triggerHaptic, type AppPreferences } from "@/lib/appPreferences";
 import { normalizeAvatarConfig, type CharacterAvatarConfig } from "@/lib/avatar";
@@ -37,7 +36,6 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ panel?: string }>();
   const auth = useAuth();
-  const premium = usePremiumStatus();
   const profileState = usePlayerProfile();
   const {
     profile, diagnostics, updateAvatar, updateDisplayName, updateNotificationSettings, updatePrivacySettings,
@@ -166,15 +164,10 @@ export default function SettingsScreen() {
           }} last />
         </Section>
 
-        <Section title="Premium">
-          <Row icon={<Crown size={18} color={C.gold} />} title={PREMIUM_NAME} detail="Free during beta" onPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })} last />
-        </Section>
-
         <Section title="Support">
           <Row icon={<HelpCircle size={18} color={C.inkSoft} />} title="Help & FAQ" detail="Answers and gameplay basics" onPress={() => router.push({ pathname: "/settings-info", params: { page: "help" } })} />
           <Row icon={<LifeBuoy size={18} color={C.inkSoft} />} title="Contact support" detail="Email help and account requests" onPress={() => router.push({ pathname: "/settings-info", params: { page: "support" } })} />
-          <Row icon={<MessageSquare size={18} color={C.inkSoft} />} title="Send feedback" detail="Tell us what to improve" onPress={() => router.push({ pathname: "/settings-feedback", params: { category: "feedback" } })} />
-          <Row icon={<LifeBuoy size={18} color={C.inkSoft} />} title="Report a problem" detail="Bug reports and issues" onPress={() => router.push({ pathname: "/settings-feedback", params: { category: "problem" } })} last />
+          <Row icon={<MessageSquare size={18} color={C.inkSoft} />} title="Message support" detail="Send a support request" onPress={() => router.push("/settings-feedback")} last />
         </Section>
 
         <Section title="Legal">
@@ -209,7 +202,7 @@ export default function SettingsScreen() {
       </Modal>
 
       <Modal visible={panel === "avatar"} transparent animationType="fade" onRequestClose={() => setPanel(null)}>
-        <View style={styles.backdrop}><Card style={styles.modalCard}><ScrollView showsVerticalScrollIndicator={false}><Text style={styles.modalTitle}>Avatar</Text><AvatarEditor value={avatarDraft} onChange={(next) => { setAvatarDraft(next); setAvatarError(null); }} error={avatarError} hasPremiumCosmetics={premium.canUseFeature("avatar_cosmetics")} onLockedPress={() => router.push({ pathname: "/settings-info", params: { page: "premium" } })} /><Actions onCancel={() => setPanel(null)} onSave={() => { void saveAvatar(); }} saveLabel={avatarSaving ? "Saving..." : "Done"} disabled={avatarSaving} /></ScrollView></Card></View>
+        <View style={styles.backdrop}><Card style={styles.modalCard}><ScrollView showsVerticalScrollIndicator={false}><Text style={styles.modalTitle}>Avatar</Text><AvatarEditor value={avatarDraft} onChange={(next) => { setAvatarDraft(next); setAvatarError(null); }} error={avatarError} hasPremiumCosmetics onLockedPress={() => Alert.alert("Avatar", "That cosmetic is not available in this release.")} /><Actions onCancel={() => setPanel(null)} onSave={() => { void saveAvatar(); }} saveLabel={avatarSaving ? "Saving..." : "Done"} disabled={avatarSaving} /></ScrollView></Card></View>
       </Modal>
 
       <Modal visible={panel === "notifications"} transparent animationType="fade" onRequestClose={closePanel}>
