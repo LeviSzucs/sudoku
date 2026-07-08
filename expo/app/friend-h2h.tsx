@@ -94,7 +94,7 @@ export default function FriendHeadToHeadScreen() {
         ) : (
           <>
             <Card>
-              <Pressable style={styles.friendHeader} onPress={() => router.push({ pathname: "/player/[id]", params: { id: summary.friend_user_id } })}>
+              <Pressable style={styles.friendHeader} onPress={() => router.push({ pathname: "/player/[id]", params: { id: summary.friend_user_id, source: "friend_h2h" } })}>
                 <Avatar
                   initials={summary.friend_initials}
                   color={summary.friend_avatar_color}

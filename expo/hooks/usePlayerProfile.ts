@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "@/hooks/useAuth";
 import type { PuzzleResult, SessionSnapshot } from "@/hooks/useSudokuGame";
+import { validateSafeProfileName } from "@/lib/nameModeration";
 import { getDailyDateKey, getDailyDateWindow } from "@/lib/daily";
 import { logDevDiagnostic, measureAsync } from "@/lib/performanceDiagnostics";
 import { normalizeAvatarConfig, type CharacterAvatarConfig } from "@/lib/avatar";
@@ -31,6 +32,7 @@ type ClearRankedDuelResult = { ok: boolean; cleared: boolean; error?: string; st
 type SessionStatus = "in_progress" | "completed" | "failed" | "abandoned";
 type DailySessionMode = "daily" | "daily_duel";
 type UsernameAvailabilityStatus = "available" | "unavailable" | "invalid" | "error";
+type UserBlockState = { blockedByCurrentUser: boolean; blockedByOtherUser: boolean };
 
 const RESERVED_USERNAMES = new Set(["player", "admin", "support", "sudoku", "ranked", "daily", "guest"]);
 export interface PublicAvatarConfig extends CharacterAvatarConfig {
@@ -2407,6 +2409,8 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     const invalid = validateUsernameHandle(usernameInput);
     if (invalid) return invalid;
     const username = normalizeUsernameHandle(usernameInput);
+    const moderationError = validateSafeProfileName(username);
+    if (moderationError) return { username, status: "invalid", message: moderationError };
     if (!auth.user || !isSupabaseConfigured) return { username, status: "error", message: "Sign in before choosing a username." };
 
     const { data, error } = await supabase.rpc("check_username_available", { p_username: username });
@@ -2428,9 +2432,13 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     if (displayName.length < 2 || displayName.length > 30) return { ok: false, error: "Display name must be 2-30 characters." };
     const invalid = validateUsernameHandle(usernameInput);
     if (invalid) return { ok: false, error: invalid.message };
+    const displayNameModerationError = validateSafeProfileName(displayName);
+    if (displayNameModerationError) return { ok: false, error: displayNameModerationError };
     if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before setting up your profile." };
 
     const username = normalizeUsernameHandle(usernameInput);
+    const usernameModerationError = validateSafeProfileName(username);
+    if (usernameModerationError) return { ok: false, error: usernameModerationError };
     const nextInitials = initialsFromName(displayName);
     const avatarConfig = normalizeAvatarConfig({}, { initials: nextInitials, color: profile.avatar_color, symbol: profile.avatar_symbol });
     const { error } = await supabase.from("profiles").update({
@@ -3063,6 +3071,8 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     const trimmed = username.trim();
     if (trimmed.length === 0) return { ok: false, error: "Display name cannot be empty." };
     if (trimmed.length > 20) return { ok: false, error: "Display name must be 20 characters or fewer." };
+    const moderationError = validateSafeProfileName(trimmed);
+    if (moderationError) return { ok: false, error: moderationError };
     const nextInitials = initialsFromName(trimmed);
     const next = { ...profile, username: trimmed, display_name: trimmed, initials: nextInitials, avatar_initials: nextInitials };
     persist(next);
@@ -3121,6 +3131,64 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }
     return { ok: true };
   }, [auth.isGuest, auth.isSignedIn, auth.mode, auth.user, persistLocal, profile, updateDiagnostics]);
+
+  const getUserBlockState = useCallback(async (userId: string): Promise<UserBlockState> => {
+    if (!auth.user || !isSupabaseConfigured || !userId) {
+      return { blockedByCurrentUser: false, blockedByOtherUser: false };
+    }
+    const { data, error } = await supabase.rpc("get_user_block_state", { p_other_user_id: userId });
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return { blockedByCurrentUser: false, blockedByOtherUser: false };
+    }
+    const row = Array.isArray(data) ? data[0] : null;
+    return {
+      blockedByCurrentUser: row?.blocked_by_current_user === true,
+      blockedByOtherUser: row?.blocked_by_other_user === true,
+    };
+  }, [auth.user, updateDiagnostics]);
+
+  const blockUser = useCallback(async (userId: string, reason?: string): Promise<SaveResult> => {
+    if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before blocking users." };
+    const { error } = await supabase.rpc("block_user", {
+      p_blocked_user_id: userId,
+      p_reason: reason?.trim() || null,
+    });
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  }, [auth.user, updateDiagnostics]);
+
+  const unblockUser = useCallback(async (userId: string): Promise<SaveResult> => {
+    if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before unblocking users." };
+    const { error } = await supabase.rpc("unblock_user", {
+      p_blocked_user_id: userId,
+    });
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  }, [auth.user, updateDiagnostics]);
+
+  const reportUser = useCallback(async (userId: string, reason: string, details?: string, source?: string): Promise<SaveResult> => {
+    if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before reporting users." };
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) return { ok: false, error: "Choose a reason for this report." };
+    const { error } = await supabase.rpc("report_user", {
+      p_reported_user_id: userId,
+      p_reason: trimmedReason,
+      p_details: details?.trim() || null,
+      p_source: source?.trim() || null,
+    });
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  }, [auth.user, updateDiagnostics]);
 
   const updateNotificationSettings = useCallback(async (notifications: ProfileSettings["notifications"]): Promise<SaveResult> => {
     const next = normalizeProfile({ ...profile, settings: { ...profile.settings, notifications } });
@@ -3284,6 +3352,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
     fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel, cancelRankedDuel, clearStaleRankedDuel,
     fetchPublicPlayerProfile,
+    getUserBlockState, blockUser, unblockUser, reportUser,
     refreshProfile: loadBackendProfile,
     resetLocalProfile, checkUsernameAvailable, completeProfileSetup, updateDisplayName, updateAvatar, updateNotificationSettings, updatePrivacySettings,
     repairMissingProfileRows, repairCompletedSessions, testSupabaseRead, testSupabaseWrite, testDailyResultQuery, clearLastUpdate, clearLastStreakIncrease,
@@ -3296,6 +3365,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
     fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel, cancelRankedDuel, clearStaleRankedDuel,
     fetchPublicPlayerProfile,
+    getUserBlockState, blockUser, unblockUser, reportUser,
     repairCompletedSessions, repairMissingProfileRows, resetLocalProfile,
     simulateRankedLoss, simulateRankedWin, simulateResult,
     testSupabaseRead, testSupabaseWrite, testDailyResultQuery,
