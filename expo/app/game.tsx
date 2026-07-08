@@ -2,14 +2,17 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-rou
 import { useIsFocused } from "@react-navigation/native";
 import { ChevronLeft, Pause, Play as PlayIcon } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, AppState, Modal, Pressable, Share, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, AppState, Modal, Platform, Pressable, Share, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import * as Sharing from "expo-sharing";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ViewShot, { captureRef } from "react-native-view-shot";
 
 import CompletionModal from "@/components/CompletionModal";
 import GameControls from "@/components/GameControls";
 import GameStatsBar from "@/components/GameStatsBar";
 import NumberPad from "@/components/NumberPad";
 import PauseModal from "@/components/PauseModal";
+import ResultShareCard, { type ResultShareStat } from "@/components/ResultShareCard";
 import SudokuGrid from "@/components/SudokuGrid";
 import { C } from "@/constants/colors";
 import type { Difficulty } from "@/constants/mockData";
@@ -401,6 +404,7 @@ export default function GameScreen() {
   const [processedFailedSessionId, setProcessedFailedSessionId] = useState<string | null>(null);
   const [isSubmittingResult, setIsSubmittingResult] = useState<boolean>(false);
   const [isSubmittingFailedResult, setIsSubmittingFailedResult] = useState<boolean>(false);
+  const [isSharingResult, setIsSharingResult] = useState<boolean>(false);
   const [leaveOpen, setLeaveOpen] = useState<boolean>(false);
   const [rankedHintMessage, setRankedHintMessage] = useState<boolean>(false);
   const [placementPulse, setPlacementPulse] = useState<{ row: number; col: number; token: number } | null>(null);
@@ -424,6 +428,7 @@ export default function GameScreen() {
   const saveErrorRef = useRef<string | null>(null);
   const initialSessionCreatedForRef = useRef<string | null>(sessionIdParam ?? null);
   const autosaveCountRef = useRef<number>(0);
+  const shareCardRef = useRef<ViewShot | null>(null);
 
   useEffect(() => {
     logDevDiagnostic("GameScreen mount", {
@@ -748,6 +753,53 @@ export default function GameScreen() {
     : undefined;
   const completionNeedsResolvedOutcome = effectiveMode === "friend_challenge" || effectiveMode === "ranked" || effectiveMode === "ranked_duel";
   const completionCelebrationReady = !completionNeedsResolvedOutcome || Boolean(challengeOutcome?.isResolved) || !!officialSubmitError;
+  const officialRecentResult = completionSummary?.updatedProfile.recent_results?.[0];
+  const resultShareTitle = useMemo(() => {
+    if (challengeOutcome?.title) return challengeOutcome.title;
+    if (game.mistakes === 0 && game.hintsUsed === 0) return "Flawless";
+    return "Completed";
+  }, [challengeOutcome?.title, game.hintsUsed, game.mistakes]);
+  const resultShareSubtitle = useMemo(() => {
+    if (challengeOutcome?.subtitle) return challengeOutcome.subtitle;
+    if (effectiveMode === "ranked" || effectiveMode === "ranked_duel") return "Competitive Sudoku result";
+    if (effectiveMode === "friend_challenge") return "Head-to-head Sudoku result";
+    return "Sudoku result";
+  }, [challengeOutcome?.subtitle, effectiveMode]);
+  const resultSharePrimaryStats = useMemo<ResultShareStat[]>(() => ([
+    { label: "Time", value: formatTime(game.seconds) },
+    { label: "Mistakes", value: String(game.mistakes) },
+    { label: "Hints", value: String(game.hintsUsed) },
+    { label: "Score", value: (officialScore ?? game.score).toLocaleString() },
+  ]), [game.hintsUsed, game.mistakes, game.score, game.seconds, officialScore]);
+  const resultShareSecondaryStats = useMemo<ResultShareStat[]>(() => {
+    const stats: ResultShareStat[] = [];
+    if (completionSummary?.xpEarned) {
+      stats.push({ label: "XP", value: `+${completionSummary.xpEarned}` });
+    }
+    if (typeof officialRecentResult?.rp_change === "number" && (effectiveMode === "ranked" || effectiveMode === "ranked_duel")) {
+      stats.push({ label: "RP", value: `${officialRecentResult.rp_change >= 0 ? "+" : ""}${officialRecentResult.rp_change}` });
+    }
+    if (game.undoCount > 0) {
+      stats.push({ label: "Undos", value: String(game.undoCount) });
+    }
+    return stats;
+  }, [completionSummary?.xpEarned, effectiveMode, game.undoCount, officialRecentResult?.rp_change]);
+  const shareText = useMemo(() => {
+    const parts = [
+      `${MODE_LABEL[effectiveMode]} ${game.difficulty}`,
+      formatTime(game.seconds),
+      `${game.mistakes} mistakes`,
+      `${game.hintsUsed} hints`,
+      `${(officialScore ?? game.score).toLocaleString()} score`,
+    ];
+    if (typeof officialRecentResult?.rp_change === "number" && (effectiveMode === "ranked" || effectiveMode === "ranked_duel")) {
+      parts.push(`${officialRecentResult.rp_change >= 0 ? "+" : ""}${officialRecentResult.rp_change} RP`);
+    }
+    if (completionSummary?.xpEarned) {
+      parts.push(`+${completionSummary.xpEarned} XP`);
+    }
+    return `${resultShareTitle} in ${parts.join(" · ")}. Play SudoDuel.`;
+  }, [completionSummary?.xpEarned, effectiveMode, game.difficulty, game.hintsUsed, game.mistakes, game.score, game.seconds, officialRecentResult?.rp_change, officialScore, resultShareTitle]);
   const completionCelebrationKey = game.result
     ? [
         MODE_LABEL[effectiveMode],
@@ -1127,11 +1179,51 @@ export default function GameScreen() {
   }, [auth.isSignedIn, auth.user?.id, cleanupCompletedSession, effectiveMode, game.difficulty, game.puzzleId, game.result?.puzzle_id, router, startPuzzleSession]);
 
   const handleShareResult = useCallback(() => {
-    const text = `${MODE_LABEL[effectiveMode]} ${game.difficulty}: ${formatTime(game.seconds)}, ${game.mistakes} mistakes, ${game.score.toLocaleString()} score.`;
-    void Share.share({ message: text }).catch(() => {
-      Alert.alert("Share result", "Sharing is unavailable on this device.");
-    });
-  }, [effectiveMode, game.difficulty, game.mistakes, game.score, game.seconds]);
+    const fallbackToText = () => {
+      void Share.share({ message: shareText }).catch(() => {
+        Alert.alert("Share result", "Sharing is unavailable on this device.");
+      });
+    };
+
+    void (async () => {
+      if (isSharingResult) return;
+      setIsSharingResult(true);
+      try {
+        if (Platform.OS === "web" || !shareCardRef.current) {
+          fallbackToText();
+          return;
+        }
+
+        const sharingAvailable = await Sharing.isAvailableAsync();
+        if (!sharingAvailable) {
+          fallbackToText();
+          return;
+        }
+
+        const uri = await captureRef(shareCardRef.current, {
+          format: "png",
+          quality: 1,
+          result: "tmpfile",
+          width: 1080,
+          height: 1080,
+        });
+
+        await Sharing.shareAsync(uri, {
+          mimeType: "image/png",
+          dialogTitle: "Share result",
+        });
+      } catch (error: unknown) {
+        logDevDiagnostic("result share fallback", {
+          mode: effectiveMode,
+          difficulty: game.difficulty,
+          error: error instanceof Error ? error.message : "Unknown share error",
+        });
+        fallbackToText();
+      } finally {
+        setIsSharingResult(false);
+      }
+    })();
+  }, [effectiveMode, game.difficulty, isSharingResult, shareText]);
 
   useEffect(() => {
     return () => cancelPendingSave();
@@ -1372,6 +1464,20 @@ export default function GameScreen() {
         outcomeTitle={challengeOutcome?.title ?? null}
         outcomeSubtitle={challengeOutcome?.subtitle ?? null}
       />
+
+      <View pointerEvents="none" style={styles.hiddenShareCard}>
+        <ViewShot ref={shareCardRef} options={{ format: "png", quality: 1, result: "tmpfile" }}>
+          <ResultShareCard
+            modeLabel={MODE_LABEL[effectiveMode]}
+            difficulty={game.difficulty}
+            title={resultShareTitle}
+            subtitle={resultShareSubtitle}
+            dateLabel={dateLabel}
+            primaryStats={resultSharePrimaryStats}
+            secondaryStats={resultShareSecondaryStats}
+          />
+        </ViewShot>
+      </View>
     </View>
   );
 }
@@ -1531,5 +1637,10 @@ const styles = StyleSheet.create({
     color: "#FBF8F2",
     fontSize: 12,
     fontWeight: "700",
+  },
+  hiddenShareCard: {
+    position: "absolute",
+    left: -9999,
+    top: -9999,
   },
 });

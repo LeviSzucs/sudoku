@@ -99,6 +99,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Pause/resume works if present.
 - [ ] Completion saves an official result.
 - [ ] Failed/abandoned result behavior is correct.
+- [ ] Share Result exports a branded result image on iPhone when sharing is available.
+- [ ] If image sharing is unavailable or fails, Share Result falls back to the plain-text share sheet.
 - [ ] Start Classic puzzle, enter a few numbers, leave and return: Continue appears and resumes the exact puzzle/session.
 - [ ] Complete Classic puzzle: Continue disappears.
 - [ ] Complete an Easy Classic puzzle, then check Medium: Medium must not show an older Continue puzzle.
@@ -143,6 +145,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Recent Matches outcome matches the duel outcome, not just puzzle solved status.
 - [ ] Result appears in Results History.
 - [ ] No Premium blocking.
+- [ ] Daily Duel Share Result uses the branded result card and does not crash.
 
 ## F. Friend Challenge
 
@@ -174,6 +177,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Completed challenge card shows correct winner/draw.
 - [ ] Both failed shows Draw.
 - [ ] No stuck states.
+- [ ] Friend Challenge Share Result uses the branded result card and includes the resolved duel outcome when available.
 
 ## G. Ranked Duel
 
@@ -214,6 +218,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] A stale or corrupt ranked session does not remain playable from Versus after the app refreshes the active match.
 - [ ] Ranked and Daily Duel cards show the opponent's real rank when it exists, and only show Unranked when no rank data exists.
 - [ ] No Premium blocking.
+- [ ] Ranked Duel Share Result uses the branded result card and includes RP change when relevant.
 
 ## H. Ranks / Leaderboards
 
