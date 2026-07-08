@@ -45,7 +45,7 @@ class BoundaryInner extends React.Component<BoundaryInnerProps, BoundaryInnerSta
           <Text style={styles.eyebrow}>ERROR</Text>
           <Text style={styles.title}>Something went wrong</Text>
           <Text style={styles.body}>
-            {APP_NAME} hit a runtime error and returned to a safe state. If this happens again, please use Settings and then Report a problem.
+            {APP_NAME} hit a runtime error and returned to a safe state. If this happens again, please open Settings and contact support.
           </Text>
           <Pressable
             style={styles.primary}

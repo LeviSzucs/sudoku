@@ -96,7 +96,7 @@ export default function AvatarEditor({ value, onChange, error, hasPremiumCosmeti
 
       <Text style={styles.futureNote}>
         {FREE_FIRST_LAUNCH_MODE
-          ? "SudoDuel is in free-first launch mode, so current avatar customisation stays open while more supporter cosmetics take shape."
+          ? "Current avatar customisation is available in this release."
           : "Locked cosmetics preview future rewards and Premium items."}
       </Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}

@@ -1,7 +1,7 @@
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { ChevronLeft, LifeBuoy, MessageSquare } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Card from "@/components/Card";
@@ -16,8 +16,8 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 type FeedbackCategory = "general_feedback" | "bug_report" | "account_issue" | "gameplay_issue" | "ranked_duel_issue" | "privacy_data_request" | "account_deletion" | "other";
 
 const CATEGORY_OPTIONS: { value: FeedbackCategory; label: string }[] = [
-  { value: "general_feedback", label: "General feedback" },
-  { value: "bug_report", label: "Bug report" },
+  { value: "general_feedback", label: "General support" },
+  { value: "bug_report", label: "App issue" },
   { value: "account_issue", label: "Account issue" },
   { value: "gameplay_issue", label: "Gameplay issue" },
   { value: "ranked_duel_issue", label: "Ranked Duel issue" },
@@ -42,29 +42,23 @@ export default function SettingsFeedbackScreen() {
   const [selectedCategory, setSelectedCategory] = useState<FeedbackCategory>(() => getCategory(params.category));
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [sent, setSent] = useState<boolean>(false);
-  const [includeDiagnostics, setIncludeDiagnostics] = useState<boolean>(isProblemReport || getCategory(params.category) === "account_deletion");
   const isDeletionRequest = selectedCategory === "account_deletion";
-  const title = isDeletionRequest ? "Delete account help" : isProblemReport ? "Report a problem" : "Send feedback";
+  const title = isDeletionRequest ? "Delete account help" : "Contact support";
   const helper = isDeletionRequest
     ? "Use this if the in-app deletion flow fails or you need help before deleting your account."
-    : isProblemReport ? "Describe what went wrong and what you were doing." : "Tell us what would make SudoDuel better.";
-  const Icon = isProblemReport ? LifeBuoy : MessageSquare;
+    : isProblemReport ? "Describe what went wrong and what you were doing." : "Send a message and we will review it as soon as we can.";
+  const Icon = isProblemReport || isDeletionRequest ? LifeBuoy : MessageSquare;
   const canSubmit = message.trim().length >= 3 && !isSubmitting;
 
   const appVersion = useMemo(() => APP_VERSION, []);
-  const platform = useMemo(() => Platform.OS, []);
-  const submissionMessage = useMemo(() => {
-    const trimmed = message.trim();
-    if (!includeDiagnostics) return trimmed;
-    return `${trimmed}\n\n---\nApp version: ${appVersion}\nPlatform: ${platform}`;
-  }, [appVersion, includeDiagnostics, message, platform]);
+  const submissionMessage = useMemo(() => message.trim(), [message]);
 
   const submit = async () => {
     if (!canSubmit) return;
     setIsSubmitting(true);
     try {
       if (!auth.user || !isSupabaseConfigured) {
-        Alert.alert(title, "Feedback capture is available after sign in.");
+        Alert.alert(title, "Support messaging is available after sign in.");
         return;
       }
       const { error } = await supabase.from("feedback").insert({
@@ -101,13 +95,13 @@ export default function SettingsFeedbackScreen() {
 
         {sent ? (
           <Card style={{ marginTop: 18 }}>
-            <Text style={styles.successTitle}>Thanks - your feedback has been sent.</Text>
-            <Text style={styles.successBody}>We saved your message for the {APP_NAME} team. For account, privacy, or data requests, you can also contact {SUPPORT_EMAIL_LABEL}.</Text>
+            <Text style={styles.successTitle}>Thanks - your message has been sent.</Text>
+            <Text style={styles.successBody}>We saved your support request for the {APP_NAME} team. For account, privacy, or data requests, you can also contact {SUPPORT_EMAIL_LABEL}.</Text>
             <Pressable
               onPress={() => {
                 void openSupportEmail({
                   subject: `${APP_NAME} support follow-up`,
-                  body: "Hi SudoDuel,\n\nI am following up on a feedback or support request.\n\n",
+                  body: "Hi SudoDuel,\n\nI am following up on a support request.\n\n",
                 }).then((result) => {
                   if (!result.ok) Alert.alert("Support", result.error);
                 });
@@ -136,29 +130,17 @@ export default function SettingsFeedbackScreen() {
               onChangeText={setMessage}
               multiline
               textAlignVertical="top"
-              placeholder={`Share details for the ${APP_NAME} team`}
+              placeholder={`Share the details for the ${APP_NAME} team`}
               placeholderTextColor={C.mutedSoft}
               style={styles.input}
             />
             <Text style={styles.messageHint}>Write at least 3 characters to enable Send.</Text>
-            <View style={styles.toggleRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.toggleTitle}>Include app diagnostics</Text>
-                <Text style={styles.toggleBody}>Adds the app version and platform to help support reproduce the issue.</Text>
-              </View>
-              <Switch
-                value={includeDiagnostics}
-                onValueChange={setIncludeDiagnostics}
-                trackColor={{ false: C.border, true: C.accentSoft }}
-                thumbColor={includeDiagnostics ? C.accent : C.mutedSoft}
-              />
-            </View>
-            <Text style={styles.helper}>For account, privacy, or deletion help, include the email or username tied to your account.</Text>
+            <Text style={styles.helper}>For account, privacy, or deletion help, include the email or username tied to your account. We automatically attach the app version for support.</Text>
             <Pressable
               onPress={() => {
                 void openSupportEmail({
-                  subject: `${APP_NAME} ${isDeletionRequest ? "account request" : isProblemReport ? "bug report" : "feedback"}`,
-                  body: message.trim() || `Hi SudoDuel,\n\nI need help with ${isDeletionRequest ? "deleting my account" : isProblemReport ? "a problem in the app" : "feedback about the app"}.\n\n`,
+                  subject: `${APP_NAME} ${isDeletionRequest ? "account request" : "support request"}`,
+                  body: message.trim() || `Hi SudoDuel,\n\nI need help with ${isDeletionRequest ? "deleting my account" : "something in the app"}.\n\n`,
                 }).then((result) => {
                   if (!result.ok) Alert.alert("Support", result.error);
                 });
@@ -194,9 +176,6 @@ const styles = StyleSheet.create({
   input: { minHeight: 160, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 14, color: C.ink, fontSize: 15, fontWeight: "700" },
   messageHint: { color: C.muted, fontSize: 12, fontWeight: "700", marginTop: 8 },
   helper: { color: C.muted, fontSize: 12, fontWeight: "700", marginTop: 8 },
-  toggleRow: { flexDirection: "row", gap: 12, alignItems: "center", marginTop: 14, padding: 14, borderRadius: 16, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border },
-  toggleTitle: { color: C.ink, fontSize: 13, fontWeight: "900" },
-  toggleBody: { color: C.muted, fontSize: 12, fontWeight: "700", lineHeight: 17, marginTop: 4 },
   successTitle: { color: C.ink, fontSize: 20, fontWeight: "900" },
   successBody: { color: C.muted, fontSize: 14, fontWeight: "700", lineHeight: 20, marginTop: 8 },
   secondary: { borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, borderRadius: 16, paddingVertical: 14, alignItems: "center", marginTop: 16 },

@@ -296,18 +296,17 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Deleted accounts no longer appear in friend search, public profiles, or active challenge cards.
 - [ ] A freshly deleted email can create a new account again afterward.
 - [ ] Confirm on the live Supabase project that `auth.admin.updateUserById` frees the original email immediately enough for same-session recreation.
-- [ ] Feedback opens.
-- [ ] Report a problem opens.
 - [ ] Contact Support opens.
 - [ ] Contact Support shows `sudoduel@gmail.com`.
 - [ ] Contact Support can open the device mail app or shows a safe fallback message.
-- [ ] Submitting feedback creates a Supabase row.
-- [ ] Feedback prevents empty submissions.
-- [ ] Feedback can optionally include app diagnostics.
+- [ ] Message support opens.
+- [ ] Sending a support message creates a Supabase row.
+- [ ] Support message form prevents empty submissions.
+- [ ] Support message UI does not mention beta testing, TestFlight, feedback collection, or bug-report tooling.
 - [ ] A reproduced signed-in runtime crash or React render failure creates an automatic `bug_report` feedback row.
 - [ ] Help & FAQ opens.
 - [ ] Support opens.
-- [ ] Premium opens.
+- [ ] Premium is hidden from normal production navigation.
 - [ ] Terms of Use opens.
 - [ ] Privacy Policy opens.
 - [ ] Logout works.
@@ -389,7 +388,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 ## L. Premium Foundation
 
 - [ ] Premium screen shows Current plan: Free.
-- [ ] Premium screen clearly says the app is free during beta.
+- [ ] The production build does not expose a Premium screen from normal navigation while monetisation is inactive.
 - [ ] Premium screen uses clean placeholder copy and does not push users into an inactive purchase flow.
 - [ ] Fairness note is visible.
 - [ ] All Classic difficulties, including Expert and Master, are free.
@@ -425,8 +424,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Friend Challenge limits and ad-free behaviour can still be retested later if monetisation rules change after launch learning.
 - [ ] Solo screen does not show an overflowing or cramped Premium promo card at the bottom.
 - [ ] Premium promo copy does not imply paid gameplay advantages or paywalled Classic difficulties.
-- [ ] Premium screen does not show broken subscribe buttons, fake prices, or dead-end purchase UI during beta.
-- [ ] Premium architecture remains easy to re-enable later without affecting current free-beta players.
+- [ ] Premium architecture remains easy to re-enable later without affecting current release players.
 
 ## M. Results / History / Stats
 
@@ -466,7 +464,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Modals fit smaller iPhones.
 - [ ] Keyboard does not block key forms.
 - [ ] Dark cards/buttons are readable.
-- [ ] Premium/settings/legal screens are not obvious placeholders except where intentionally coming soon.
+- [ ] Settings and legal screens read as complete production surfaces with no beta, preview, or coming-soon wording.
 - [ ] Settings has no hardcoded or decorative footer copy such as build markers or "Made with care".
 - [ ] App version display is dynamic or hidden from normal users.
 - [ ] Terms of Use has no version, build, or developer subheader text.
@@ -507,7 +505,6 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Account deletion is handled as a verified request flow unless a full self-service delete has been explicitly implemented and tested.
 - [ ] Premium copy does not imply active payments.
 - [ ] Premium copy does not imply Expert/Master are paywalled.
-- [ ] Ad copy says ads are planned/coming soon if no real ad SDK is active.
 - [ ] App privacy disclosures must be updated before enabling a real ad SDK or tracking.
 - [ ] TestFlight review notes mention Premium/payments only once the purchase flow exists.
 - [ ] Demo/test account details are prepared before external TestFlight review.
@@ -532,8 +529,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 8. Ranked full match if two accounts are available.
 9. Profile/stats/results.
 10. Avatar save.
-11. Feedback submission.
-12. Premium screen.
+11. Support message submission.
+12. Contact Support / legal screens.
 13. Logout/login.
 
 ## Supabase QA SQL Appendix
@@ -551,7 +548,7 @@ from public.profiles
 where id = '6c90ea5a-ac2b-4660-accd-b03c2a35ebf0';
 ```
 
-### Latest Feedback Rows
+### Latest Support Message Rows
 
 ```sql
 select id, user_id, category, status, left(message, 120) as message_preview, created_at
