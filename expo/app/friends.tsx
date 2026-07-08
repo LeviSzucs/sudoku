@@ -221,10 +221,10 @@ export default function FriendsScreen() {
     });
   }, []);
 
-  const openPlayerProfile = useCallback((userId: string) => {
+  const openPlayerProfile = useCallback((userId: string, profileSource: string) => {
     router.push({
       pathname: "/player/[id]",
-      params: { id: userId },
+      params: { id: userId, source: profileSource },
     });
   }, []);
 
@@ -317,7 +317,7 @@ export default function FriendsScreen() {
                 action={statusText(user.relationship_status)}
                 working={workingId === user.user_id}
                 onPress={user.relationship_status === "none" ? () => addFriend(user) : undefined}
-                onProfile={() => openPlayerProfile(user.user_id)}
+                onProfile={() => openPlayerProfile(user.user_id, "search")}
               />
               ))}
             </Card>
@@ -341,7 +341,7 @@ export default function FriendsScreen() {
                 working={workingId === request.request_id}
                 onAccept={() => respond(request, "accepted")}
                 onDecline={() => respond(request, "declined")}
-                onProfile={() => openPlayerProfile(request.user_id)}
+                onProfile={() => openPlayerProfile(request.user_id, "friend_request")}
               />
             ))}
           </Card>
@@ -361,7 +361,7 @@ export default function FriendsScreen() {
                 challengeWorking={workingId === `challenge:${friend.user_id}`}
                 onChallenge={() => openChallengeModal(friend)}
                 onHistory={() => openHistory(friend)}
-                onProfile={() => openPlayerProfile(friend.user_id)}
+                onProfile={() => openPlayerProfile(friend.user_id, "friend")}
               />
             ))}
           </Card>
@@ -381,7 +381,7 @@ export default function FriendsScreen() {
                 working={workingId === challenge.challenge_id}
                 onAccept={() => acceptChallenge(challenge)}
                 onDecline={() => declineChallenge(challenge)}
-                onProfile={() => openPlayerProfile(challenge.friend_user_id)}
+                onProfile={() => openPlayerProfile(challenge.friend_user_id, "friend_challenge")}
               />
             ))}
           </Card>
@@ -401,7 +401,7 @@ export default function FriendsScreen() {
                 working={workingId === challenge.challenge_id}
                 onPlay={challenge.current_user_session_id && challenge.status !== "pending" && !currentUserCompletedChallenge(challenge, auth.user?.id ?? null) ? () => playChallenge(challenge) : undefined}
                 onCancel={challenge.direction === "outgoing" && ["pending", "accepted"].includes(challenge.status) ? () => cancelChallenge(challenge) : undefined}
-                onProfile={() => openPlayerProfile(challenge.friend_user_id)}
+                onProfile={() => openPlayerProfile(challenge.friend_user_id, "friend_challenge")}
               />
             ))}
           </Card>
@@ -419,7 +419,7 @@ export default function FriendsScreen() {
                 last={index === friends.length - 1}
                 action="Friends"
                 onHistory={() => openHistory(friend)}
-                onProfile={() => openPlayerProfile(friend.user_id)}
+                onProfile={() => openPlayerProfile(friend.user_id, "friend")}
               />
             ))}
           </Card>
@@ -436,7 +436,7 @@ export default function FriendsScreen() {
                 challenge={challenge}
                 currentUserId={auth.user?.id ?? null}
                 last={index === completedChallenges.length - 1}
-                onProfile={() => openPlayerProfile(challenge.friend_user_id)}
+                onProfile={() => openPlayerProfile(challenge.friend_user_id, "friend_challenge")}
               />
             ))}
           </Card>

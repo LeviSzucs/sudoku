@@ -252,6 +252,25 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Public profile shows rank/stats only when the player's privacy settings allow them.
 - [ ] Public profile hides recent results when the player has disabled public recent results.
 - [ ] Public profile shows a calm private-state message when `public_profile` is off.
+- [ ] Public profile shows Report user and Block user actions for other players.
+- [ ] Reporting a player succeeds and shows a calm confirmation message.
+- [ ] Blocking a player changes the profile state to User blocked.
+- [ ] Unblocking a player restores the normal profile state.
+
+## I2. Social Safety
+
+- [ ] User can report another user from their public profile.
+- [ ] User can block another user from their public profile.
+- [ ] A blocked user no longer appears in friend search results.
+- [ ] A blocked user cannot send a friend request.
+- [ ] A blocked user cannot receive a friend request from the blocker.
+- [ ] A blocked user cannot send a Friend Challenge.
+- [ ] A blocked user cannot receive a Friend Challenge from the blocker.
+- [ ] Blocking removes or hides existing friendship and active Friend Challenge state after refresh.
+- [ ] Unblocking restores the ability to send friend requests and Friend Challenges.
+- [ ] Offensive display names are rejected during profile setup.
+- [ ] Offensive display names are rejected during profile edits.
+- [ ] Existing notifications, Solo, and Ranked flows still work after block/report testing.
 
 ## J. Avatar Builder
 

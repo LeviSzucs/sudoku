@@ -222,7 +222,7 @@ export default function VersusScreen() {
 
   const openPlayerProfile = useCallback((userId: string | null | undefined) => {
     if (!userId) return;
-    router.push({ pathname: "/player/[id]", params: { id: userId } });
+    router.push({ pathname: "/player/[id]", params: { id: userId, source: "versus" } });
   }, [router]);
 
   const duelResults = profile.recent_results.filter(

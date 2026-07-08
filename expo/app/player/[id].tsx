@@ -1,13 +1,15 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, Shield, Trophy } from "lucide-react-native";
+import { ArrowLeft, Flag, Shield, Trophy } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
 import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
+import { SUPPORT_EMAIL_LABEL } from "@/constants/legal";
+import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile, type PublicPlayerProfilePage, type PublicPlayerRecentResult } from "@/hooks/usePlayerProfile";
 import { formatTime } from "@/lib/sudoku";
 
@@ -57,11 +59,20 @@ function goBackSafely() {
 }
 
 export default function PublicPlayerProfileScreen() {
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, source } = useLocalSearchParams<{ id?: string; source?: string }>();
   const insets = useSafeAreaInsets();
-  const { fetchPublicPlayerProfile } = usePlayerProfile();
+  const auth = useAuth();
+  const { fetchPublicPlayerProfile, getUserBlockState, blockUser, unblockUser, reportUser } = usePlayerProfile();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<PublicPlayerProfilePage>({ profile: null, recent_results: [] });
+  const [blockLoading, setBlockLoading] = useState(false);
+  const [blockState, setBlockState] = useState({ blockedByCurrentUser: false, blockedByOtherUser: false });
+  const [reportVisible, setReportVisible] = useState(false);
+  const [reportReason, setReportReason] = useState("Offensive username/display name");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reportSaving, setReportSaving] = useState(false);
+
+  const isOwnProfile = Boolean(auth.user?.id && id && auth.user.id === id);
 
   useEffect(() => {
     let active = true;
@@ -88,13 +99,87 @@ export default function PublicPlayerProfileScreen() {
     };
   }, [fetchPublicPlayerProfile, id]);
 
+  useEffect(() => {
+    let active = true;
+
+    async function loadBlockState() {
+      if (!isUuid(id) || isOwnProfile || !auth.user) {
+        if (active) setBlockState({ blockedByCurrentUser: false, blockedByOtherUser: false });
+        return;
+      }
+      const next = await getUserBlockState(id);
+      if (active) setBlockState(next);
+    }
+
+    void loadBlockState();
+    return () => {
+      active = false;
+    };
+  }, [auth.user, getUserBlockState, id, isOwnProfile]);
+
   const profile = data.profile;
   const isPrivate = profile ? !profile.public_profile : false;
-  const showStats = Boolean(profile?.public_profile && profile.show_stats_publicly);
-  const showRecentResults = Boolean(profile?.public_profile && profile.show_recent_results_publicly);
+  const socialDisabled = blockState.blockedByCurrentUser || blockState.blockedByOtherUser;
+  const showStats = Boolean(profile?.public_profile && profile.show_stats_publicly && !socialDisabled);
+  const showRecentResults = Boolean(profile?.public_profile && profile.show_recent_results_publicly && !socialDisabled);
   const profileName = profile?.display_name ?? profile?.username ?? "Player";
   const bestTime = useMemo(() => fastestClassicTime(profile), [profile]);
   const duelWinRate = useMemo(() => winRate(profile), [profile]);
+
+  const handleBlockToggle = async () => {
+    if (!isUuid(id) || isOwnProfile || blockLoading) return;
+    if (blockState.blockedByCurrentUser) {
+      setBlockLoading(true);
+      const result = await unblockUser(id);
+      setBlockLoading(false);
+      if (!result.ok) {
+        Alert.alert("Unblock user", result.error ?? "Could not unblock this user.");
+        return;
+      }
+      setBlockState((current) => ({ ...current, blockedByCurrentUser: false }));
+      Alert.alert("User unblocked", "Friend requests and challenges can be used again.");
+      return;
+    }
+
+    Alert.alert(
+      "Block user?",
+      "Blocked users cannot send you friend requests or challenges.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Block user",
+          style: "destructive",
+          onPress: () => {
+            setBlockLoading(true);
+            void blockUser(id).then((result) => {
+              setBlockLoading(false);
+              if (!result.ok) {
+                Alert.alert("Block user", result.error ?? "Could not block this user.");
+                return;
+              }
+              setBlockState((current) => ({ ...current, blockedByCurrentUser: true }));
+              Alert.alert("User blocked", "This player can no longer send you friend requests or challenges.");
+            });
+          },
+        },
+      ],
+    );
+  };
+
+  const submitReport = async () => {
+    if (!isUuid(id) || isOwnProfile || reportSaving) return;
+    setReportSaving(true);
+    const result = await reportUser(id, reportReason, reportDetails, typeof source === "string" ? source : "profile");
+    setReportSaving(false);
+    if (!result.ok) {
+      Alert.alert("Report user", result.error ?? "Could not submit this report.");
+      return;
+    }
+    setReportVisible(false);
+    setReportReason("Offensive username/display name");
+    setReportDetails("");
+    Alert.alert("Report sent", "Thanks - we'll review this report.");
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -148,6 +233,36 @@ export default function PublicPlayerProfileScreen() {
                     <Text style={styles.privateText}>Only limited public identity details are available for this player.</Text>
                   </View>
                 ) : null}
+                {!isOwnProfile ? (
+                  <View style={styles.safetyCard}>
+                    {blockState.blockedByCurrentUser ? (
+                      <Text style={styles.safetyTitle}>User blocked</Text>
+                    ) : blockState.blockedByOtherUser ? (
+                      <Text style={styles.safetyTitle}>Profile unavailable for social actions</Text>
+                    ) : (
+                      <Text style={styles.safetyTitle}>Safety tools</Text>
+                    )}
+                    <Text style={styles.safetyText}>
+                      {blockState.blockedByCurrentUser
+                        ? "Blocked users cannot send you friend requests or challenges."
+                        : blockState.blockedByOtherUser
+                          ? "This player is not currently available for friend requests or challenges."
+                          : "You can report or block this player if something feels off."}
+                    </Text>
+                    <View style={styles.actionRow}>
+                      <Pressable style={[styles.actionButton, styles.secondaryAction, blockLoading && styles.disabledAction]} onPress={() => setReportVisible(true)} disabled={blockLoading}>
+                        <Flag size={14} color={C.ink} />
+                        <Text style={styles.secondaryActionText}>Report</Text>
+                      </Pressable>
+                      <Pressable style={[styles.actionButton, blockState.blockedByCurrentUser ? styles.secondaryAction : styles.primaryAction, blockLoading && styles.disabledAction]} onPress={() => { void handleBlockToggle(); }} disabled={blockLoading}>
+                        <Shield size={14} color={blockState.blockedByCurrentUser ? C.ink : C.card} />
+                        <Text style={blockState.blockedByCurrentUser ? styles.secondaryActionText : styles.primaryActionText}>
+                          {blockLoading ? "Working..." : blockState.blockedByCurrentUser ? "Unblock user" : "Block user"}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : null}
               </View>
             </Card>
 
@@ -187,6 +302,49 @@ export default function PublicPlayerProfileScreen() {
           </>
         )}
       </ScrollView>
+
+      <Modal visible={reportVisible} transparent animationType="fade" onRequestClose={() => setReportVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <Card style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Report user</Text>
+            <Text style={styles.modalBody}>Choose the closest reason. You can add more detail if it helps.</Text>
+            <View style={styles.reasonList}>
+              {[
+                "Offensive username/display name",
+                "Harassment or bullying",
+                "Cheating or suspicious behaviour",
+                "Spam",
+                "Other",
+              ].map((reason) => {
+                const selected = reportReason === reason;
+                return (
+                  <Pressable key={reason} style={[styles.reasonButton, selected && styles.reasonButtonSelected]} onPress={() => setReportReason(reason)}>
+                    <Text style={[styles.reasonButtonText, selected && styles.reasonButtonTextSelected]}>{reason}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <TextInput
+              value={reportDetails}
+              onChangeText={setReportDetails}
+              multiline
+              maxLength={240}
+              placeholder="Optional details"
+              placeholderTextColor={C.mutedSoft}
+              style={styles.detailsInput}
+            />
+            <Text style={styles.modalHelper}>Support contact: {SUPPORT_EMAIL_LABEL}</Text>
+            <View style={styles.modalActions}>
+              <Pressable style={[styles.actionButton, styles.secondaryAction]} onPress={() => setReportVisible(false)} disabled={reportSaving}>
+                <Text style={styles.secondaryActionText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={[styles.actionButton, styles.primaryAction, reportSaving && styles.disabledAction]} onPress={() => { void submitReport(); }} disabled={reportSaving}>
+                <Text style={styles.primaryActionText}>{reportSaving ? "Sending..." : "Send report"}</Text>
+              </Pressable>
+            </View>
+          </Card>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -232,6 +390,16 @@ const styles = StyleSheet.create({
   privateBanner: { width: "100%", borderRadius: 16, borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, padding: 14, marginTop: 8 },
   privateTitle: { color: C.ink, fontSize: 15, fontWeight: "900", textAlign: "center" },
   privateText: { color: C.muted, fontWeight: "700", textAlign: "center", marginTop: 4, lineHeight: 18 },
+  safetyCard: { width: "100%", borderRadius: 16, borderWidth: 1, borderColor: C.border, backgroundColor: C.bgElevated, padding: 14, marginTop: 12, gap: 10 },
+  safetyTitle: { color: C.ink, fontSize: 15, fontWeight: "900", textAlign: "center" },
+  safetyText: { color: C.muted, fontWeight: "700", textAlign: "center", lineHeight: 18 },
+  actionRow: { flexDirection: "row", gap: 10 },
+  actionButton: { flex: 1, minHeight: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 6, paddingHorizontal: 14 },
+  primaryAction: { backgroundColor: C.ink },
+  secondaryAction: { backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
+  primaryActionText: { color: C.card, fontWeight: "900", fontSize: 14 },
+  secondaryActionText: { color: C.ink, fontWeight: "900", fontSize: 14 },
+  disabledAction: { opacity: 0.6 },
   section: { marginTop: 22 },
   statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   metricCard: { width: "47.5%", minHeight: 98, justifyContent: "center" },
@@ -247,4 +415,16 @@ const styles = StyleSheet.create({
   resultSub: { color: C.muted, fontSize: 12, fontWeight: "700", marginTop: 4 },
   resultScore: { color: C.ink, fontWeight: "900", fontSize: 16 },
   resultMeta: { color: C.muted, fontWeight: "800", fontSize: 12, marginTop: 4 },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(17,15,12,0.42)", justifyContent: "center", padding: 20 },
+  modalCard: { gap: 12 },
+  modalTitle: { color: C.ink, fontSize: 20, fontWeight: "900" },
+  modalBody: { color: C.muted, fontWeight: "700", lineHeight: 20 },
+  reasonList: { gap: 8 },
+  reasonButton: { borderRadius: 14, borderWidth: 1, borderColor: C.border, backgroundColor: C.card, paddingHorizontal: 14, paddingVertical: 12 },
+  reasonButtonSelected: { borderColor: C.accent, backgroundColor: C.accentSoft },
+  reasonButtonText: { color: C.ink, fontWeight: "800" },
+  reasonButtonTextSelected: { color: C.accent, fontWeight: "900" },
+  detailsInput: { minHeight: 96, borderRadius: 14, borderWidth: 1, borderColor: C.border, backgroundColor: C.card, color: C.ink, paddingHorizontal: 14, paddingVertical: 12, textAlignVertical: "top" },
+  modalHelper: { color: C.muted, fontSize: 12, fontWeight: "700", lineHeight: 18 },
+  modalActions: { flexDirection: "row", gap: 10, marginTop: 4 },
 });

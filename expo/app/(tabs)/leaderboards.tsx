@@ -206,7 +206,7 @@ export default function LeaderboardsScreen() {
   })();
 
   const openPlayerProfile = (userId: string) => {
-    router.push({ pathname: "/player/[id]", params: { id: userId } });
+    router.push({ pathname: "/player/[id]", params: { id: userId, source: "leaderboard" } });
   };
 
   const emptyAction = (() => {
