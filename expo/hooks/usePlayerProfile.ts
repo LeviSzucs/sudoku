@@ -1091,16 +1091,13 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     next.duels_played = next.duel_match_history.length;
     next.duels_won = next.duel_match_history.filter((match) => match.result_outcome === "win").length;
     next.last_completed_date = solvedResults.find((result) => result.mode === "daily")?.completed_at?.slice(0, 10) ?? next.last_completed_date;
-    const { data: activeSeason, error: activeSeasonError } = await supabase
-      .from("ranked_seasons")
-      .select("season_id")
-      .eq("status", "active")
-      .order("starts_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { data: activeSeasonData, error: activeSeasonError } = await supabase
+      .rpc("current_ranked_season_info");
     if (activeSeasonError) {
       updateDiagnostics({ lastError: activeSeasonError.message });
-    } else if (activeSeason?.season_id) {
+    } else {
+      const activeSeason = Array.isArray(activeSeasonData) ? activeSeasonData[0] as { season_id?: string | null } | undefined : undefined;
+      if (activeSeason?.season_id) {
       const { data: rankedProfileRow, error: rankedProfileError } = await supabase
         .from("ranked_profiles")
         .select("rp,current_tier,matches_played,wins")
@@ -1112,6 +1109,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
       } else if (rankedProfileRow) {
         Object.assign(next, applyRankedProfileSource(next, rankedProfileRow));
       }
+    }
     }
     const progressByBadgeId = new Map(((userAchievements ?? []) as UserAchievementRow[]).map((row) => [row.badge_id, row]));
     next.badges_unlocked = ((achievements ?? []) as AchievementRow[]).map((achievement) => achievementFromBackend(achievement, progressByBadgeId.get(achievement.badge_id)));
@@ -2840,7 +2838,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     return {
       ranked_duel_id: row.ranked_duel_id,
       season_id: row.season_id ?? "",
-      season_name: row.season_name ?? "Season 1",
+      season_name: row.season_name ?? "Season",
       season_ends_at: row.season_ends_at ?? null,
       status: row.status ?? "waiting_for_opponent",
       puzzle_id: row.puzzle_id ?? "",

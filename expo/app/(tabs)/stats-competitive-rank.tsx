@@ -78,13 +78,10 @@ export default function CompetitiveRankScreen() {
         setIsLoadingDetail(false);
         return;
       }
-      const { data: season } = await supabase
-        .from("ranked_seasons")
-        .select("season_id,name,ends_at")
-        .eq("status", "active")
-        .order("starts_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const { data: seasonRows } = await supabase.rpc("current_ranked_season_info");
+      const season = Array.isArray(seasonRows)
+        ? (seasonRows[0] as { season_id?: string | null; season_name?: string | null; ends_at?: string | null } | undefined)
+        : undefined;
       if (!active) return;
       if (!season?.season_id) {
         setDetail(null);
@@ -99,7 +96,7 @@ export default function CompetitiveRankScreen() {
         .maybeSingle();
       if (!active) return;
       setDetail({
-        seasonName: season.name ?? "Season",
+        seasonName: season.season_name ?? "Season",
         seasonEndsAt: season.ends_at ?? null,
         peakRp: Number(rankedProfile?.peak_rp ?? profile.rank_points),
         matchesPlayed: Number(rankedProfile?.matches_played ?? profile.ranked_played),
