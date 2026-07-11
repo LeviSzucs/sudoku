@@ -9,13 +9,14 @@ import {
   Zap,
 } from "lucide-react-native";
 import React, { useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Card from "@/components/Card";
 import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
 import { buttonShadow, cardShadow, premiumShadow } from "@/constants/depth";
+import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import type { GameMode } from "@/hooks/useSudokuGame";
@@ -52,6 +53,7 @@ function isContinueSessionMode(mode: string): boolean {
 
 export default function PlayHubScreen() {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const router = useRouter();
   const auth = useAuth();
   const { profile, activeSessions, classicContinueSession, closeSessionForPuzzle, getInProgressClassicSession, startPuzzleSession, getInProgressDailySession, getCompletedDailyResult } = usePlayerProfile();
@@ -241,6 +243,8 @@ export default function PlayHubScreen() {
 
   const today = new Date();
   const dateStr = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  const isTablet = isTabletWidth(width);
+  const shellMaxWidth = getCenteredContentMaxWidth(width, isTablet ? 860 : 520);
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -252,6 +256,7 @@ export default function PlayHubScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
+        <View style={[styles.shell, { maxWidth: shellMaxWidth }]}>
         <Text style={styles.kicker}>PUZZLE HUB</Text>
         <Text style={styles.title}>Play</Text>
 
@@ -310,9 +315,10 @@ export default function PlayHubScreen() {
         {/* Classic by difficulty */}
         <View style={{ marginTop: 24 }}>
           <SectionHeader title="Classic puzzle" />
-          <View style={{ gap: 10 }}>
+          <View style={[styles.classicGrid, isTablet && styles.classicGridTablet]}>
             {DIFFICULTIES.map((d) => (
-              <Card key={d.key} onPress={() => void startClassic(d.key)}>
+              <View key={d.key} style={[styles.classicCardWrap, isTablet && styles.classicCardWrapTablet]}>
+              <Card onPress={() => void startClassic(d.key)}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
                   <View
                     style={[
@@ -352,6 +358,7 @@ export default function PlayHubScreen() {
                   <ChevronRight color={C.mutedSoft} size={20} />
                 </View>
               </Card>
+              </View>
             ))}
           </View>
         </View>
@@ -419,6 +426,7 @@ export default function PlayHubScreen() {
             </View>
           </Card>
         </View>
+        </View>
 
       </ScrollView>
       <ClassicSessionChoiceModal
@@ -468,6 +476,10 @@ function ClassicSessionChoiceModal({
 }
 
 const styles = StyleSheet.create({
+  shell: {
+    width: "100%",
+    alignSelf: "center",
+  },
   kicker: {
     fontSize: 11,
     color: C.muted,
@@ -564,6 +576,19 @@ const styles = StyleSheet.create({
     ...buttonShadow,
   },
   heroCTAText: { color: C.ink, fontWeight: "700", fontSize: 14 },
+  classicGrid: {
+    gap: 10,
+  },
+  classicGridTablet: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  classicCardWrap: {
+    width: "100%",
+  },
+  classicCardWrapTablet: {
+    width: "48.8%",
+  },
   statsRow: { flexDirection: "row", alignItems: "center" },
   statCell: { flex: 1, alignItems: "center", gap: 4 },
   statDivider: { width: 1, height: 32, backgroundColor: C.border },

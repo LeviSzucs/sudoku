@@ -3,7 +3,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { ChevronRight, Clock, Swords, UserPlus, Zap } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/components/Avatar";
@@ -13,6 +13,7 @@ import Pill from "@/components/Pill";
 import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
 import { buttonShadow, premiumShadow } from "@/constants/depth";
+import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import { usePlayerProfile, type DailyDuelEntry, type RankedDuelEntry } from "@/hooks/usePlayerProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { getDailyDateKey } from "@/lib/daily";
@@ -210,6 +211,7 @@ function getRankedDuelCopyV2(duel: RankedDuelEntry | null, currentUserId: string
 
 export default function VersusScreen() {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const router = useRouter();
   const { profile, fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel, cancelRankedDuel } = usePlayerProfile();
   const auth = useAuth();
@@ -263,6 +265,8 @@ export default function VersusScreen() {
   const dailyDuelOutcome = useMemo(() => getDailyDuelOutcome(dailyDuel, auth.user?.id ?? null), [auth.user?.id, dailyDuel]);
   const rankedDuelCopy = useMemo(() => getRankedDuelCopyV2(rankedDuel, auth.user?.id ?? null, latestRankedDuel), [auth.user?.id, latestRankedDuel, rankedDuel]);
   const rankedDuelOutcome = useMemo(() => getRankedDuelOutcome(rankedDuel, auth.user?.id ?? null), [auth.user?.id, rankedDuel]);
+  const isTablet = isTabletWidth(width);
+  const shellMaxWidth = getCenteredContentMaxWidth(width, isTablet ? 920 : 520);
 
   const openDailyDuelGame = useCallback((duel: DailyDuelEntry) => {
     if (!duel.session_id) {
@@ -421,6 +425,7 @@ export default function VersusScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
+        <View style={[styles.shell, { maxWidth: shellMaxWidth }]}>
         <Text style={styles.kicker}>HEAD TO HEAD</Text>
         <Text style={styles.title}>Versus</Text>
         <Text style={styles.subtitle}>One attempt. Highest score wins.</Text>
@@ -656,6 +661,7 @@ export default function VersusScreen() {
             })
           )}
         </View>
+        </View>
       </ScrollView>
     </View>
   );
@@ -722,6 +728,10 @@ function DuelResultRow({ result, outcomeOverride }: { result: RecentResult; outc
 }
 
 const styles = StyleSheet.create({
+  shell: {
+    width: "100%",
+    alignSelf: "center",
+  },
   kicker: {
     fontSize: 11,
     color: C.muted,

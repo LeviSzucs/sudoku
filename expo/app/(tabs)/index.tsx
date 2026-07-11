@@ -8,7 +8,7 @@ import {
   Trophy,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/components/Avatar";
@@ -18,6 +18,7 @@ import SectionHeader from "@/components/SectionHeader";
 import StreakFlame from "@/components/StreakFlame";
 import { C } from "@/constants/colors";
 import { buttonShadow, premiumShadow } from "@/constants/depth";
+import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { getDailyDateKey } from "@/lib/daily";
@@ -36,6 +37,7 @@ function isContinueSessionMode(mode: string): boolean {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const router = useRouter();
   const { profile, activeSessions, classicContinueSession, startPuzzleSession, getInProgressDailySession, getCompletedDailyResult, lastStreakIncreaseKey, clearLastStreakIncrease } = usePlayerProfile();
   const auth = useAuth();
@@ -155,6 +157,8 @@ export default function HomeScreen() {
 
   const streak = profile.current_streak;
   const streakDots = Math.min(streak, 7);
+  const isTablet = isTabletWidth(width);
+  const shellMaxWidth = getCenteredContentMaxWidth(width, isTablet ? 860 : 480);
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -166,6 +170,7 @@ export default function HomeScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
+        <View style={[styles.shell, { maxWidth: shellMaxWidth }]}>
         {/* Greeting */}
         <View style={styles.greetingRow}>
           <View style={{ flex: 1 }}>
@@ -321,6 +326,7 @@ export default function HomeScreen() {
             </View>
           </Card>
         ) : null}
+        </View>
 
       </ScrollView>
     </View>
@@ -355,6 +361,10 @@ function MiniGrid() {
 }
 
 const styles = StyleSheet.create({
+  shell: {
+    width: "100%",
+    alignSelf: "center",
+  },
   greetingRow: {
     flexDirection: "row",
     alignItems: "center",

@@ -2,13 +2,14 @@ import { useFocusEffect } from "@react-navigation/native";
 import { router } from "expo-router";
 import { ChevronRight, Flame, Lock, Settings as SettingsIcon, Shield, Target, Timer, Trophy, Users } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
 import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
+import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { getLevelFromXp, getRankFromRp, RANKS, type AchievementBadge } from "@/lib/playerProfile";
 import { formatTime } from "@/lib/sudoku";
@@ -42,6 +43,7 @@ function formatSignedRp(value: number | null | undefined): string {
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const { profile, fetchFriends, refreshProfile } = usePlayerProfile();
   const [selectedBadge, setSelectedBadge] = useState<AchievementBadge | null>(null);
   const [friendsCount, setFriendsCount] = useState<number | null>(null);
@@ -64,6 +66,8 @@ export default function ProfileScreen() {
     const milestones = profile.badges_unlocked.filter((b) => ["puzzle_10", "streak_7", "gold_mind"].includes(b.badge_id));
     return Array.from(new Map([...recent, ...close, ...milestones].map((b) => [b.badge_id, b])).values()).slice(0, 8);
   }, [profile.badges_unlocked, unlocked]);
+  const isTablet = isTabletWidth(width);
+  const shellMaxWidth = getCenteredContentMaxWidth(width, isTablet ? 820 : 520);
 
   useEffect(() => {
     let mounted = true;
@@ -78,6 +82,7 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 118, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
+        <View style={[styles.shell, { maxWidth: shellMaxWidth }]}>
         <View style={styles.headerRow}>
           <Text style={styles.kicker}>PROFILE</Text>
           <Pressable onPress={() => router.push("/settings")} hitSlop={10}>
@@ -175,6 +180,7 @@ export default function ProfileScreen() {
             <ChevronRight color={C.accent} size={18} />
           </Pressable>
         </View>
+        </View>
 
       </ScrollView>
       <BadgeModal badge={selectedBadge} onClose={() => setSelectedBadge(null)} />
@@ -251,6 +257,7 @@ function StatCard({ icon, tone, label, value, sub, onPress }: { icon: React.Reac
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
+  shell: { width: "100%", alignSelf: "center" },
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18, paddingTop: 12 },
   kicker: { fontSize: 11, color: C.muted, fontWeight: "700", letterSpacing: 1.6 },
   avatarBlock: { alignItems: "center", marginBottom: 18 },

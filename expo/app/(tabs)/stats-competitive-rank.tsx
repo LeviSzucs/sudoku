@@ -2,11 +2,12 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Stack, router } from "expo-router";
 import { ChevronLeft } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Card from "@/components/Card";
 import { C } from "@/constants/colors";
+import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { getRankFromRp, RANKS, type RecentResult } from "@/lib/playerProfile";
@@ -52,6 +53,7 @@ function outcomeText(result: RecentResult): string {
 
 export default function CompetitiveRankScreen() {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const auth = useAuth();
   const { profile, fetchCurrentRankedSeasonInfo } = usePlayerProfile();
   const [detail, setDetail] = useState<RankedDetail | null>(null);
@@ -76,6 +78,8 @@ export default function CompetitiveRankScreen() {
   const losses = isLoadingDetail ? 0 : detail?.losses ?? Math.max(0, matchesPlayed - wins);
   const draws = isLoadingDetail ? 0 : detail?.draws ?? 0;
   const winRate = matchesPlayed > 0 ? Math.round((wins / matchesPlayed) * 100) : 0;
+  const isTablet = isTabletWidth(width);
+  const shellMaxWidth = getCenteredContentMaxWidth(width, isTablet ? 820 : 560);
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -147,6 +151,7 @@ export default function CompetitiveRankScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 28 }} showsVerticalScrollIndicator={false}>
+        <View style={[styles.shell, { maxWidth: shellMaxWidth }]}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.replace("/(tabs)/profile")}>
             <ChevronLeft size={20} color={C.ink} />
@@ -205,6 +210,7 @@ export default function CompetitiveRankScreen() {
             )}
           </Card>
         </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -221,6 +227,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
+  shell: { width: "100%", alignSelf: "center" },
   header: { flexDirection: "row", alignItems: "center", gap: 12 },
   backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
   kicker: { fontSize: 11, color: C.muted, fontWeight: "800", letterSpacing: 1.5 },

@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Check, History, Play, Search, Swords, UserPlus, Users, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/components/Avatar";
@@ -9,6 +9,7 @@ import Card from "@/components/Card";
 import SectionHeader from "@/components/SectionHeader";
 import { APP_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
+import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import { canCreateFriendChallenge } from "@/constants/premium";
 import type { Difficulty } from "@/constants/mockData";
 import { useAuth } from "@/hooks/useAuth";
@@ -48,6 +49,7 @@ export default function FriendsScreen() {
   const screenMode = params.mode === "challenge" ? "challenge" : "manage";
   const isChallengeMode = screenMode === "challenge";
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const auth = useAuth();
   const premium = usePremiumStatus();
   const {
@@ -249,10 +251,13 @@ export default function FriendsScreen() {
       Alert.alert("Share invite", "Sharing is unavailable on this device.");
     });
   }, [profile.username_handle]);
+  const isTablet = isTabletWidth(width);
+  const shellMaxWidth = getCenteredContentMaxWidth(width, isTablet ? 900 : 560);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
+        <View style={[styles.shell, { maxWidth: shellMaxWidth }]}>
         <View style={styles.headerRow}>
           <Pressable onPress={() => router.replace(isChallengeMode || params.source === "versus" ? "/(tabs)/versus" : "/(tabs)/profile")} hitSlop={10} style={styles.iconButton}>
             <ArrowLeft size={20} color={C.ink} />
@@ -442,9 +447,10 @@ export default function FriendsScreen() {
           </Card>
         </View>
         ) : null}
+        </View>
       </ScrollView>
 
-      <Modal visible={isChallengeMode && Boolean(challengeTarget)} transparent animationType="fade" onRequestClose={() => setChallengeTarget(null)}>
+        <Modal visible={isChallengeMode && Boolean(challengeTarget)} transparent animationType="fade" onRequestClose={() => setChallengeTarget(null)}>
         <View style={styles.backdrop}>
           <Card style={styles.modalCard}>
             <Text style={styles.modalTitle}>Friend Challenge</Text>
@@ -655,6 +661,7 @@ function ResultMini({ label, score, seconds, mistakes, hints, undos }: { label: 
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
+  shell: { width: "100%", alignSelf: "center" },
   headerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 18, paddingTop: 12 },
   iconButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
   kicker: { fontSize: 11, color: C.muted, fontWeight: "700", letterSpacing: 1.6 },

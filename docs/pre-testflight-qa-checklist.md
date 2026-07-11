@@ -318,6 +318,26 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Privacy toggles do not error.
 - [ ] App settings/toggles persist as expected.
 - [ ] Sound setting is hidden until bundled sound effects ship.
+
+## K2. iPad / Tablet Polish
+
+- [ ] `ios.supportsTablet` is enabled for the build being tested.
+- [ ] iPhone layout still looks normal after the tablet pass.
+- [ ] iPad portrait looks intentional rather than like a stretched phone layout.
+- [ ] iPad landscape does not break Home, Solo, Versus, Profile, Leaderboards, Friends, or Settings.
+- [ ] Home uses a readable centered layout on iPad and does not leave giant stretched cards.
+- [ ] Solo / Play hub uses the extra width cleanly and classic difficulty cards remain easy to scan.
+- [ ] Game screen keeps the Sudoku board centered with a sensible maximum size on iPad portrait.
+- [ ] Game screen keeps the Sudoku board playable in iPad landscape without oversized gaps or cramped controls.
+- [ ] Number pad and action buttons remain comfortable to tap on iPad portrait and landscape.
+- [ ] Ranked season recap / new-season modal scales cleanly on iPad and does not look tiny or awkwardly wide.
+- [ ] Competitive Rank still shows only current-season results after the tablet layout changes.
+- [ ] Record clean iPad footage for Home.
+- [ ] Record clean iPad footage for a Solo puzzle.
+- [ ] Record clean iPad footage for Ranked showing the current season banner.
+- [ ] Record clean iPad footage for the season recap or intro if available.
+- [ ] Record clean iPad footage for Profile / Competitive Rank.
+- [ ] Record clean iPad footage for a Friend Challenge flow if safe test data is available.
 - [ ] Haptics setting persists and controls number-entry, mistake, completion, and result haptics.
 - [ ] Appearance is not shown as fake placeholder functionality.
 - [ ] Delete account entry is present.

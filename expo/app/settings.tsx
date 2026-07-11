@@ -1,7 +1,7 @@
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { Bell, Brush, ChevronLeft, Database, FlaskConical, HelpCircle, LifeBuoy, LogOut, MessageSquare, Palette, Shield, Trash2, UserRound } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import AvatarEditor from "@/components/AvatarEditor";
@@ -12,6 +12,7 @@ import { APP_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
 import { buttonShadow } from "@/constants/depth";
 import { SHOW_DEVELOPER_TOOLS } from "@/constants/developer";
+import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { printActionAuditReport } from "@/lib/actionAudit";
@@ -34,6 +35,7 @@ function avatarDraftFromProfile(profile: PlayerProfile): AvatarDraft {
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const params = useLocalSearchParams<{ panel?: string }>();
   const auth = useAuth();
   const profileState = usePlayerProfile();
@@ -55,6 +57,8 @@ export default function SettingsScreen() {
   const [appPreferences, setAppPreferences] = useState<AppPreferences>({ soundEnabled: true, hapticsEnabled: true });
   const dailyDiagnostics = diagnostics.daily;
   const developerToolsEnabled = SHOW_DEVELOPER_TOOLS && profile.settings.devMode;
+  const isTablet = isTabletWidth(width);
+  const shellMaxWidth = getCenteredContentMaxWidth(width, isTablet ? 760 : 560);
 
   useEffect(() => { if (params.panel) setPanel(params.panel); }, [params.panel]);
   useEffect(() => {
@@ -136,6 +140,7 @@ export default function SettingsScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 32 }} showsVerticalScrollIndicator={false}>
+        <View style={[styles.shell, { maxWidth: shellMaxWidth }]}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.replace("/(tabs)/profile")}>
             <ChevronLeft size={20} color={C.ink} />
@@ -195,6 +200,7 @@ export default function SettingsScreen() {
             </View>
           </View>
         ) : null}
+        </View>
       </ScrollView>
 
       <Modal visible={panel === "display"} transparent animationType="fade" onRequestClose={() => setPanel(null)}>
@@ -252,6 +258,7 @@ function Diagnostic({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
+  shell: { width: "100%", alignSelf: "center" },
   header: { flexDirection: "row", alignItems: "center", gap: 12 },
   backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center", ...buttonShadow },
   title: { fontSize: 30, fontWeight: "800", color: C.ink, letterSpacing: -0.7 },
