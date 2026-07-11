@@ -17,6 +17,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 ## Production SQL Readiness
 
 - [ ] Production Supabase includes the ranked result core dependencies listed in [ranked-result-sql-readiness.md](C:/Users/LeviS/Documents/Codex/2026-05-30/github-plugin-github-openai-curated-can/sudoku-onboarding-empty-state/docs/ranked-result-sql-readiness.md) before testing Ranked Duel saves.
+- [ ] Production Supabase includes the ranked season rollover foundation in [ranked-season-foundation.md](ranked-season-foundation.md) before testing a real season rollover or recap eligibility.
 
 ## A. App Launch And Auth
 
@@ -178,6 +179,11 @@ Use this checklist before TestFlight builds and before adding another major feat
 
 ## G. Ranked Duel
 
+- [ ] The current active ranked season uses the correct sequential name, e.g. `Season 2`, not a reset `Season 1`.
+- [ ] Manual verification queries confirm `ranked_seasons.season_number` is sequential and unique.
+- [ ] Manual verification queries confirm there is only one active ranked season.
+- [ ] Manual verification queries confirm completed seasons create one `ranked_season_results` snapshot row per eligible user without duplicates.
+- [ ] Manual verification queries confirm the latest unseen recap RPC returns only the authenticated user's own season snapshot.
 - [ ] Find match works.
 - [ ] Ranked Duel opens a fresh puzzle without staying indefinitely on `Loading puzzle…`.
 - [ ] If a Ranked Duel puzzle/session cannot be restored, the app clears it safely and shows a recoverable Back to Versus path.
