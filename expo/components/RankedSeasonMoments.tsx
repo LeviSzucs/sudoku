@@ -1,8 +1,9 @@
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import React from "react";
 
 import Card from "@/components/Card";
 import { C } from "@/constants/colors";
+import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import type { RankedSeasonInfo, RankedSeasonRecap } from "@/hooks/usePlayerProfile";
 
 type Phase = "recap" | "intro";
@@ -62,6 +63,9 @@ export default function RankedSeasonMoments({
   onShare,
   onClose,
 }: Props) {
+  const { width } = useWindowDimensions();
+  const isTablet = isTabletWidth(width);
+  const shellMaxWidth = getCenteredContentMaxWidth(width, isTablet ? 620 : 460);
   const isRecap = phase === "recap";
   const seasonName = isRecap ? recap?.season_name ?? "Season" : currentSeason?.season_name ?? "Season";
   const seasonNumber = isRecap ? recap?.season_number ?? null : currentSeason?.season_number ?? null;
@@ -75,7 +79,7 @@ export default function RankedSeasonMoments({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <Card style={styles.shell}>
+        <Card style={[styles.shell, { maxWidth: shellMaxWidth, padding: isTablet ? 28 : 22 }]}>
           {isRecap ? (
             <>
               <Text style={styles.kicker}>SEASON COMPLETE</Text>
@@ -103,12 +107,24 @@ export default function RankedSeasonMoments({
               </View>
 
               <View style={styles.statsGrid}>
-                <Stat label="Matches" value={`${matchesPlayed}`} />
-                <Stat label="Record" value={`${wins}-${losses}-${draws}`} />
-                <Stat label="Win rate" value={formatWinRate(wins, matchesPlayed)} />
-                <Stat label="Best streak" value={`${recap?.best_win_streak ?? 0}`} />
-                <Stat label="Finish" value={recap?.final_rank_position ? `#${recap.final_rank_position}` : "Unplaced"} />
-                <Stat label="Standing" value={topPercent ?? (recap?.total_ranked_players ? `${recap.total_ranked_players} players` : "Season complete")} />
+                <View style={[styles.statCell, isTablet && styles.statCellTablet]}>
+                  <Stat label="Matches" value={`${matchesPlayed}`} />
+                </View>
+                <View style={[styles.statCell, isTablet && styles.statCellTablet]}>
+                  <Stat label="Record" value={`${wins}-${losses}-${draws}`} />
+                </View>
+                <View style={[styles.statCell, isTablet && styles.statCellTablet]}>
+                  <Stat label="Win rate" value={formatWinRate(wins, matchesPlayed)} />
+                </View>
+                <View style={[styles.statCell, isTablet && styles.statCellTablet]}>
+                  <Stat label="Best streak" value={`${recap?.best_win_streak ?? 0}`} />
+                </View>
+                <View style={[styles.statCell, isTablet && styles.statCellTablet]}>
+                  <Stat label="Finish" value={recap?.final_rank_position ? `#${recap.final_rank_position}` : "Unplaced"} />
+                </View>
+                <View style={[styles.statCell, isTablet && styles.statCellTablet]}>
+                  <Stat label="Standing" value={topPercent ?? (recap?.total_ranked_players ? `${recap.total_ranked_players} players` : "Season complete")} />
+                </View>
               </View>
 
               <View style={styles.buttonRow}>
@@ -237,9 +253,14 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 16,
   },
-  stat: {
+  statCell: {
     flexBasis: "48%",
     flexGrow: 1,
+  },
+  statCellTablet: {
+    flexBasis: "31%",
+  },
+  stat: {
     backgroundColor: C.bgElevated,
     borderRadius: 18,
     borderWidth: 1,

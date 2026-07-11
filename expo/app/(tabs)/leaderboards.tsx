@@ -1,12 +1,13 @@
 import { useRouter } from "expo-router";
 import { Crown, Trophy } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
 import { C } from "@/constants/colors";
+import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile, type PublicAvatarConfig } from "@/hooks/usePlayerProfile";
 import { getDailyDateKey } from "@/lib/daily";
@@ -46,6 +47,7 @@ function secondsToTime(totalSeconds: number): string {
 
 export default function LeaderboardsScreen() {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("daily");
   const auth = useAuth();
@@ -218,9 +220,12 @@ export default function LeaderboardsScreen() {
     }
     return { label: "Open Versus", onPress: () => router.push("/versus") };
   })();
+  const isTablet = isTabletWidth(width);
+  const shellMaxWidth = getCenteredContentMaxWidth(width, isTablet ? 920 : 560);
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <View style={[styles.shell, { maxWidth: shellMaxWidth }]}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.kicker}>RANKINGS</Text>
         <Text style={styles.title}>Leaderboards</Text>
@@ -388,11 +393,17 @@ export default function LeaderboardsScreen() {
           </>
         )}
       </ScrollView>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  shell: {
+    width: "100%",
+    alignSelf: "center",
+    flex: 1,
+  },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 8,

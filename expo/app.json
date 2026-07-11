@@ -14,7 +14,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "bundleIdentifier": "com.leviszucs.sudoduel",
       "usesAppleSignIn": true,
       "infoPlist": {

@@ -12,6 +12,7 @@ import NumberPad from "@/components/NumberPad";
 import PauseModal from "@/components/PauseModal";
 import SudokuGrid from "@/components/SudokuGrid";
 import { C } from "@/constants/colors";
+import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import type { Difficulty } from "@/constants/mockData";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
@@ -715,10 +716,18 @@ export default function GameScreen() {
     closeAllAndBack();
   }, [cancelPendingSave, game.completed, game.gameOver, saveSession, closeAllAndBack]);
 
+  const isTablet = isTabletWidth(width);
+  const isLandscape = width > height;
+  const gameShellMaxWidth = getCenteredContentMaxWidth(width, isTablet ? 1100 : 430);
+  const usesSplitGameLayout = isTablet && isLandscape;
+  const controlColumnWidth = usesSplitGameLayout ? Math.min(360, Math.max(300, Math.floor(gameShellMaxWidth * 0.34))) : gameShellMaxWidth;
   const reserved = 50 + 58 + 60 + 168 + 40 + insets.top + Math.max(insets.bottom, 12);
+  const boardMaxWidth = usesSplitGameLayout
+    ? gameShellMaxWidth - controlColumnWidth - 24
+    : Math.min(gameShellMaxWidth, isTablet ? 620 : width - 16);
   const boardSize = Math.max(
-    224,
-    Math.min(width - 16, Math.floor(height - reserved))
+    usesSplitGameLayout ? 320 : 224,
+    Math.min(boardMaxWidth, Math.floor(height - reserved))
   );
 
   const dateLabel = useMemo(() => {
@@ -1183,7 +1192,8 @@ export default function GameScreen() {
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={[styles.topBar, { paddingTop: insets.top + 4 }]}>
+      <View style={[styles.gameShell, { maxWidth: gameShellMaxWidth }]}>
+        <View style={[styles.topBar, { paddingTop: insets.top + 4 }]}>
         <Pressable hitSlop={10} onPress={onBackPress} style={styles.topBtn}>
           <ChevronLeft color={C.ink} size={26} />
         </Pressable>
@@ -1208,7 +1218,9 @@ export default function GameScreen() {
         seconds={game.seconds}
       />
 
-      <View style={styles.boardWrap}>
+        <View style={[styles.gameBody, usesSplitGameLayout && styles.gameBodySplit]}>
+          <View style={styles.boardColumn}>
+            <View style={styles.boardWrap}>
         <View style={{ position: "relative" }}>
           <SudokuGrid
             initial={game.initial}
@@ -1231,41 +1243,40 @@ export default function GameScreen() {
             </View>
           ) : null}
         </View>
-      </View>
-
-      <View style={{ marginTop: 10 }}>
-        <GameControls
-          notesMode={game.notesMode}
-          hintAllowed={game.hintAllowed}
-          hintsUsed={game.hintsUsed}
-          onUndo={game.undo}
-          onErase={game.erase}
-          onToggleNotes={game.toggleNotes}
-          onHint={handleHint}
-        />
-      </View>
-
-      {rankedHintMessage ? (
-        <View style={styles.hintToast}>
-          <Text style={styles.hintToastText}>Hints are disabled in Ranked.</Text>
         </View>
-      ) : null}
+      </View>
 
-      <View
-        style={{
-          paddingHorizontal: 8,
-          marginTop: 10,
-          marginBottom: Math.max(12, insets.bottom + 4),
-        }}
-      >
-        <NumberPad
-          onPressNumber={(n) => {
-            game.enterNumber(n);
-          }}
-          counts={game.counts}
-          disabled={game.paused || game.completed || game.gameOver}
-          highlighted={selectedValue !== 0 ? selectedValue : undefined}
-        />
+          <View style={[styles.controlsColumn, usesSplitGameLayout && { width: controlColumnWidth }]}>
+            <View style={styles.controlsWrap}>
+              <GameControls
+                notesMode={game.notesMode}
+                hintAllowed={game.hintAllowed}
+                hintsUsed={game.hintsUsed}
+                onUndo={game.undo}
+                onErase={game.erase}
+                onToggleNotes={game.toggleNotes}
+                onHint={handleHint}
+              />
+            </View>
+
+            {rankedHintMessage ? (
+              <View style={styles.hintToast}>
+                <Text style={styles.hintToastText}>Hints are disabled in Ranked.</Text>
+              </View>
+            ) : null}
+
+            <View style={[styles.numberPadWrap, { marginBottom: Math.max(12, insets.bottom + 4) }]}>
+              <NumberPad
+                onPressNumber={(n) => {
+                  game.enterNumber(n);
+                }}
+                counts={game.counts}
+                disabled={game.paused || game.completed || game.gameOver}
+                highlighted={selectedValue !== 0 ? selectedValue : undefined}
+              />
+            </View>
+          </View>
+        </View>
       </View>
 
       <PauseModal
@@ -1480,6 +1491,11 @@ const leaveStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
+  gameShell: {
+    width: "100%",
+    alignSelf: "center",
+    flex: 1,
+  },
   topBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -1503,6 +1519,29 @@ const styles = StyleSheet.create({
   },
   boardWrap: {
     alignItems: "center",
+    marginTop: 10,
+  },
+  gameBody: {
+    flex: 1,
+  },
+  gameBodySplit: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 24,
+  },
+  boardColumn: {
+    flex: 1,
+    alignItems: "center",
+  },
+  controlsColumn: {
+    width: "100%",
+  },
+  controlsWrap: {
+    marginTop: 10,
+  },
+  numberPadWrap: {
+    paddingHorizontal: 8,
     marginTop: 10,
   },
   pauseOverlay: {
