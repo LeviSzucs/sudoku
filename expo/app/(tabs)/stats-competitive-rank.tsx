@@ -14,6 +14,7 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { formatTime } from "@/lib/sudoku";
 
 interface RankedDetail {
+  seasonNumber: number | null;
   seasonName: string;
   seasonEndsAt: string | null;
   peakRp: number;
@@ -52,16 +53,23 @@ function outcomeText(result: RecentResult): string {
 export default function CompetitiveRankScreen() {
   const insets = useSafeAreaInsets();
   const auth = useAuth();
-  const { profile } = usePlayerProfile();
+  const { profile, fetchCurrentRankedSeasonInfo } = usePlayerProfile();
   const [detail, setDetail] = useState<RankedDetail | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState<boolean>(true);
+  const [currentSeasonResultIds, setCurrentSeasonResultIds] = useState<string[]>([]);
 
   const rank = getRankFromRp(profile.rank_points);
   const nextRank = rank.nextMin !== null ? RANKS.find((entry) => entry.min === rank.nextMin) : null;
   const rankProgress = rank.nextMin === null ? 1 : (profile.rank_points - rank.currentMin) / (rank.nextMin - rank.currentMin);
   const rankedResults = useMemo(
-    () => profile.recent_results.filter((result) => result.mode === "ranked" || result.mode === "ranked_duel").slice(0, 5),
-    [profile.recent_results]
+    () => {
+      if (currentSeasonResultIds.length === 0) return [];
+      const allowedIds = new Set(currentSeasonResultIds);
+      return profile.recent_results
+        .filter((result) => result.result_id && allowedIds.has(result.result_id) && (result.mode === "ranked" || result.mode === "ranked_duel"))
+        .slice(0, 5);
+    },
+    [currentSeasonResultIds, profile.recent_results]
   );
   const matchesPlayed = isLoadingDetail ? 0 : detail?.matchesPlayed ?? profile.ranked_played;
   const wins = isLoadingDetail ? 0 : detail?.wins ?? profile.ranked_won;
@@ -75,28 +83,47 @@ export default function CompetitiveRankScreen() {
       setIsLoadingDetail(true);
       if (!auth.user || !isSupabaseConfigured) {
         setDetail(null);
+        setCurrentSeasonResultIds([]);
         setIsLoadingDetail(false);
         return;
       }
-      const { data: seasonRows } = await supabase.rpc("current_ranked_season_info");
-      const season = Array.isArray(seasonRows)
-        ? (seasonRows[0] as { season_id?: string | null; season_name?: string | null; ends_at?: string | null } | undefined)
-        : undefined;
+      const season = await fetchCurrentRankedSeasonInfo();
       if (!active) return;
-      if (!season?.season_id) {
+      if (!season) {
         setDetail(null);
+        setCurrentSeasonResultIds([]);
         setIsLoadingDetail(false);
         return;
       }
-      const { data: rankedProfile } = await supabase
-        .from("ranked_profiles")
-        .select("peak_rp,matches_played,wins,losses,draws")
-        .eq("user_id", auth.user.id)
-        .eq("season_id", season.season_id)
-        .maybeSingle();
+      const [{ data: rankedProfile }, { data: rankedDuels }] = await Promise.all([
+        supabase
+          .from("ranked_profiles")
+          .select("peak_rp,matches_played,wins,losses,draws")
+          .eq("user_id", auth.user.id)
+          .eq("season_id", season.season_id)
+          .maybeSingle(),
+        supabase
+          .from("ranked_duels")
+          .select("player_a_id,player_b_id,player_a_result_id,player_b_result_id,completed_at")
+          .eq("season_id", season.season_id)
+          .eq("status", "completed")
+          .or(`player_a_id.eq.${auth.user.id},player_b_id.eq.${auth.user.id}`)
+          .order("completed_at", { ascending: false })
+          .limit(25),
+      ]);
       if (!active) return;
+      const resultIds = ((rankedDuels ?? []) as Array<{
+        player_a_id?: string | null;
+        player_b_id?: string | null;
+        player_a_result_id?: string | null;
+        player_b_result_id?: string | null;
+      }>)
+        .map((row) => row.player_a_id === auth.user.id ? row.player_a_result_id : row.player_b_result_id)
+        .filter((resultId): resultId is string => Boolean(resultId));
+
       setDetail({
-        seasonName: season.season_name ?? "Season",
+        seasonNumber: season.season_number ?? null,
+        seasonName: season.season_name ?? (season.season_number ? `Season ${season.season_number}` : "Season"),
         seasonEndsAt: season.ends_at ?? null,
         peakRp: Number(rankedProfile?.peak_rp ?? profile.rank_points),
         matchesPlayed: Number(rankedProfile?.matches_played ?? profile.ranked_played),
@@ -104,15 +131,17 @@ export default function CompetitiveRankScreen() {
         losses: Number(rankedProfile?.losses ?? Math.max(0, profile.ranked_played - profile.ranked_won)),
         draws: Number(rankedProfile?.draws ?? 0),
       });
+      setCurrentSeasonResultIds(resultIds);
       setIsLoadingDetail(false);
     }
     void loadRankedDetail().catch(() => {
       if (!active) return;
       setDetail(null);
+      setCurrentSeasonResultIds([]);
       setIsLoadingDetail(false);
     });
     return () => { active = false; };
-  }, [auth.user, profile.rank_points, profile.ranked_played, profile.ranked_won]));
+  }, [auth.user, fetchCurrentRankedSeasonInfo, profile.rank_points, profile.ranked_played, profile.ranked_won]));
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -135,7 +164,7 @@ export default function CompetitiveRankScreen() {
               <Text style={styles.bigValue}>{profile.rank_points.toLocaleString()}</Text>
             </View>
             <View style={{ alignItems: "flex-end" }}>
-              <Text style={styles.label}>{detail?.seasonName ?? "Season"}</Text>
+              <Text style={styles.label}>{detail?.seasonName ?? "Current season"}</Text>
               <Text style={styles.seasonText}>{seasonCountdown(detail?.seasonEndsAt ?? null)}</Text>
             </View>
           </View>
@@ -159,10 +188,10 @@ export default function CompetitiveRankScreen() {
         )}
 
         <View style={{ marginTop: 22 }}>
-          <Text style={styles.sectionTitle}>Recent ranked results</Text>
+          <Text style={styles.sectionTitle}>Recent ranked results · {detail?.seasonName ?? "Current season"}</Text>
           <Card padded={false} style={{ marginTop: 10 }}>
             {rankedResults.length === 0 ? (
-              <Text style={styles.empty}>Play Ranked Duel to start your season history.</Text>
+              <Text style={styles.empty}>No ranked results this season yet.</Text>
             ) : (
               rankedResults.map((result, index) => (
                 <View key={result.result_id ?? result.session_id ?? `${result.puzzle_id}-${result.completed_at}-${index}`} style={[styles.resultRow, index < rankedResults.length - 1 && styles.divider]}>

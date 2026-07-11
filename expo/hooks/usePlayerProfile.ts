@@ -380,6 +380,37 @@ export interface RankedDuelEntry {
   completed_at: string | null;
 }
 
+export interface RankedSeasonInfo {
+  season_id: string;
+  season_number: number;
+  season_name: string;
+  starts_at: string | null;
+  ends_at: string | null;
+  status: string;
+}
+
+export interface RankedSeasonRecap {
+  season_id: string;
+  season_number: number;
+  season_name: string;
+  season_starts_at: string | null;
+  season_ends_at: string | null;
+  final_rp: number;
+  final_tier: string | null;
+  peak_rp: number | null;
+  peak_tier: string | null;
+  matches_played: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  best_win_streak: number | null;
+  final_rank_position: number | null;
+  total_ranked_players: number | null;
+  top_percent: number | null;
+  recap_viewed_at: string | null;
+  finalised_at: string | null;
+}
+
 export interface FriendHeadToHeadMatch {
   challenge_id: string;
   difficulty: PuzzleResult["difficulty"];
@@ -2403,6 +2434,71 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     }));
   }, [fetchPublicProfileMap, updateDiagnostics]);
 
+  const fetchCurrentRankedSeasonInfo = useCallback(async (): Promise<RankedSeasonInfo | null> => {
+    if (!auth.user || !isSupabaseConfigured) return null;
+    const { data, error } = await supabase.rpc("current_ranked_season_info");
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return null;
+    }
+    const row = Array.isArray(data)
+      ? (data[0] as Partial<RankedSeasonInfo> | undefined)
+      : undefined;
+    if (!row?.season_id) return null;
+    return {
+      season_id: row.season_id,
+      season_number: Number(row.season_number ?? 0),
+      season_name: row.season_name ?? `Season ${row.season_number ?? ""}`.trim(),
+      starts_at: row.starts_at ?? null,
+      ends_at: row.ends_at ?? null,
+      status: row.status ?? "active",
+    };
+  }, [auth.user, updateDiagnostics]);
+
+  const fetchLatestUnseenRankedSeasonRecap = useCallback(async (): Promise<RankedSeasonRecap | null> => {
+    if (!auth.user || !isSupabaseConfigured) return null;
+    const { data, error } = await supabase.rpc("latest_unseen_ranked_season_recap");
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return null;
+    }
+    const row = Array.isArray(data)
+      ? (data[0] as Partial<RankedSeasonRecap> | undefined)
+      : undefined;
+    if (!row?.season_id) return null;
+    return {
+      season_id: row.season_id,
+      season_number: Number(row.season_number ?? 0),
+      season_name: row.season_name ?? `Season ${row.season_number ?? ""}`.trim(),
+      season_starts_at: row.season_starts_at ?? null,
+      season_ends_at: row.season_ends_at ?? null,
+      final_rp: Number(row.final_rp ?? 0),
+      final_tier: row.final_tier ?? null,
+      peak_rp: row.peak_rp === null || row.peak_rp === undefined ? null : Number(row.peak_rp),
+      peak_tier: row.peak_tier ?? null,
+      matches_played: Number(row.matches_played ?? 0),
+      wins: Number(row.wins ?? 0),
+      losses: Number(row.losses ?? 0),
+      draws: Number(row.draws ?? 0),
+      best_win_streak: row.best_win_streak === null || row.best_win_streak === undefined ? null : Number(row.best_win_streak),
+      final_rank_position: row.final_rank_position === null || row.final_rank_position === undefined ? null : Number(row.final_rank_position),
+      total_ranked_players: row.total_ranked_players === null || row.total_ranked_players === undefined ? null : Number(row.total_ranked_players),
+      top_percent: row.top_percent === null || row.top_percent === undefined ? null : Number(row.top_percent),
+      recap_viewed_at: row.recap_viewed_at ?? null,
+      finalised_at: row.finalised_at ?? null,
+    };
+  }, [auth.user, updateDiagnostics]);
+
+  const markRankedSeasonRecapViewed = useCallback(async (seasonId: string): Promise<SaveResult> => {
+    if (!auth.user || !isSupabaseConfigured) return { ok: false, error: "Sign in before marking season recaps as viewed." };
+    const { error } = await supabase.rpc("mark_ranked_season_recap_viewed", { p_season_id: seasonId });
+    if (error) {
+      updateDiagnostics({ lastError: error.message });
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  }, [auth.user, updateDiagnostics]);
+
   const checkUsernameAvailable = useCallback(async (usernameInput: string): Promise<UsernameAvailability> => {
     const invalid = validateUsernameHandle(usernameInput);
     if (invalid) return invalid;
@@ -3346,6 +3442,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     classicContinueSession,
     diagnostics, hasActiveSession, profileSetupRequired,
     recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, fetchRankedLeaderboard, simulateResult, simulateRankedWin, simulateRankedLoss,
+    fetchCurrentRankedSeasonInfo, fetchLatestUnseenRankedSeasonRecap, markRankedSeasonRecapViewed,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
     fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel, cancelRankedDuel, clearStaleRankedDuel,
@@ -3359,6 +3456,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     activeGuestSessions, activeSessions, auth.isSignedIn,
     checkUsernameAvailable, classicContinueSession, clearLastStreakIncrease, clearLastUpdate, completeProfileSetup, diagnostics, hasActiveSession, isLoaded, lastStreakIncreaseKey, lastUpdate, loadBackendProfile, loadError, profile, profileSetupRequired, visibleActiveSessions,
     recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchDailyLeaderboard, fetchWeeklyLeaderboard, fetchFriendsWeeklyLeaderboard, fetchRankedLeaderboard,
+    fetchCurrentRankedSeasonInfo, fetchLatestUnseenRankedSeasonRecap, markRankedSeasonRecapViewed,
     fetchFriends, fetchPendingFriendRequests, searchUsersByUsername, sendFriendRequest, respondFriendRequest,
     fetchFriendChallenges, createFriendChallenge, acceptFriendChallenge, declineFriendChallenge, cancelFriendChallenge, fetchFriendHeadToHead,
     fetchDailyDuel, enterDailyDuel, fetchRankedDuel, enterRankedDuel, cancelRankedDuel, clearStaleRankedDuel,
