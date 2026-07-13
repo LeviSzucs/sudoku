@@ -2,7 +2,7 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-rou
 import { useIsFocused } from "@react-navigation/native";
 import { ChevronLeft, Pause, Play as PlayIcon } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, AppState, Modal, Pressable, Share, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, AppState, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import CompletionModal from "@/components/CompletionModal";
@@ -10,6 +10,7 @@ import GameControls from "@/components/GameControls";
 import GameStatsBar from "@/components/GameStatsBar";
 import NumberPad from "@/components/NumberPad";
 import PauseModal from "@/components/PauseModal";
+import ShareCardCaptureHost from "@/components/share/ShareCardCaptureHost";
 import SudokuGrid from "@/components/SudokuGrid";
 import { C } from "@/constants/colors";
 import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
@@ -21,9 +22,11 @@ import { tapLight } from "@/lib/haptics";
 import useSudokuGame, { type GameMode, type PuzzleResult, type SessionSnapshot } from "@/hooks/useSudokuGame";
 import { getDailyDateKey } from "@/lib/daily";
 import { logDevDiagnostic, measureAsync } from "@/lib/performanceDiagnostics";
+import { shareSudoDuelCard, type SudoDuelShareCardPayload } from "@/lib/shareCards";
 import type { ProfileUpdateSummary } from "@/lib/playerProfile";
 import type { ScoreBreakdown } from "@/lib/scoring";
 import { fetchClassicPuzzle, fetchDailyPuzzle, fetchPuzzleById, formatTime, makeEmptyNotes, type RawPuzzleData } from "@/lib/sudoku";
+import type ViewShot from "react-native-view-shot";
 
 const MODE_LABEL: Record<GameMode, string> = {
   daily: "Daily",
@@ -433,6 +436,7 @@ export default function GameScreen() {
   const completedFeedbackPlayedRef = useRef<boolean>(false);
   const gameOverFeedbackPlayedRef = useRef<boolean>(false);
   const placementPulseTokenRef = useRef<number>(0);
+  const shareCardCaptureRef = useRef<ViewShot | null>(null);
   const navIsFocused = useIsFocused();
   const [isFocused, setIsFocused] = useState<boolean>(true);
   const renderCountRef = useRef<number>(0);
@@ -449,6 +453,65 @@ export default function GameScreen() {
   const saveErrorRef = useRef<string | null>(null);
   const initialSessionCreatedForRef = useRef<string | null>(sessionIdParam ?? null);
   const autosaveCountRef = useRef<number>(0);
+  const latestSharedResult = completionSummary?.updatedProfile.recent_results[0] ?? game.result ?? null;
+  const shareCardPayload = useMemo<SudoDuelShareCardPayload | null>(() => {
+    const completedAt = latestSharedResult?.completed_at ?? new Date().toISOString();
+    const defaultResultLabel = game.mistakes === 0 && game.hintsUsed === 0 ? "Flawless solve" : "Puzzle complete";
+
+    if (effectiveMode === "daily") {
+      return {
+        kind: "daily",
+        difficulty: game.difficulty,
+        timeSeconds: game.seconds,
+        mistakes: game.mistakes,
+        completedAt,
+        resultLabel: defaultResultLabel,
+        streak: completionSummary?.updatedProfile.current_streak ?? null,
+      };
+    }
+
+    if (effectiveMode === "ranked" || effectiveMode === "ranked_duel") {
+      const updatedProfile = completionSummary?.updatedProfile;
+      const currentTierLabel = updatedProfile
+        ? `${updatedProfile.rank_tier}${updatedProfile.rank_division ? ` ${updatedProfile.rank_division}` : ""}`
+        : null;
+      return {
+        kind: "ranked",
+        difficulty: game.difficulty,
+        timeSeconds: game.seconds,
+        mistakes: game.mistakes,
+        completedAt,
+        outcomeLabel: challengeOutcome?.title ?? "Ranked Duel complete",
+        rpChange: completionSummary?.updatedProfile.recent_results[0]?.rp_change ?? null,
+        currentTierLabel,
+        currentRp: updatedProfile?.rank_points ?? null,
+      };
+    }
+
+    return {
+      kind: "puzzle",
+      modeLabel: MODE_LABEL[effectiveMode],
+      difficulty: game.difficulty,
+      timeSeconds: game.seconds,
+      mistakes: game.mistakes,
+      completedAt,
+      resultLabel: challengeOutcome?.title ?? defaultResultLabel,
+      score: officialScore ?? game.score,
+      xpEarned: completionSummary?.xpEarned ?? null,
+    };
+  }, [
+    challengeOutcome?.title,
+    completionSummary,
+    effectiveMode,
+    game.difficulty,
+    game.hintsUsed,
+    game.mistakes,
+    game.result,
+    game.score,
+    game.seconds,
+    latestSharedResult?.completed_at,
+    officialScore,
+  ]);
 
   useEffect(() => {
     logDevDiagnostic("GameScreen mount", {
@@ -1173,11 +1236,15 @@ export default function GameScreen() {
   }, [auth.isSignedIn, auth.user?.id, cleanupCompletedSession, effectiveMode, game.difficulty, game.puzzleId, game.result?.puzzle_id, router, startPuzzleSession]);
 
   const handleShareResult = useCallback(() => {
-    const text = `${MODE_LABEL[effectiveMode]} ${game.difficulty}: ${formatTime(game.seconds)}, ${game.mistakes} mistakes, ${game.score.toLocaleString()} score.`;
-    void Share.share({ message: text }).catch(() => {
+    if (!shareCardPayload) return;
+    void shareSudoDuelCard({
+      captureRef: shareCardCaptureRef,
+      payload: shareCardPayload,
+      dialogTitle: "Share result",
+    }).catch(() => {
       Alert.alert("Share result", "Sharing is unavailable on this device.");
     });
-  }, [effectiveMode, game.difficulty, game.mistakes, game.score, game.seconds]);
+  }, [shareCardPayload]);
 
   useEffect(() => {
     return () => cancelPendingSave();
@@ -1370,6 +1437,8 @@ export default function GameScreen() {
         onKeepPlaying={() => setLeaveOpen(false)}
         onLeave={() => void handleLeave()}
       />
+
+      <ShareCardCaptureHost captureRef={shareCardCaptureRef} payload={shareCardPayload} />
 
       <CompletionModal
         visible={isFocused && game.completed}
