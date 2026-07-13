@@ -88,6 +88,12 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Expert opens.
 - [ ] Master opens.
 - [ ] Board renders correctly.
+- [ ] Standard board size matches the current layout.
+- [ ] Large board size increases the board noticeably without hiding controls.
+- [ ] XL board size increases the board again while keeping the puzzle playable.
+- [ ] Sudoku board size persists after app restart.
+- [ ] Small-screen iPhone layout remains usable with XL selected.
+- [ ] Large-screen iPhone layout remains clean with XL selected.
 - [ ] Solo puzzle never stays indefinitely on `Loading puzzle…`.
 - [ ] If Solo puzzle load fails or times out, a recoverable error screen appears with a Back to Play action.
 - [ ] Timer does not advance while the Solo puzzle is still on the loading screen.
@@ -121,6 +127,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] If Daily puzzle load fails or times out, a recoverable error screen appears with a Back to Play action.
 - [ ] Same daily date displays correctly.
 - [ ] Puzzle is playable.
+- [ ] Daily puzzle remains playable at Standard, Large, and XL board sizes.
 - [ ] Completion saves result.
 - [ ] Failed attempt saves final result and blocks retry.
 - [ ] Daily stats/streak update correctly.
@@ -160,6 +167,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Friend Challenge sender puzzle never stays indefinitely on `Loading puzzle…`.
 - [ ] Friend Challenge recipient can accept and open the challenge puzzle without getting stuck on `Loading puzzle…`.
 - [ ] If a Friend Challenge puzzle load fails or times out, a recoverable error screen appears with a Back to Versus action.
+- [ ] Friend Challenge remains playable at Standard, Large, and XL board sizes.
 - [ ] User A customises avatar and User B sees User A's saved avatar in Friend Challenge.
 - [ ] User B customises avatar and User A sees User B's saved avatar in Friend Challenge.
 - [ ] Duplicate active challenge is blocked only for same friend plus same difficulty.
@@ -199,6 +207,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Viewing another player's profile does not show the current user's private recap CTA.
 - [ ] Find match works.
 - [ ] Ranked Duel opens a fresh puzzle without staying indefinitely on `Loading puzzle…`.
+- [ ] Ranked Duel remains playable at Standard, Large, and XL board sizes.
 - [ ] If a Ranked Duel puzzle/session cannot be restored, the app clears it safely and shows a recoverable Back to Versus path.
 - [ ] Searching state appears.
 - [ ] Cancel search works while waiting.
@@ -271,6 +280,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Failed attempts do not count as best times.
 - [ ] Result History opens.
 - [ ] Settings opens.
+- [ ] Settings includes an Accessibility section with Sudoku board size options.
+- [ ] Sudoku board size helper copy explains that it adjusts the puzzle board size during play.
 - [ ] Settings privacy includes the global leaderboard opt-in toggle and supporting privacy copy.
 - [ ] Profile subpage back buttons return to Profile.
 - [ ] Public player profile route opens with a large framed avatar hero.
