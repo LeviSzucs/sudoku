@@ -3,15 +3,13 @@ import { router, Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Share } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import AppErrorBoundary from "@/components/AppErrorBoundary";
 import ForegroundNotificationToast from "@/components/ForegroundNotificationToast";
-import RankedSeasonMoments from "@/components/RankedSeasonMoments";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
-import { PlayerProfileProvider, usePlayerProfile, type RankedSeasonInfo, type RankedSeasonRecap } from "@/hooks/usePlayerProfile";
+import { PlayerProfileProvider, usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { loadAppPreferences } from "@/lib/appPreferences";
 import {
   configureNotificationRuntime,
@@ -156,135 +154,6 @@ function NotificationRuntimeBridge({ enabled, userId, currentPath }: { enabled: 
   );
 }
 
-function buildRankedSeasonShareMessage(recap: RankedSeasonRecap): string {
-  const matchesPlayed = recap.matches_played ?? 0;
-  const wins = recap.wins ?? 0;
-  const winRate = matchesPlayed > 0 ? Math.round((wins / matchesPlayed) * 100) : 0;
-  const rankSuffix = recap.final_rank_position ? `, finished #${recap.final_rank_position}` : "";
-  return `I wrapped up ${recap.season_name} in SudoDuel at ${recap.final_tier ?? "Unranked"} with ${recap.final_rp.toLocaleString()} RP, a ${wins}-${recap.losses}-${recap.draws} record, and a ${winRate}% win rate${rankSuffix}. Play SudoDuel.`;
-}
-
-function RankedSeasonRuntimeBridge({ enabled, userId }: { enabled: boolean; userId: string | null }) {
-  const {
-    fetchCurrentRankedSeasonInfo,
-    fetchLatestUnseenRankedSeasonRecap,
-    markRankedSeasonRecapViewed,
-  } = usePlayerProfile();
-  const [phase, setPhase] = useState<"hidden" | "recap" | "intro">("hidden");
-  const [recap, setRecap] = useState<RankedSeasonRecap | null>(null);
-  const [currentSeason, setCurrentSeason] = useState<RankedSeasonInfo | null>(null);
-  const bootstrapKeyRef = useRef<string | null>(null);
-  const handledRecapIdsRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (!enabled || !userId) {
-      setPhase("hidden");
-      setRecap(null);
-      setCurrentSeason(null);
-      bootstrapKeyRef.current = null;
-      return;
-    }
-
-    const bootstrapKey = `${userId}:season-recap`;
-    if (bootstrapKeyRef.current === bootstrapKey) return;
-    bootstrapKeyRef.current = bootstrapKey;
-
-    let cancelled = false;
-    const startedAt = Date.now();
-
-    void (async () => {
-      console.info("[RankedSeasonRecap] Checking for unseen season recap.", {
-        userId,
-        bootstrapKey,
-      });
-      const nextRecap = await fetchLatestUnseenRankedSeasonRecap();
-      if (cancelled) return;
-      console.info("[RankedSeasonRecap] Recap lookup finished.", {
-        userId,
-        bootstrapKey,
-        elapsedMs: Date.now() - startedAt,
-        seasonId: nextRecap?.season_id ?? null,
-      });
-      if (!nextRecap || handledRecapIdsRef.current.has(nextRecap.season_id)) {
-        setPhase("hidden");
-        return;
-      }
-      setRecap(nextRecap);
-      setPhase("recap");
-    })().catch((error) => {
-      console.warn("[RankedSeasonRecap] Failed to load recap state.", {
-        userId,
-        message: error instanceof Error ? error.message : String(error),
-      });
-      if (!cancelled) setPhase("hidden");
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [enabled, fetchLatestUnseenRankedSeasonRecap, userId]);
-
-  const handleShare = useCallback(() => {
-    if (!recap) return;
-    void Share.share({ message: buildRankedSeasonShareMessage(recap) }).catch(() => {
-      console.info("[RankedSeasonRecap] Share unavailable for ranked season recap.");
-    });
-  }, [recap]);
-
-  const handleContinue = useCallback(async () => {
-    if (!recap) {
-      setPhase("hidden");
-      return;
-    }
-
-    handledRecapIdsRef.current.add(recap.season_id);
-    const markViewed = await markRankedSeasonRecapViewed(recap.season_id);
-    if (!markViewed.ok) {
-      console.info("[RankedSeasonRecap] Could not mark recap as viewed.", {
-        seasonId: recap.season_id,
-        error: markViewed.error ?? null,
-      });
-    }
-
-    const seasonInfo = await fetchCurrentRankedSeasonInfo();
-    if (seasonInfo) {
-      setCurrentSeason(seasonInfo);
-      setPhase("intro");
-      return;
-    }
-
-    setRecap(null);
-    setCurrentSeason(null);
-    setPhase("hidden");
-  }, [fetchCurrentRankedSeasonInfo, markRankedSeasonRecapViewed, recap]);
-
-  const handleClose = useCallback(() => {
-    setPhase("hidden");
-    setRecap(null);
-    setCurrentSeason(null);
-  }, []);
-
-  const handlePlayRanked = useCallback(() => {
-    handleClose();
-    router.push("/(tabs)/versus");
-  }, [handleClose]);
-
-  if (!enabled || phase === "hidden") return null;
-
-  return (
-    <RankedSeasonMoments
-      visible
-      phase={phase === "intro" ? "intro" : "recap"}
-      recap={recap}
-      currentSeason={currentSeason}
-      onContinue={() => { void handleContinue(); }}
-      onPlayRanked={handlePlayRanked}
-      onShare={phase === "recap" ? handleShare : undefined}
-      onClose={handleClose}
-    />
-  );
-}
-
 function RootLayoutNav() {
   const auth = useAuth();
   const { isLoaded, profileSetupRequired } = usePlayerProfile();
@@ -334,7 +203,6 @@ function RootLayoutNav() {
         </Stack.Protected>
       </Stack>
       <NotificationRuntimeBridge enabled={showApp} userId={auth.user?.id ?? null} currentPath={pathname} />
-      <RankedSeasonRuntimeBridge enabled={showApp} userId={auth.user?.id ?? null} />
     </>
   );
 }

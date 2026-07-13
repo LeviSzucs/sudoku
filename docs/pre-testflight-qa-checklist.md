@@ -180,8 +180,11 @@ Use this checklist before TestFlight builds and before adding another major feat
 ## G. Ranked Duel
 
 - [ ] The current active ranked season uses the correct sequential name, e.g. `Season 2`, not a reset `Season 1`.
-- [ ] If `latest_unseen_ranked_season_recap()` returns a row, the first signed-in app open shows the completed-season recap once.
-- [ ] Pressing Continue on the recap marks it viewed and immediately shows the new-season intro for the active season.
+- [ ] If `latest_unseen_ranked_season_recap()` returns a row, the app opens normally without automatically showing the completed-season recap.
+- [ ] Own Profile / Competitive Rank shows a clear CTA such as `View your Season 1 recap` when an unseen recap exists.
+- [ ] Users with no completed-season ranked matches do not see a recap CTA.
+- [ ] Tapping the recap CTA opens the completed-season recap and Continue shows the active-season intro.
+- [ ] Pressing Continue or intentionally closing the recap marks it viewed, and the CTA disappears afterward.
 - [ ] After the recap is acknowledged, reopening the app does not show the same recap again.
 - [ ] The ranked season banner shows the active season number/name and remaining time without any hardcoded `Season 1`.
 - [ ] Competitive Rank detail shows only current-season ranked results, never prior-season results mixed into the current season view.
@@ -192,6 +195,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Manual verification queries confirm completed seasons create one `ranked_season_results` snapshot row per eligible user without duplicates.
 - [ ] Manual verification queries confirm the latest unseen recap RPC returns only the authenticated user's own season snapshot.
 - [ ] Signed-out or guest navigation does not crash when ranked season recap RPCs return no rows.
+- [ ] Viewing another player's profile does not show the current user's private recap CTA.
 - [ ] Find match works.
 - [ ] Ranked Duel opens a fresh puzzle without staying indefinitely on `Loading puzzle…`.
 - [ ] If a Ranked Duel puzzle/session cannot be restored, the app clears it safely and shows a recoverable Back to Versus path.
