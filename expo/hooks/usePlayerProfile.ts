@@ -617,7 +617,13 @@ function profileFromRows(profileRow: ProfileRow, statsRow: PlayerStatsRow, setti
     settings: {
       ...fallback.settings,
       notifications: { dailyPuzzleReminder: settingsRow.daily_reminder, streakReminder: settingsRow.streak_reminder, duelResults: settingsRow.duel_results, rankedMatchUpdates: settingsRow.ranked_updates },
-      privacy: { publicProfile: settingsRow.public_profile, showStatsPublicly: settingsRow.show_stats_publicly, showRecentResultsPublicly: settingsRow.show_recent_results_publicly, allowFriendChallenges: settingsRow.allow_friend_challenges },
+      privacy: {
+        publicProfile: settingsRow.public_profile,
+        showStatsPublicly: settingsRow.show_stats_publicly,
+        showRecentResultsPublicly: settingsRow.show_recent_results_publicly,
+        allowFriendChallenges: settingsRow.allow_friend_challenges,
+        showOnGlobalLeaderboards: settingsRow.show_on_global_leaderboards === true,
+      },
     },
   });
 }
@@ -907,7 +913,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
     const defaults = [
       supabase.from("profiles").upsert({ id: auth.user.id, username: name, display_name: null, username_handle: null, initials: initialsFromName(name), avatar_color: profile.avatar_color || empty.avatar_color, profile_setup_completed: false }, { onConflict: "id", ignoreDuplicates: true }),
       supabase.from("player_stats").upsert({ user_id: auth.user.id, total_mastery_xp: 0, account_level: 1, rank_points: 0, rank_tier: `${rank.tier} ${rank.division}`, current_streak: 0, longest_streak: 0, puzzles_completed: 0, flawless_puzzles: 0, total_mistakes: 0, total_hints_used: 0, total_undos_used: 0, duels_played: 0, duels_won: 0, ranked_played: 0, ranked_won: 0, best_easy_time: null, best_medium_time: null, best_hard_time: null, best_expert_time: null, best_master_time: null }, { onConflict: "user_id", ignoreDuplicates: true }),
-      supabase.from("user_settings").upsert({ user_id: auth.user.id, daily_reminder: true, streak_reminder: true, duel_results: true, ranked_updates: false, public_profile: true, show_stats_publicly: true, show_recent_results_publicly: false, allow_friend_challenges: true }, { onConflict: "user_id", ignoreDuplicates: true }),
+      supabase.from("user_settings").upsert({ user_id: auth.user.id, daily_reminder: true, streak_reminder: true, duel_results: true, ranked_updates: false, public_profile: true, show_stats_publicly: true, show_recent_results_publicly: false, allow_friend_challenges: true, show_on_global_leaderboards: false }, { onConflict: "user_id", ignoreDuplicates: true }),
     ];
     const results = await Promise.all(defaults);
     const error = results.find((result) => result.error)?.error;
@@ -3327,6 +3333,7 @@ export const [PlayerProfileProvider, usePlayerProfile] = createContextHook(() =>
           show_stats_publicly: privacy.showStatsPublicly,
           show_recent_results_publicly: privacy.showRecentResultsPublicly,
           allow_friend_challenges: privacy.allowFriendChallenges,
+          show_on_global_leaderboards: privacy.showOnGlobalLeaderboards,
           updated_at: new Date().toISOString(),
         }, { onConflict: "user_id" });
         updateDiagnostics({ lastError: error?.message ?? null });

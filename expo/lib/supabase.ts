@@ -115,6 +115,7 @@ export interface UserSettingsRow {
   show_stats_publicly: boolean;
   show_recent_results_publicly: boolean;
   allow_friend_challenges: boolean;
+  show_on_global_leaderboards: boolean;
   updated_at?: string;
 }
 

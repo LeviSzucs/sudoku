@@ -50,6 +50,7 @@ export interface ProfileSettings {
     showStatsPublicly: boolean;
     showRecentResultsPublicly: boolean;
     allowFriendChallenges: boolean;
+    showOnGlobalLeaderboards: boolean;
   };
   devMode: boolean;
 }
@@ -342,7 +343,7 @@ export const BADGE_DEFINITIONS: AchievementBadge[] = [
 
 const defaultSettings: ProfileSettings = {
   notifications: { dailyPuzzleReminder: true, streakReminder: true, duelResults: true, rankedMatchUpdates: false },
-  privacy: { publicProfile: true, showStatsPublicly: true, showRecentResultsPublicly: false, allowFriendChallenges: true },
+  privacy: { publicProfile: true, showStatsPublicly: true, showRecentResultsPublicly: false, allowFriendChallenges: true, showOnGlobalLeaderboards: false },
   devMode: true,
 };
 
