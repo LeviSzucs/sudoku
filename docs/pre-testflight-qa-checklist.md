@@ -107,6 +107,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Timer works.
 - [ ] Pause/resume works if present.
 - [ ] Completion saves an official result.
+- [ ] Share Result from a completed Classic/Solo puzzle opens a branded card image on native devices or safely falls back to text.
 - [ ] Failed/abandoned result behavior is correct.
 - [ ] Start Classic puzzle, enter a few numbers, leave and return: Continue appears and resumes the exact puzzle/session.
 - [ ] Complete Classic puzzle: Continue disappears.
@@ -129,6 +130,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Puzzle is playable.
 - [ ] Daily puzzle remains playable at Standard, Large, and XL board sizes.
 - [ ] Completion saves result.
+- [ ] Share Result from a completed Daily puzzle opens a Daily share card image or safely falls back to text.
 - [ ] Failed attempt saves final result and blocks retry.
 - [ ] Daily stats/streak update correctly.
 - [ ] Failed Daily attempt does not extend solved streak.
@@ -205,6 +207,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Manual verification queries confirm the latest unseen recap RPC returns only the authenticated user's own season snapshot.
 - [ ] Signed-out or guest navigation does not crash when ranked season recap RPCs return no rows.
 - [ ] Viewing another player's profile does not show the current user's private recap CTA.
+- [ ] Sharing a ranked season recap opens a branded season card image or safely falls back to text.
 - [ ] Find match works.
 - [ ] Ranked Duel opens a fresh puzzle without staying indefinitely on `Loading puzzle…`.
 - [ ] Ranked Duel remains playable at Standard, Large, and XL board sizes.
@@ -227,6 +230,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] RP changes once only.
 - [ ] Ranked profile updates after finalisation.
 - [ ] Ranked leaderboard updates after finalisation.
+- [ ] Share Result from a completed Ranked Duel opens a ranked result card image with outcome and RP details, or safely falls back to text.
 - [ ] Profile Competitive Rank updates after finalisation.
 - [ ] Normal ranked game completes and awards RP.
 - [ ] Ranked completion uses server-derived elapsed time instead of trusting the client timer alone.

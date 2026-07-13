@@ -1,20 +1,23 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { router } from "expo-router";
 import { ChevronRight, Flame, Lock, Settings as SettingsIcon, Shield, Target, Timer, Trophy, Users } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, Share, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
 import RankedSeasonMoments from "@/components/RankedSeasonMoments";
 import SectionHeader from "@/components/SectionHeader";
+import ShareCardCaptureHost from "@/components/share/ShareCardCaptureHost";
 import { C } from "@/constants/colors";
 import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile, type RankedSeasonInfo, type RankedSeasonRecap } from "@/hooks/usePlayerProfile";
 import { getLevelFromXp, getRankFromRp, RANKS, type AchievementBadge } from "@/lib/playerProfile";
+import { shareSudoDuelCard, type SudoDuelShareCardPayload } from "@/lib/shareCards";
 import { formatTime } from "@/lib/sudoku";
+import type ViewShot from "react-native-view-shot";
 
 function pct(current: number, target: number): number {
   return target <= 0 ? 0 : Math.max(0, Math.min(1, current / target));
@@ -43,14 +46,6 @@ function formatSignedRp(value: number | null | undefined): string {
   return `${value >= 0 ? "+" : ""}${value} RP`;
 }
 
-function buildRankedSeasonShareMessage(recap: RankedSeasonRecap): string {
-  const matchesPlayed = recap.matches_played ?? 0;
-  const wins = recap.wins ?? 0;
-  const winRate = matchesPlayed > 0 ? Math.round((wins / matchesPlayed) * 100) : 0;
-  const rankSuffix = recap.final_rank_position ? `, finished #${recap.final_rank_position}` : "";
-  return `I wrapped up ${recap.season_name} in SudoDuel at ${recap.final_tier ?? "Unranked"} with ${recap.final_rp.toLocaleString()} RP, a ${wins}-${recap.losses}-${recap.draws} record, and a ${winRate}% win rate${rankSuffix}. Play SudoDuel.`;
-}
-
 export default function ProfileScreen() {
   const auth = useAuth();
   const insets = useSafeAreaInsets();
@@ -68,6 +63,7 @@ export default function ProfileScreen() {
   const [recapPhase, setRecapPhase] = useState<"hidden" | "recap" | "intro">("hidden");
   const [seasonRecap, setSeasonRecap] = useState<RankedSeasonRecap | null>(null);
   const [activeSeasonInfo, setActiveSeasonInfo] = useState<RankedSeasonInfo | null>(null);
+  const seasonShareCaptureRef = useRef<ViewShot | null>(null);
   const level = getLevelFromXp(profile.total_mastery_xp);
   const rank = getRankFromRp(profile.rank_points);
   const nextRank = rank.nextMin !== null ? RANKS.find((r) => r.min === rank.nextMin) : null;
@@ -89,6 +85,23 @@ export default function ProfileScreen() {
   }, [profile.badges_unlocked, unlocked]);
   const isTablet = isTabletWidth(width);
   const shellMaxWidth = getCenteredContentMaxWidth(width, isTablet ? 820 : 520);
+  const seasonSharePayload = useMemo<SudoDuelShareCardPayload | null>(() => {
+    if (!seasonRecap) return null;
+    return {
+      kind: "season",
+      seasonName: seasonRecap.season_name,
+      seasonNumber: seasonRecap.season_number ?? null,
+      finalTier: seasonRecap.final_tier ?? null,
+      finalRp: seasonRecap.final_rp,
+      wins: seasonRecap.wins ?? 0,
+      losses: seasonRecap.losses ?? 0,
+      draws: seasonRecap.draws ?? 0,
+      matchesPlayed: seasonRecap.matches_played ?? 0,
+      topPercent: seasonRecap.top_percent ?? null,
+      finalRankPosition: seasonRecap.final_rank_position ?? null,
+      finalisedAt: seasonRecap.finalised_at ?? seasonRecap.season_ends_at ?? null,
+    };
+  }, [seasonRecap]);
 
   useEffect(() => {
     let mounted = true;
@@ -178,11 +191,15 @@ export default function ProfileScreen() {
   }, [markRankedSeasonRecapViewed, recapPhase, seasonRecap]);
 
   const handleSeasonRecapShare = useCallback(() => {
-    if (!seasonRecap) return;
-    void Share.share({ message: buildRankedSeasonShareMessage(seasonRecap) }).catch(() => {
+    if (!seasonSharePayload) return;
+    void shareSudoDuelCard({
+      captureRef: seasonShareCaptureRef,
+      payload: seasonSharePayload,
+      dialogTitle: "Share season recap",
+    }).catch(() => {
       console.info("[RankedSeasonRecap] Share unavailable for ranked season recap.");
     });
-  }, [seasonRecap]);
+  }, [seasonSharePayload]);
 
   const handleSeasonIntroContinue = useCallback(() => {
     setRecapPhase("hidden");
@@ -194,6 +211,7 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 118, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
         <View style={[styles.shell, { maxWidth: shellMaxWidth }]}>
+        <ShareCardCaptureHost captureRef={seasonShareCaptureRef} payload={seasonSharePayload} />
         <View style={styles.headerRow}>
           <Text style={styles.kicker}>PROFILE</Text>
           <Pressable onPress={() => router.push("/settings")} hitSlop={10}>
