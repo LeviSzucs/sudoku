@@ -18,6 +18,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 
 - [ ] Production Supabase includes the ranked result core dependencies listed in [ranked-result-sql-readiness.md](C:/Users/LeviS/Documents/Codex/2026-05-30/github-plugin-github-openai-curated-can/sudoku-onboarding-empty-state/docs/ranked-result-sql-readiness.md) before testing Ranked Duel saves.
 - [ ] Production Supabase includes the ranked season rollover foundation in [ranked-season-foundation.md](ranked-season-foundation.md) before testing a real season rollover or recap eligibility.
+- [ ] Production Supabase includes the block/report read-path hardening in [user-safety-enforcement.md](user-safety-enforcement.md) before validating blocked profile and challenge visibility.
 
 ## A. App Launch And Auth
 
@@ -290,6 +291,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] A blocked user cannot receive a friend request from the blocker.
 - [ ] A blocked user cannot send a Friend Challenge.
 - [ ] A blocked user cannot receive a Friend Challenge from the blocker.
+- [ ] A blocked public profile does not show public stats or recent results.
+- [ ] A blocked user no longer appears in Friend Challenge lists or friend head-to-head history.
 - [ ] Blocking removes or hides existing friendship and active Friend Challenge state after refresh.
 - [ ] Unblocking restores the ability to send friend requests and Friend Challenges.
 - [ ] Offensive display names are rejected during profile setup.
