@@ -236,6 +236,11 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Weekly leaderboard loads.
 - [ ] Friends leaderboard loads.
 - [ ] Ranked leaderboard loads.
+- [ ] Existing signed-in user is hidden from global Daily / Weekly / Ranked leaderboards by default.
+- [ ] New signed-in user is hidden from global Daily / Weekly / Ranked leaderboards by default.
+- [ ] Turning on `Show me on global leaderboards` adds the user to eligible global leaderboards after refresh.
+- [ ] Turning off `Show me on global leaderboards` removes the user from global leaderboards again.
+- [ ] Hidden users can still view their own private ranked/profile stats normally.
 - [ ] Tapping a podium avatar/name opens that player's public profile.
 - [ ] Tapping a leaderboard row avatar/name opens that player's public profile.
 - [ ] Public player profile win rate matches authoritative completed duel records and does not fall back to stale 0% values for players with real wins.
@@ -243,7 +248,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Current user highlighting is correct.
 - [ ] RP/rank display matches Profile and Versus.
 - [ ] Empty/loading states are clean.
-- [ ] Empty leaderboard states include a useful next action.
+- [ ] Empty leaderboard states include a useful next action and global opt-in guidance when few or no users have joined publicly.
 - [ ] Avatars render correctly.
 - [ ] No fake rows appear for signed-in users.
 
@@ -261,6 +266,7 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Failed attempts do not count as best times.
 - [ ] Result History opens.
 - [ ] Settings opens.
+- [ ] Settings privacy includes the global leaderboard opt-in toggle and supporting privacy copy.
 - [ ] Profile subpage back buttons return to Profile.
 - [ ] Public player profile route opens with a large framed avatar hero.
 - [ ] Public profile shows rank/stats only when the player's privacy settings allow them.

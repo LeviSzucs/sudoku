@@ -63,6 +63,7 @@ export default function LeaderboardsScreen() {
   const [isLoadingRanked, setIsLoadingRanked] = useState(false);
   const today = useMemo(() => getDailyDateKey(), []);
   const currentUserId = auth.user?.id ?? profile.user_id;
+  const isGlobalLeaderboardOptedIn = profile.settings.privacy.showOnGlobalLeaderboards;
 
   useEffect(() => {
     let active = true;
@@ -88,7 +89,7 @@ export default function LeaderboardsScreen() {
       });
 
     return () => { active = false; };
-  }, [fetchDailyLeaderboard, tab, today]);
+  }, [fetchDailyLeaderboard, isGlobalLeaderboardOptedIn, tab, today]);
 
   useEffect(() => {
     let active = true;
@@ -113,7 +114,7 @@ export default function LeaderboardsScreen() {
       });
 
     return () => { active = false; };
-  }, [fetchWeeklyLeaderboard, tab, today]);
+  }, [fetchWeeklyLeaderboard, isGlobalLeaderboardOptedIn, tab, today]);
 
   useEffect(() => {
     let active = true;
@@ -167,7 +168,7 @@ export default function LeaderboardsScreen() {
       });
 
     return () => { active = false; };
-  }, [fetchRankedLeaderboard, tab]);
+  }, [fetchRankedLeaderboard, isGlobalLeaderboardOptedIn, tab]);
 
   const data = useMemo<LeaderboardEntry[]>(() => {
     if (tab === "daily") return dailyData;
@@ -180,22 +181,23 @@ export default function LeaderboardsScreen() {
   const podiumEntries = [2, 1, 3].map((rankPosition) => data.find((entry) => entry.rank === rankPosition));
   const podiumHeights: Record<number, number> = { 1: 132, 2: 104, 3: 78 };
   const currentUserDailyEntry = data.find((entry) => entry.user.id === currentUserId);
-  const showDailyJoinPrompt = tab === "daily" && !isLoadingDaily && data.length > 0 && !currentUserDailyEntry;
+  const showDailyJoinPrompt = tab === "daily" && isGlobalLeaderboardOptedIn && !isLoadingDaily && data.length > 0 && !currentUserDailyEntry;
   const currentUserWeeklyEntry = data.find((entry) => entry.user.id === currentUserId);
-  const showWeeklyJoinPrompt = tab === "weekly" && !isLoadingWeekly && data.length > 0 && !currentUserWeeklyEntry;
+  const showWeeklyJoinPrompt = tab === "weekly" && isGlobalLeaderboardOptedIn && !isLoadingWeekly && data.length > 0 && !currentUserWeeklyEntry;
+  const showGlobalOptInPrompt = !isGlobalLeaderboardOptedIn && data.length > 0 && (tab === "daily" || tab === "weekly" || tab === "ranked");
 
   const emptyState = (() => {
     if (tab === "daily") {
       return {
-        title: isLoadingDaily ? "Loading Daily results" : "No Daily results yet",
-        sub: isLoadingDaily ? "Checking today's scores" : "Complete today's Daily Sudoku to join the leaderboard",
+        title: isLoadingDaily ? "Loading Daily results" : isGlobalLeaderboardOptedIn ? "No Daily results yet" : "No players have joined the global leaderboard yet.",
+        sub: isLoadingDaily ? "Checking today's scores" : isGlobalLeaderboardOptedIn ? "Complete today's Daily Sudoku to join the leaderboard" : "Opt in in Settings > Privacy to appear on the Daily leaderboard.",
         icon: <Trophy size={36} color={C.mutedSoft} strokeWidth={1.5} />,
       };
     }
     if (tab === "weekly") {
       return {
-        title: isLoadingWeekly ? "Loading weekly scores" : "No weekly scores yet",
-        sub: isLoadingWeekly ? "Checking this week's scores" : "Complete puzzles this week to join the leaderboard.",
+        title: isLoadingWeekly ? "Loading weekly scores" : isGlobalLeaderboardOptedIn ? "No weekly scores yet" : "No players have joined the global leaderboard yet.",
+        sub: isLoadingWeekly ? "Checking this week's scores" : isGlobalLeaderboardOptedIn ? "Complete puzzles this week to join the leaderboard." : "Opt in in Settings > Privacy to appear on the weekly leaderboard.",
         icon: <Trophy size={36} color={C.mutedSoft} strokeWidth={1.5} />,
       };
     }
@@ -204,7 +206,11 @@ export default function LeaderboardsScreen() {
       if (friendsCount === 0) return { title: "Add friends to compare scores", sub: "Search by username to build your friends leaderboard.", icon: <Crown size={36} color={C.mutedSoft} strokeWidth={1.5} /> };
       return { title: "No friend scores this week", sub: "Complete puzzles this week to compare with friends.", icon: <Crown size={36} color={C.mutedSoft} strokeWidth={1.5} /> };
     }
-    return { title: isLoadingRanked ? "Loading ranked leaderboard" : "No ranked players yet", sub: isLoadingRanked ? "Checking season standings" : "Play Ranked Duel to enter the season standings.", icon: <Trophy size={36} color={C.mutedSoft} strokeWidth={1.5} /> };
+    return {
+      title: isLoadingRanked ? "Loading ranked leaderboard" : isGlobalLeaderboardOptedIn ? "No ranked players yet" : "No players have joined the global leaderboard yet.",
+      sub: isLoadingRanked ? "Checking season standings" : isGlobalLeaderboardOptedIn ? "Play Ranked Duel to enter the season standings." : "Opt in in Settings > Privacy to appear on the ranked leaderboard.",
+      icon: <Trophy size={36} color={C.mutedSoft} strokeWidth={1.5} />,
+    };
   })();
 
   const openPlayerProfile = (userId: string) => {
@@ -212,6 +218,9 @@ export default function LeaderboardsScreen() {
   };
 
   const emptyAction = (() => {
+    if (!isGlobalLeaderboardOptedIn && (tab === "daily" || tab === "weekly" || tab === "ranked")) {
+      return { label: "Leaderboard privacy", onPress: () => router.push({ pathname: "/settings", params: { panel: "privacy" } }) };
+    }
     if (tab === "daily" || tab === "weekly") {
       return { label: "Play a puzzle", onPress: () => router.push("/(tabs)/play") };
     }
@@ -282,6 +291,16 @@ export default function LeaderboardsScreen() {
           <Card style={{ alignItems: "center", paddingVertical: 32, marginBottom: 18 }}>
             <Trophy size={36} color={C.mutedSoft} strokeWidth={1.5} />
             <Text style={styles.emptyTitle}>Complete puzzles this week to join the leaderboard.</Text>
+          </Card>
+        ) : null}
+        {showGlobalOptInPrompt ? (
+          <Card style={{ alignItems: "center", paddingVertical: 28, marginBottom: 18 }}>
+            <Trophy size={36} color={C.mutedSoft} strokeWidth={1.5} />
+            <Text style={styles.emptyTitle}>Opt in to appear on the global leaderboard.</Text>
+            <Text style={styles.emptySub}>When off, your scores and rank stay private and you will not appear publicly.</Text>
+            <Pressable style={styles.emptyButton} onPress={() => router.push({ pathname: "/settings", params: { panel: "privacy" } })}>
+              <Text style={styles.emptyButtonText}>Leaderboard privacy</Text>
+            </Pressable>
           </Card>
         ) : null}
 
