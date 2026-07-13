@@ -2,15 +2,17 @@ import { useFocusEffect } from "@react-navigation/native";
 import { router } from "expo-router";
 import { ChevronRight, Flame, Lock, Settings as SettingsIcon, Shield, Target, Timer, Trophy, Users } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Modal, Pressable, ScrollView, Share, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
+import RankedSeasonMoments from "@/components/RankedSeasonMoments";
 import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
 import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
-import { usePlayerProfile } from "@/hooks/usePlayerProfile";
+import { useAuth } from "@/hooks/useAuth";
+import { usePlayerProfile, type RankedSeasonInfo, type RankedSeasonRecap } from "@/hooks/usePlayerProfile";
 import { getLevelFromXp, getRankFromRp, RANKS, type AchievementBadge } from "@/lib/playerProfile";
 import { formatTime } from "@/lib/sudoku";
 
@@ -41,12 +43,31 @@ function formatSignedRp(value: number | null | undefined): string {
   return `${value >= 0 ? "+" : ""}${value} RP`;
 }
 
+function buildRankedSeasonShareMessage(recap: RankedSeasonRecap): string {
+  const matchesPlayed = recap.matches_played ?? 0;
+  const wins = recap.wins ?? 0;
+  const winRate = matchesPlayed > 0 ? Math.round((wins / matchesPlayed) * 100) : 0;
+  const rankSuffix = recap.final_rank_position ? `, finished #${recap.final_rank_position}` : "";
+  return `I wrapped up ${recap.season_name} in SudoDuel at ${recap.final_tier ?? "Unranked"} with ${recap.final_rp.toLocaleString()} RP, a ${wins}-${recap.losses}-${recap.draws} record, and a ${winRate}% win rate${rankSuffix}. Play SudoDuel.`;
+}
+
 export default function ProfileScreen() {
+  const auth = useAuth();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { profile, fetchFriends, refreshProfile } = usePlayerProfile();
+  const {
+    profile,
+    fetchFriends,
+    refreshProfile,
+    fetchCurrentRankedSeasonInfo,
+    fetchLatestUnseenRankedSeasonRecap,
+    markRankedSeasonRecapViewed,
+  } = usePlayerProfile();
   const [selectedBadge, setSelectedBadge] = useState<AchievementBadge | null>(null);
   const [friendsCount, setFriendsCount] = useState<number | null>(null);
+  const [recapPhase, setRecapPhase] = useState<"hidden" | "recap" | "intro">("hidden");
+  const [seasonRecap, setSeasonRecap] = useState<RankedSeasonRecap | null>(null);
+  const [activeSeasonInfo, setActiveSeasonInfo] = useState<RankedSeasonInfo | null>(null);
   const level = getLevelFromXp(profile.total_mastery_xp);
   const rank = getRankFromRp(profile.rank_points);
   const nextRank = rank.nextMin !== null ? RANKS.find((r) => r.min === rank.nextMin) : null;
@@ -78,6 +99,96 @@ export default function ProfileScreen() {
   useFocusEffect(useCallback(() => {
     void refreshProfile();
   }, [refreshProfile]));
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+
+    async function loadSeasonRecapState() {
+      if (!auth.user) {
+        if (active) {
+          setSeasonRecap(null);
+          setRecapPhase("hidden");
+        }
+        return;
+      }
+
+      const nextRecap = await fetchLatestUnseenRankedSeasonRecap();
+      if (!active) return;
+      setSeasonRecap(nextRecap);
+      if (!nextRecap && recapPhase === "recap") {
+        setRecapPhase("hidden");
+      }
+    }
+
+    void loadSeasonRecapState().catch(() => {
+      if (!active) return;
+      setSeasonRecap(null);
+    });
+
+    return () => { active = false; };
+  }, [auth.user, fetchLatestUnseenRankedSeasonRecap, recapPhase]));
+
+  const openSeasonRecap = useCallback(() => {
+    if (!seasonRecap) return;
+    setActiveSeasonInfo(null);
+    setRecapPhase("recap");
+  }, [seasonRecap]);
+
+  const handleSeasonRecapContinue = useCallback(async () => {
+    if (!seasonRecap) {
+      setRecapPhase("hidden");
+      return;
+    }
+
+    const markViewed = await markRankedSeasonRecapViewed(seasonRecap.season_id);
+    if (!markViewed.ok) {
+      console.info("[RankedSeasonRecap] Could not mark recap as viewed.", {
+        seasonId: seasonRecap.season_id,
+        error: markViewed.error ?? null,
+      });
+    }
+
+    setSeasonRecap(null);
+    const seasonInfo = await fetchCurrentRankedSeasonInfo();
+    if (seasonInfo) {
+      setActiveSeasonInfo(seasonInfo);
+      setRecapPhase("intro");
+      return;
+    }
+
+    setActiveSeasonInfo(null);
+    setRecapPhase("hidden");
+    router.push("/stats-competitive-rank");
+  }, [fetchCurrentRankedSeasonInfo, markRankedSeasonRecapViewed, seasonRecap]);
+
+  const handleSeasonRecapClose = useCallback(() => {
+    if (recapPhase === "recap" && seasonRecap) {
+      void markRankedSeasonRecapViewed(seasonRecap.season_id).then((result) => {
+        if (!result.ok) {
+          console.info("[RankedSeasonRecap] Could not mark recap as viewed on close.", {
+            seasonId: seasonRecap.season_id,
+            error: result.error ?? null,
+          });
+        }
+      });
+      setSeasonRecap(null);
+    }
+    setRecapPhase("hidden");
+    setActiveSeasonInfo(null);
+  }, [markRankedSeasonRecapViewed, recapPhase, seasonRecap]);
+
+  const handleSeasonRecapShare = useCallback(() => {
+    if (!seasonRecap) return;
+    void Share.share({ message: buildRankedSeasonShareMessage(seasonRecap) }).catch(() => {
+      console.info("[RankedSeasonRecap] Share unavailable for ranked season recap.");
+    });
+  }, [seasonRecap]);
+
+  const handleSeasonIntroContinue = useCallback(() => {
+    setRecapPhase("hidden");
+    setActiveSeasonInfo(null);
+    router.push("/stats-competitive-rank");
+  }, []);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -119,19 +230,34 @@ export default function ProfileScreen() {
         </Card>
 
         <View style={{ marginTop: 12 }}>
-          <Card onPress={() => router.push("/stats-competitive-rank")}>
-            <View style={styles.progressHeader}>
-              <View>
-                <Text style={styles.progressKicker}>COMPETITIVE RANK</Text>
-                <Text style={styles.levelText}>{profile.rank_tier}{profile.rank_division ? ` ${profile.rank_division}` : ""}</Text>
+          <Card>
+            <Pressable onPress={() => router.push("/stats-competitive-rank")} style={({ pressed }) => pressed && styles.rankSummaryPressed}>
+              <View style={styles.progressHeader}>
+                <View>
+                  <Text style={styles.progressKicker}>COMPETITIVE RANK</Text>
+                  <Text style={styles.levelText}>{profile.rank_tier}{profile.rank_division ? ` ${profile.rank_division}` : ""}</Text>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={styles.progressValue}>{profile.rank_points} RP</Text>
+                  <ChevronRight color={C.mutedSoft} size={18} style={{ marginTop: 4 }} />
+                </View>
               </View>
-              <View style={{ alignItems: "flex-end" }}>
-                <Text style={styles.progressValue}>{profile.rank_points} RP</Text>
-                <ChevronRight color={C.mutedSoft} size={18} style={{ marginTop: 4 }} />
-              </View>
-            </View>
-            <View style={styles.barTrack}><View style={[styles.rankBar, { width: `${Math.max(0, Math.min(1, rankProgress)) * 100}%` }]} /></View>
-            <Text style={styles.progressSub}>{nextRank ? `${nextRank.min - profile.rank_points} RP to ${nextRank.tier}${nextRank.division ? ` ${nextRank.division}` : ""}` : "Top rank reached"}</Text>
+              <View style={styles.barTrack}><View style={[styles.rankBar, { width: `${Math.max(0, Math.min(1, rankProgress)) * 100}%` }]} /></View>
+              <Text style={styles.progressSub}>{nextRank ? `${nextRank.min - profile.rank_points} RP to ${nextRank.tier}${nextRank.division ? ` ${nextRank.division}` : ""}` : "Top rank reached"}</Text>
+            </Pressable>
+            {seasonRecap ? (
+              <Pressable
+                onPress={openSeasonRecap}
+                hitSlop={8}
+                style={({ pressed }) => [styles.recapCallout, pressed && styles.recapCalloutPressed]}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.recapCalloutTitle}>{seasonRecap.season_name} complete</Text>
+                  <Text style={styles.recapCalloutText}>View your {seasonRecap.season_name} recap</Text>
+                </View>
+                <ChevronRight color={C.accent} size={18} />
+              </Pressable>
+            ) : null}
           </Card>
         </View>
 
@@ -184,6 +310,17 @@ export default function ProfileScreen() {
 
       </ScrollView>
       <BadgeModal badge={selectedBadge} onClose={() => setSelectedBadge(null)} />
+      <RankedSeasonMoments
+        visible={recapPhase !== "hidden"}
+        phase={recapPhase === "intro" ? "intro" : "recap"}
+        recap={seasonRecap}
+        currentSeason={activeSeasonInfo}
+        onContinue={() => { void handleSeasonRecapContinue(); }}
+        onPlayRanked={handleSeasonIntroContinue}
+        onShare={recapPhase === "recap" ? handleSeasonRecapShare : undefined}
+        onClose={handleSeasonRecapClose}
+        introPrimaryLabel="Competitive Rank"
+      />
     </SafeAreaView>
   );
 }
@@ -276,8 +413,32 @@ const styles = StyleSheet.create({
   barTrack: { height: 8, backgroundColor: C.bgElevated, borderRadius: 999, overflow: "hidden", marginTop: 12 },
   xpBar: { height: 8, backgroundColor: C.accent, borderRadius: 999 },
   rankBar: { height: 8, backgroundColor: C.gold, borderRadius: 999 },
+  rankSummaryPressed: { opacity: 0.9 },
   progressSub: { fontSize: 12, color: C.muted, marginTop: 7, fontWeight: "600" },
   progressHint: { fontSize: 12, color: C.inkSoft, marginTop: 3, fontWeight: "800" },
+  recapCallout: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  recapCalloutPressed: {
+    opacity: 0.85,
+  },
+  recapCalloutTitle: {
+    color: C.ink,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  recapCalloutText: {
+    marginTop: 3,
+    color: C.accent,
+    fontSize: 12,
+    fontWeight: "800",
+  },
   statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12 },
   statCard: { flexBasis: "48%", flexGrow: 1, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.border, padding: 14 },
   statTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },

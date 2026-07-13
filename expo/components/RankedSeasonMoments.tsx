@@ -17,6 +17,7 @@ interface Props {
   onPlayRanked: () => void;
   onShare?: () => void;
   onClose: () => void;
+  introPrimaryLabel?: string;
 }
 
 function formatTier(value: string | null | undefined): string {
@@ -62,6 +63,7 @@ export default function RankedSeasonMoments({
   onPlayRanked,
   onShare,
   onClose,
+  introPrimaryLabel,
 }: Props) {
   const { width } = useWindowDimensions();
   const isTablet = isTabletWidth(width);
@@ -169,7 +171,7 @@ export default function RankedSeasonMoments({
                   <Text style={styles.secondaryButtonText}>Later</Text>
                 </Pressable>
                 <Pressable style={[styles.button, styles.primaryButton]} onPress={onPlayRanked}>
-                  <Text style={styles.primaryButtonText}>Play Ranked</Text>
+                  <Text style={styles.primaryButtonText}>{introPrimaryLabel ?? "Play Ranked"}</Text>
                 </Pressable>
               </View>
             </>
