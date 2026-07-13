@@ -16,7 +16,7 @@ import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { printActionAuditReport } from "@/lib/actionAudit";
-import { loadAppPreferences, saveAppPreferences, triggerHaptic, type AppPreferences } from "@/lib/appPreferences";
+import { loadAppPreferences, saveAppPreferences, triggerHaptic, type AppPreferences, type BoardSizePreference } from "@/lib/appPreferences";
 import { normalizeAvatarConfig, type CharacterAvatarConfig } from "@/lib/avatar";
 import type { PlayerProfile, ProfileSettings } from "@/lib/playerProfile";
 import { supabaseConfigDiagnostics } from "@/lib/supabase";
@@ -31,6 +31,16 @@ function avatarDraftFromProfile(profile: PlayerProfile): AvatarDraft {
     avatar_symbol: profile.avatar_symbol ?? null,
     ...config,
   };
+}
+
+const BOARD_SIZE_OPTIONS: Array<{ value: BoardSizePreference; label: string; detail: string }> = [
+  { value: "standard", label: "Standard", detail: "Matches the current layout." },
+  { value: "large", label: "Large", detail: "Makes the board noticeably bigger during play." },
+  { value: "xl", label: "XL", detail: "Uses the largest safe board size for your screen." },
+];
+
+function boardSizeLabel(value: BoardSizePreference): string {
+  return BOARD_SIZE_OPTIONS.find((option) => option.value === value)?.label ?? "Standard";
 }
 
 export default function SettingsScreen() {
@@ -54,7 +64,7 @@ export default function SettingsScreen() {
   const [privacy, setPrivacy] = useState<ProfileSettings["privacy"]>(profile.settings.privacy);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsSaving, setSettingsSaving] = useState<boolean>(false);
-  const [appPreferences, setAppPreferences] = useState<AppPreferences>({ soundEnabled: true, hapticsEnabled: true });
+  const [appPreferences, setAppPreferences] = useState<AppPreferences>({ soundEnabled: true, hapticsEnabled: true, boardSize: "standard" });
   const dailyDiagnostics = diagnostics.daily;
   const developerToolsEnabled = SHOW_DEVELOPER_TOOLS && profile.settings.devMode;
   const isTablet = isTabletWidth(width);
@@ -169,6 +179,10 @@ export default function SettingsScreen() {
           }} last />
         </Section>
 
+        <Section title="Accessibility">
+          <Row icon={<Brush size={18} color={C.inkSoft} />} title="Sudoku board size" detail={boardSizeLabel(appPreferences.boardSize)} onPress={() => setPanel("accessibility")} last />
+        </Section>
+
         <Section title="Support">
           <Row icon={<HelpCircle size={18} color={C.inkSoft} />} title="Help & FAQ" detail="Answers and gameplay basics" onPress={() => router.push({ pathname: "/settings-info", params: { page: "help" } })} />
           <Row icon={<LifeBuoy size={18} color={C.inkSoft} />} title="Contact support" detail="Email help and account requests" onPress={() => router.push({ pathname: "/settings-info", params: { page: "support" } })} />
@@ -217,6 +231,34 @@ export default function SettingsScreen() {
 
       <Modal visible={panel === "privacy"} transparent animationType="fade" onRequestClose={closePanel}>
         <View style={styles.backdrop}><Card style={styles.modalCard}><Text style={styles.modalTitle}>Privacy</Text><Toggle label="Public profile" value={privacy.publicProfile} onValueChange={(value) => { setSettingsError(null); setPrivacy((current) => ({ ...current, publicProfile: value })); }} /><Toggle label="Show stats publicly" value={privacy.showStatsPublicly} onValueChange={(value) => { setSettingsError(null); setPrivacy((current) => ({ ...current, showStatsPublicly: value })); }} /><Toggle label="Show recent results publicly" value={privacy.showRecentResultsPublicly} onValueChange={(value) => { setSettingsError(null); setPrivacy((current) => ({ ...current, showRecentResultsPublicly: value })); }} /><Toggle label="Allow friend challenges" value={privacy.allowFriendChallenges} onValueChange={(value) => { setSettingsError(null); setPrivacy((current) => ({ ...current, allowFriendChallenges: value })); }} /><Toggle label="Show me on global leaderboards" value={privacy.showOnGlobalLeaderboards} onValueChange={(value) => { setSettingsError(null); setPrivacy((current) => ({ ...current, showOnGlobalLeaderboards: value })); }} /><Text style={styles.helperInline}>When off, your scores and rank stay private and you will not appear on global leaderboards.</Text>{settingsError ? <Text style={styles.error}>{settingsError}</Text> : null}<Actions onCancel={closePanel} onSave={() => { void savePrivacy(); }} saveLabel={settingsSaving ? "Saving..." : "Done"} disabled={settingsSaving} /></Card></View>
+      </Modal>
+
+      <Modal visible={panel === "accessibility"} transparent animationType="fade" onRequestClose={() => setPanel(null)}>
+        <View style={styles.backdrop}>
+          <Card style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Accessibility</Text>
+            <Text style={styles.helperInline}>Adjusts the puzzle board size during play.</Text>
+            <View style={styles.optionGroup}>
+              {BOARD_SIZE_OPTIONS.map((option) => {
+                const selected = appPreferences.boardSize === option.value;
+                return (
+                  <Pressable
+                    key={option.value}
+                    onPress={() => updateAppPreference({ ...appPreferences, boardSize: option.value })}
+                    style={[styles.optionCard, selected && styles.optionCardActive]}
+                  >
+                    <View style={[styles.optionDot, selected && styles.optionDotActive]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.optionTitle, selected && styles.optionTitleActive]}>{option.label}</Text>
+                      <Text style={[styles.optionDetail, selected && styles.optionDetailActive]}>{option.detail}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Actions onCancel={() => setPanel(null)} onSave={() => setPanel(null)} saveLabel="Done" />
+          </Card>
+        </View>
       </Modal>
 
       <Modal visible={developerToolsEnabled && panel === "backend"} transparent animationType="slide" onRequestClose={() => setPanel(null)}>
@@ -300,6 +342,38 @@ const styles = StyleSheet.create({
   toggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border },
   toggleLabel: { color: C.ink, fontWeight: "700", flex: 1 },
   actions: { flexDirection: "row", gap: 10, marginTop: 18 },
+  optionGroup: { marginTop: 12, gap: 10 },
+  optionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.bgElevated,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  optionCardActive: {
+    borderColor: C.accent,
+    backgroundColor: C.accentSoft,
+  },
+  optionDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: C.borderStrong ?? C.inkSoft,
+    backgroundColor: C.card,
+  },
+  optionDotActive: {
+    borderColor: C.accent,
+    backgroundColor: C.accent,
+  },
+  optionTitle: { color: C.ink, fontWeight: "800", fontSize: 15 },
+  optionTitleActive: { color: C.ink },
+  optionDetail: { color: C.muted, fontSize: 12, marginTop: 2, lineHeight: 18 },
+  optionDetailActive: { color: C.inkSoft },
   cancel: { flex: 1, borderRadius: 14, borderWidth: 1, borderColor: C.border, paddingVertical: 12, alignItems: "center" },
   save: { flex: 1, borderRadius: 14, backgroundColor: C.ink, paddingVertical: 12, alignItems: "center", ...buttonShadow },
   cancelText: { color: C.ink, fontWeight: "800" },

@@ -6,7 +6,10 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 export type AppPreferences = {
   soundEnabled: boolean;
   hapticsEnabled: boolean;
+  boardSize: BoardSizePreference;
 };
+
+export type BoardSizePreference = "standard" | "large" | "xl";
 
 export type HapticEvent = "selection" | "success" | "warning" | "error";
 export type SoundEvent = "button" | "complete" | "error" | "result";
@@ -16,6 +19,7 @@ const STORAGE_KEY = "sudoduel.app_preferences.v1";
 export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   soundEnabled: true,
   hapticsEnabled: true,
+  boardSize: "standard",
 };
 
 let cachedPreferences: AppPreferences = DEFAULT_APP_PREFERENCES;
@@ -24,6 +28,7 @@ function normalisePreferences(value: Partial<AppPreferences> | null | undefined)
   return {
     soundEnabled: typeof value?.soundEnabled === "boolean" ? value.soundEnabled : DEFAULT_APP_PREFERENCES.soundEnabled,
     hapticsEnabled: typeof value?.hapticsEnabled === "boolean" ? value.hapticsEnabled : DEFAULT_APP_PREFERENCES.hapticsEnabled,
+    boardSize: value?.boardSize === "large" || value?.boardSize === "xl" ? value.boardSize : DEFAULT_APP_PREFERENCES.boardSize,
   };
 }
 
@@ -48,6 +53,7 @@ export async function loadAppPreferences(userId?: string | null): Promise<AppPre
       .maybeSingle();
     if (data) {
       const remotePreferences = normalisePreferences({
+        ...localPreferences,
         soundEnabled: data.sound_enabled,
         hapticsEnabled: data.haptics_enabled,
       });

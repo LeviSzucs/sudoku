@@ -16,7 +16,7 @@ import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import type { Difficulty } from "@/constants/mockData";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
-import { getCachedAppPreferences, playSoundEffect, triggerHaptic } from "@/lib/appPreferences";
+import { getCachedAppPreferences, playSoundEffect, triggerHaptic, type BoardSizePreference } from "@/lib/appPreferences";
 import { tapLight } from "@/lib/haptics";
 import useSudokuGame, { type GameMode, type PuzzleResult, type SessionSnapshot } from "@/hooks/useSudokuGame";
 import { getDailyDateKey } from "@/lib/daily";
@@ -41,6 +41,30 @@ const AUTO_SAVE_INTERVAL_MS = 10_000;
 const MIN_SAVE_INTERVAL_MS = 2_000;
 /** Maximum time we allow a game session or puzzle payload to load before failing safely. */
 const PUZZLE_LOAD_TIMEOUT_MS = 15_000;
+
+const BOARD_SIZE_WIDTH_PADDING: Record<BoardSizePreference, number> = {
+  standard: 16,
+  large: 8,
+  xl: 0,
+};
+
+const BOARD_SIZE_PHONE_MAX_WIDTH: Record<BoardSizePreference, number> = {
+  standard: 430,
+  large: 446,
+  xl: 462,
+};
+
+const BOARD_SIZE_TABLET_PORTRAIT_MAX_WIDTH: Record<BoardSizePreference, number> = {
+  standard: 620,
+  large: 676,
+  xl: 732,
+};
+
+const BOARD_SIZE_TABLET_CONTROL_MAX_WIDTH: Record<BoardSizePreference, number> = {
+  standard: 360,
+  large: 340,
+  xl: 320,
+};
 
 interface ChallengeOutcomeCopy {
   title: string;
@@ -718,13 +742,26 @@ export default function GameScreen() {
 
   const isTablet = isTabletWidth(width);
   const isLandscape = width > height;
-  const gameShellMaxWidth = getCenteredContentMaxWidth(width, isTablet ? 1100 : 430);
+  const boardSizePreference = getCachedAppPreferences().boardSize;
+  const gameShellMaxWidth = getCenteredContentMaxWidth(
+    width,
+    isTablet ? 1100 : BOARD_SIZE_PHONE_MAX_WIDTH[boardSizePreference],
+  );
   const usesSplitGameLayout = isTablet && isLandscape;
-  const controlColumnWidth = usesSplitGameLayout ? Math.min(360, Math.max(300, Math.floor(gameShellMaxWidth * 0.34))) : gameShellMaxWidth;
+  const controlColumnWidth = usesSplitGameLayout
+    ? Math.min(
+      BOARD_SIZE_TABLET_CONTROL_MAX_WIDTH[boardSizePreference],
+      Math.max(280, Math.floor(gameShellMaxWidth * 0.34)),
+    )
+    : gameShellMaxWidth;
   const reserved = 50 + 58 + 60 + 168 + 40 + insets.top + Math.max(insets.bottom, 12);
+  const horizontalPadding = BOARD_SIZE_WIDTH_PADDING[boardSizePreference];
   const boardMaxWidth = usesSplitGameLayout
     ? gameShellMaxWidth - controlColumnWidth - 24
-    : Math.min(gameShellMaxWidth, isTablet ? 620 : width - 16);
+    : Math.min(
+      gameShellMaxWidth,
+      isTablet ? BOARD_SIZE_TABLET_PORTRAIT_MAX_WIDTH[boardSizePreference] : width - horizontalPadding,
+    );
   const boardSize = Math.max(
     usesSplitGameLayout ? 320 : 224,
     Math.min(boardMaxWidth, Math.floor(height - reserved))
