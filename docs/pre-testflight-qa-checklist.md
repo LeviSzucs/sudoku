@@ -275,6 +275,12 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Display name renders.
 - [ ] Username handle renders.
 - [ ] Avatar renders.
+- [ ] Signed-in Profile avatar has a subtle idle float while the Profile screen is focused.
+- [ ] Leaving Profile stops the idle avatar animation cleanly.
+- [ ] Returning to Profile restarts one idle loop without stacking duplicate animations.
+- [ ] Repeating Home -> Profile -> Home navigation does not reach the global runtime error boundary.
+- [ ] Reduced-motion devices show the Profile avatar statically.
+- [ ] Avatars remain static on leaderboards, friends, search, inbox, public profiles, game, versus, and modals.
 - [ ] Mastery XP renders.
 - [ ] Competitive Rank renders current-season RP.
 - [ ] Progress to next rank is correct.
