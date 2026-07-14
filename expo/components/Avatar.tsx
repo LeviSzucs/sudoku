@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
   cancelAnimation,
@@ -49,32 +50,53 @@ export default function Avatar({
   ...avatarConfig
 }: AvatarProps) {
   const prefersReducedMotion = useReducedMotion();
+  const resolvedSize = resolveAvatarSize(variant, size);
   const translateY = useSharedValue(0);
+  const scale = useSharedValue(1);
   const shouldAnimate = motion === "idle" && active && !prefersReducedMotion;
 
   useEffect(() => {
     cancelAnimation(translateY);
+    cancelAnimation(scale);
     translateY.value = 0;
+    scale.value = 1;
 
     if (!shouldAnimate) {
       return () => {
         cancelAnimation(translateY);
+        cancelAnimation(scale);
         translateY.value = 0;
+        scale.value = 1;
       };
     }
 
     translateY.value = withRepeat(
       withSequence(
-        withTiming(-1.5, {
-          duration: 1000,
+        withTiming(-0.5, {
+          duration: 900,
           easing: Easing.inOut(Easing.quad),
         }),
-        withTiming(1.5, {
-          duration: 1000,
+        withTiming(0.8, {
+          duration: 1200,
           easing: Easing.inOut(Easing.quad),
         }),
         withTiming(0, {
-          duration: 1000,
+          duration: 900,
+          easing: Easing.inOut(Easing.quad),
+        }),
+      ),
+      -1,
+      false,
+    );
+
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.012, {
+          duration: 1400,
+          easing: Easing.inOut(Easing.quad),
+        }),
+        withTiming(1, {
+          duration: 1600,
           easing: Easing.inOut(Easing.quad),
         }),
       ),
@@ -84,23 +106,61 @@ export default function Avatar({
 
     return () => {
       cancelAnimation(translateY);
+      cancelAnimation(scale);
       translateY.value = 0;
+      scale.value = 1;
     };
-  }, [shouldAnimate, translateY]);
+  }, [scale, shouldAnimate, translateY]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
+    transform: [
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
   }));
 
-  return (
-    <Animated.View style={animatedStyle}>
+  if (motion !== "idle") {
+    return (
       <AvatarRenderer
         {...avatarConfig}
         initials={initials}
         legacyColor={color}
         legacySymbol={symbol}
-        size={resolveAvatarSize(variant, size)}
+        size={resolvedSize}
       />
-    </Animated.View>
+    );
+  }
+
+  return (
+    <View style={[styles.layerWrap, { width: resolvedSize, height: resolvedSize }]}>
+      <AvatarRenderer
+        {...avatarConfig}
+        initials={initials}
+        legacyColor={color}
+        legacySymbol={symbol}
+        size={resolvedSize}
+        layer="static"
+      />
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.characterLayer, animatedStyle]}>
+        <AvatarRenderer
+          {...avatarConfig}
+          initials={initials}
+          legacyColor={color}
+          legacySymbol={symbol}
+          size={resolvedSize}
+          layer="character"
+        />
+      </Animated.View>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  layerWrap: {
+    position: "relative",
+  },
+  characterLayer: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});

@@ -276,6 +276,8 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Username handle renders.
 - [ ] Avatar renders.
 - [ ] Signed-in Profile avatar has a subtle idle float while the Profile screen is focused.
+- [ ] Profile avatar background circle and frame remain visually still while only the character artwork breathes.
+- [ ] Profile idle motion feels like breathing rather than the whole badge bouncing.
 - [ ] Leaving Profile stops the idle avatar animation cleanly.
 - [ ] Returning to Profile restarts one idle loop without stacking duplicate animations.
 - [ ] Repeating Home -> Profile -> Home navigation does not reach the global runtime error boundary.
