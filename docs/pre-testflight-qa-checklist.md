@@ -1021,6 +1021,21 @@ limit 20;
 
 ## Final Release Readiness Checklist
 
+## Avatar Motion QA
+
+- [ ] Profile avatar breathes and blinks while Profile is focused.
+- [ ] Profile avatar animation stops when leaving the screen.
+- [ ] Public-profile hero avatar stays calm and does not break layout.
+- [ ] Daily Duel and Ranked Duel hero avatars idle cleanly while ready.
+- [ ] Matchmaking or waiting states use the focused/thinking avatar motion.
+- [ ] Winner avatars celebrate once with the result reveal.
+- [ ] Loser avatars use a brief defeated motion and do not loop.
+- [ ] Ranked season recap/new-season avatar celebrates once when opened.
+- [ ] Reduced-motion devices show stable avatars without busy looping.
+- [ ] Small leaderboard, friend-list, inbox, and search avatars remain static.
+- [ ] Leaderboard and friends scrolling stay smooth with no animation buildup.
+- [ ] iPhone and iPad layouts still look correct with animated hero avatars.
+
 - [ ] `npm.cmd run qa:preflight` passes.
 - [ ] `npm.cmd run validate:puzzles` passes.
 - [ ] `npm.cmd run validate:unique-puzzles` passes.

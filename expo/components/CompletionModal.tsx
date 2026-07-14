@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { cancelAnimation, Easing, Extrapolation, interpolate, runOnJS, useAnimatedReaction, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming, type SharedValue } from "react-native-reanimated";
 
+import Avatar, { type AvatarExpression, type AvatarMotion } from "@/components/Avatar";
 import AnimatedUnlockSurface from "@/components/AnimatedUnlockSurface";
 import { C } from "@/constants/colors";
 import { buttonShadow } from "@/constants/depth";
@@ -10,6 +11,13 @@ import { success as hapticSuccess, tapMedium } from "@/lib/haptics";
 import type { RankPromotionSummary } from "@/lib/playerProfile";
 import type { ScoreBreakdown } from "@/lib/scoring";
 import { formatTime } from "@/lib/sudoku";
+import type { CharacterAvatarConfig } from "@/lib/avatar";
+
+interface CompletionAvatarProps extends CharacterAvatarConfig {
+  initials: string;
+  color: string;
+  symbol?: string | null;
+}
 
 interface Props {
   visible: boolean;
@@ -33,6 +41,7 @@ interface Props {
   outcomeTitle?: string | null;
   outcomeSubtitle?: string | null;
   celebrationKey?: string | null;
+  avatar?: CompletionAvatarProps | null;
   primaryLabel?: string;
   showLeaderboardEligibility?: boolean;
   onNext: () => void;
@@ -63,6 +72,7 @@ export default function CompletionModal({
   outcomeTitle = null,
   outcomeSubtitle = null,
   celebrationKey = null,
+  avatar = null,
   primaryLabel = "Next puzzle",
   showLeaderboardEligibility = true,
   onNext,
@@ -144,6 +154,23 @@ export default function CompletionModal({
   const promotionAnimationKey = visible && celebrationReady && rankPromotion
     ? [celebrationKey ?? resolvedCelebrationKey, rankPromotion.newRankLabel].join("|")
     : null;
+  const avatarExpression: AvatarExpression = celebrationTier === "loss"
+    ? "sad"
+    : celebrationTier === "draw"
+    ? "focused"
+    : celebrationReady || hasRankPromotion
+    ? "happy"
+    : "focused";
+  const avatarMotion: AvatarMotion = !celebrationReady
+    ? "thinking"
+    : celebrationTier === "loss"
+    ? "defeated"
+    : celebrationTier === "victory" || hasRankPromotion || celebrationTier === "standard"
+    ? "celebrate"
+    : "idle";
+  const avatarMotionKey = celebrationReady
+    ? `${resolvedCelebrationKey}:${celebrationTier}:${hasRankPromotion ? "promotion" : "result"}`
+    : `${resolvedCelebrationKey}:pending`;
 
   useAnimatedReaction(
     () => Math.round(interpolate(scoreProgress.value, [0, 1], [0, score], Extrapolation.CLAMP)),
@@ -420,7 +447,18 @@ export default function CompletionModal({
       <View style={styles.backdrop}>
         <View style={styles.card}>
           <View style={styles.iconWrap}>
+            {avatar ? (
+              <Avatar
+                {...avatar}
+                expression={avatarExpression}
+                motion={avatarMotion}
+                motionKey={avatarMotionKey}
+                active={visible}
+                variant="lg"
+              />
+            ) : (
             <Text style={{ fontSize: 30 }}>★</Text>
+            )}
           </View>
           <Text style={styles.kicker}>{mode.toUpperCase()} · COMPLETE</Text>
           <View style={styles.titleWrap}>
@@ -619,9 +657,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   iconWrap: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: C.goldSoft,
     alignItems: "center",
     justifyContent: "center",
