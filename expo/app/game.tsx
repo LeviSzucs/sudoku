@@ -1460,6 +1460,12 @@ export default function GameScreen() {
         rankPromotion={completionSummary?.rankPromotion ?? null}
         unlockedBadges={completionSummary?.unlockedBadges.map((badge) => ({ badge_id: badge.badge_id, name: badge.name, icon: badge.icon })) ?? []}
         celebrationKey={completionCelebrationKey}
+        avatar={{
+          ...profile,
+          initials: profile.initials,
+          color: profile.avatar_color,
+          symbol: profile.avatar_symbol,
+        }}
         primaryLabel={completionPrimaryLabel(effectiveMode)}
         showLeaderboardEligibility={effectiveMode !== "ranked_duel"}
         onNext={handleCompletionNext}

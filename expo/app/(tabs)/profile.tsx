@@ -1,4 +1,4 @@
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { router } from "expo-router";
 import { ChevronRight, Flame, Lock, Settings as SettingsIcon, Shield, Target, Timer, Trophy, Users } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -58,6 +58,7 @@ export default function ProfileScreen() {
     fetchLatestUnseenRankedSeasonRecap,
     markRankedSeasonRecapViewed,
   } = usePlayerProfile();
+  const isFocused = useIsFocused();
   const [selectedBadge, setSelectedBadge] = useState<AchievementBadge | null>(null);
   const [friendsCount, setFriendsCount] = useState<number | null>(null);
   const [recapPhase, setRecapPhase] = useState<"hidden" | "recap" | "intro">("hidden");
@@ -220,7 +221,16 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.avatarBlock}>
-          <Avatar {...profile} initials={profile.initials} color={profile.avatar_color} symbol={profile.avatar_symbol} variant="xl" />
+          <Avatar
+            {...profile}
+            initials={profile.initials}
+            color={profile.avatar_color}
+            symbol={profile.avatar_symbol}
+            variant="xl"
+            expression="neutral"
+            motion="idle"
+            active={isFocused}
+          />
           <Text style={styles.username}>{profile.display_name ?? profile.username}</Text>
           {profile.username_handle ? <Text style={styles.handle}>@{profile.username_handle}</Text> : null}
           <View style={styles.rankBadge}>
@@ -333,6 +343,12 @@ export default function ProfileScreen() {
         phase={recapPhase === "intro" ? "intro" : "recap"}
         recap={seasonRecap}
         currentSeason={activeSeasonInfo}
+        avatar={{
+          ...profile,
+          initials: profile.initials,
+          color: profile.avatar_color,
+          symbol: profile.avatar_symbol,
+        }}
         onContinue={() => { void handleSeasonRecapContinue(); }}
         onPlayRanked={handleSeasonIntroContinue}
         onShare={recapPhase === "recap" ? handleSeasonRecapShare : undefined}

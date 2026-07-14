@@ -1,4 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
+import { useIsFocused } from "@react-navigation/native";
 import { ArrowLeft, Swords, Trophy } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -46,6 +47,7 @@ export default function FriendHeadToHeadScreen() {
   const insets = useSafeAreaInsets();
   const premium = usePremiumStatus();
   const { fetchFriendHeadToHead } = usePlayerProfile();
+  const isFocused = useIsFocused();
   const [summary, setSummary] = useState<FriendHeadToHeadSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -110,6 +112,9 @@ export default function FriendHeadToHeadScreen() {
                   avatar_accessory={summary.friend_avatar_accessory}
                   avatar_frame={summary.friend_avatar_frame}
                   variant="xl"
+                  expression="neutral"
+                  motion="idle"
+                  active={isFocused}
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.friendName}>{summary.friend_display_name}</Text>

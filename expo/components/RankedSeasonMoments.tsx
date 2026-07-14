@@ -1,10 +1,12 @@
 import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import React from "react";
 
+import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
 import { C } from "@/constants/colors";
 import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import type { RankedSeasonInfo, RankedSeasonRecap } from "@/hooks/usePlayerProfile";
+import type { CharacterAvatarConfig } from "@/lib/avatar";
 
 type Phase = "recap" | "intro";
 
@@ -13,6 +15,7 @@ interface Props {
   phase: Phase;
   recap: RankedSeasonRecap | null;
   currentSeason: RankedSeasonInfo | null;
+  avatar?: (CharacterAvatarConfig & { initials: string; color: string; symbol?: string | null }) | null;
   onContinue: () => void;
   onPlayRanked: () => void;
   onShare?: () => void;
@@ -59,6 +62,7 @@ export default function RankedSeasonMoments({
   phase,
   recap,
   currentSeason,
+  avatar = null,
   onContinue,
   onPlayRanked,
   onShare,
@@ -82,6 +86,18 @@ export default function RankedSeasonMoments({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Card style={[styles.shell, { maxWidth: shellMaxWidth, padding: isTablet ? 28 : 22 }]}>
+          {avatar ? (
+            <View style={styles.avatarWrap}>
+              <Avatar
+                {...avatar}
+                variant="xl"
+                expression="happy"
+                motion="celebrate"
+                motionKey={`${phase}:${isRecap ? recap?.season_id ?? seasonName : currentSeason?.season_id ?? seasonName}`}
+                active={visible}
+              />
+            </View>
+          ) : null}
           {isRecap ? (
             <>
               <Text style={styles.kicker}>SEASON COMPLETE</Text>
@@ -195,6 +211,10 @@ const styles = StyleSheet.create({
     maxWidth: 460,
     borderRadius: 28,
     padding: 22,
+  },
+  avatarWrap: {
+    alignItems: "center",
+    marginBottom: 14,
   },
   kicker: {
     color: C.gold,
