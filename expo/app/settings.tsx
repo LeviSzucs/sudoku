@@ -34,9 +34,9 @@ function avatarDraftFromProfile(profile: PlayerProfile): AvatarDraft {
 }
 
 const BOARD_SIZE_OPTIONS: Array<{ value: BoardSizePreference; label: string; detail: string }> = [
-  { value: "standard", label: "Standard", detail: "Matches the current layout." },
-  { value: "large", label: "Large", detail: "Makes the board noticeably bigger during play." },
-  { value: "xl", label: "XL", detail: "Uses the largest safe board size for your screen." },
+  { value: "standard", label: "Standard", detail: "Current board size · 100%" },
+  { value: "large", label: "Large", detail: "Roomier board sizing · about 110%" },
+  { value: "xl", label: "XL", detail: "Largest safe board size · up to about 120%" },
 ];
 
 function boardSizeLabel(value: BoardSizePreference): string {
@@ -342,17 +342,17 @@ const styles = StyleSheet.create({
   toggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border },
   toggleLabel: { color: C.ink, fontWeight: "700", flex: 1 },
   actions: { flexDirection: "row", gap: 10, marginTop: 18 },
-  optionGroup: { marginTop: 12, gap: 10 },
+  optionGroup: { marginTop: 16, gap: 14 },
   optionCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 14,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: C.border,
     backgroundColor: C.bgElevated,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
   optionCardActive: {
     borderColor: C.accent,
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
   },
   optionTitle: { color: C.ink, fontWeight: "800", fontSize: 15 },
   optionTitleActive: { color: C.ink },
-  optionDetail: { color: C.muted, fontSize: 12, marginTop: 2, lineHeight: 18 },
+  optionDetail: { color: C.muted, fontSize: 12, marginTop: 4, lineHeight: 18 },
   optionDetailActive: { color: C.inkSoft },
   cancel: { flex: 1, borderRadius: 14, borderWidth: 1, borderColor: C.border, paddingVertical: 12, alignItems: "center" },
   save: { flex: 1, borderRadius: 14, backgroundColor: C.ink, paddingVertical: 12, alignItems: "center", ...buttonShadow },
