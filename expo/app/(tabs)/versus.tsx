@@ -6,7 +6,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import Avatar, { type AvatarExpression, type AvatarMotion } from "@/components/Avatar";
+import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
 import DuelResultReveal from "@/components/DuelResultReveal";
 import Pill from "@/components/Pill";
@@ -22,51 +22,6 @@ import { formatTime } from "@/lib/sudoku";
 import type { RecentResult } from "@/lib/playerProfile";
 
 type DisplayOutcome = "win" | "loss" | "draw" | "abandon";
-type DuelAvatarPresentation = {
-  expression: AvatarExpression;
-  motion: AvatarMotion;
-  motionKey: string | null;
-  active: boolean;
-};
-
-function idleAvatarPresentation(): DuelAvatarPresentation {
-  return {
-    expression: "neutral",
-    motion: "idle",
-    motionKey: null,
-    active: true,
-  };
-}
-
-function waitingAvatarPresentation(): DuelAvatarPresentation {
-  return {
-    expression: "focused",
-    motion: "thinking",
-    motionKey: null,
-    active: true,
-  };
-}
-
-function outcomeAvatarPresentation(
-  outcome: DisplayOutcome | null,
-  role: "current" | "opponent",
-  motionKey: string | null,
-): DuelAvatarPresentation {
-  if (outcome === "win") {
-    return role === "current"
-      ? { expression: "happy", motion: "celebrate", motionKey, active: true }
-      : { expression: "sad", motion: "defeated", motionKey, active: true };
-  }
-  if (outcome === "loss") {
-    return role === "current"
-      ? { expression: "sad", motion: "defeated", motionKey, active: true }
-      : { expression: "happy", motion: "celebrate", motionKey, active: true };
-  }
-  if (outcome === "draw") {
-    return { expression: "focused", motion: "idle", motionKey, active: true };
-  }
-  return idleAvatarPresentation();
-}
 
 function formatScore(value: number | null | undefined): string {
   return (value ?? 0).toLocaleString();
@@ -310,46 +265,6 @@ export default function VersusScreen() {
   const dailyDuelOutcome = useMemo(() => getDailyDuelOutcome(dailyDuel, auth.user?.id ?? null), [auth.user?.id, dailyDuel]);
   const rankedDuelCopy = useMemo(() => getRankedDuelCopyV2(rankedDuel, auth.user?.id ?? null, latestRankedDuel), [auth.user?.id, latestRankedDuel, rankedDuel]);
   const rankedDuelOutcome = useMemo(() => getRankedDuelOutcome(rankedDuel, auth.user?.id ?? null), [auth.user?.id, rankedDuel]);
-  const dailyMotionKey = dailyDuel ? `${dailyDuel.duel_id}:${dailyDuel.completed_at ?? dailyDuel.status}` : null;
-  const rankedMotionKey = rankedDuel ? `${rankedDuel.ranked_duel_id}:${rankedDuel.completed_at ?? rankedDuel.status}` : null;
-  const dailyCurrentAvatar = useMemo<DuelAvatarPresentation>(() => {
-    if (!dailyDuel) return idleAvatarPresentation();
-    if (dailyDuel.status === "completed") return outcomeAvatarPresentation(dailyDuelOutcome, "current", dailyMotionKey);
-    if (dailyDuel.status === "waiting_for_opponent" || dailyDuel.current_user_result_id || dailyDuel.opponent_score !== null) {
-      return waitingAvatarPresentation();
-    }
-    return idleAvatarPresentation();
-  }, [dailyDuel, dailyDuelOutcome, dailyMotionKey]);
-  const dailyOpponentAvatar = useMemo<DuelAvatarPresentation>(() => {
-    if (!dailyDuel?.opponent_user_id) {
-      return { expression: "neutral", motion: "static", motionKey: null, active: false };
-    }
-    if (dailyDuel.status === "completed") return outcomeAvatarPresentation(dailyDuelOutcome, "opponent", dailyMotionKey);
-    if (dailyDuel.current_user_result_id || dailyDuel.opponent_score !== null) {
-      return waitingAvatarPresentation();
-    }
-    return idleAvatarPresentation();
-  }, [dailyDuel, dailyDuelOutcome, dailyMotionKey]);
-  const rankedCurrentAvatar = useMemo<DuelAvatarPresentation>(() => {
-    if (!rankedDuel) return idleAvatarPresentation();
-    if (rankedDuel.status === "completed") return outcomeAvatarPresentation(rankedDuelOutcome, "current", rankedMotionKey);
-    if (rankedDuel.status === "waiting_for_opponent" || rankedDuel.current_user_result_id || rankedDuel.opponent_score !== null) {
-      return waitingAvatarPresentation();
-    }
-    return idleAvatarPresentation();
-  }, [rankedDuel, rankedDuelOutcome, rankedMotionKey]);
-  const rankedOpponentAvatar = useMemo<DuelAvatarPresentation>(() => {
-    if (!rankedDuel?.opponent_user_id) {
-      return rankedDuel?.status === "waiting_for_opponent"
-        ? { expression: "focused", motion: "static", motionKey: null, active: false }
-        : { expression: "neutral", motion: "static", motionKey: null, active: false };
-    }
-    if (rankedDuel.status === "completed") return outcomeAvatarPresentation(rankedDuelOutcome, "opponent", rankedMotionKey);
-    if (rankedDuel.current_user_result_id || rankedDuel.opponent_score !== null) {
-      return waitingAvatarPresentation();
-    }
-    return idleAvatarPresentation();
-  }, [rankedDuel, rankedDuelOutcome, rankedMotionKey]);
   const isTablet = isTabletWidth(width);
   const shellMaxWidth = getCenteredContentMaxWidth(width, isTablet ? 920 : 520);
 
@@ -545,10 +460,6 @@ export default function VersusScreen() {
                       color={profile.avatar_color}
                       symbol={profile.avatar_symbol}
                       variant="xl"
-                      expression={dailyCurrentAvatar.expression}
-                      motion={dailyCurrentAvatar.motion}
-                      motionKey={dailyCurrentAvatar.motionKey}
-                      active={dailyCurrentAvatar.active}
                     />
                   </View>
                   <Text style={styles.vsName} numberOfLines={1}>{profile.display_name ?? profile.username}</Text>
@@ -574,10 +485,6 @@ export default function VersusScreen() {
                       avatar_accessory={dailyDuel?.opponent_avatar_accessory}
                       avatar_frame={dailyDuel?.opponent_avatar_frame}
                       variant="xl"
-                      expression={dailyOpponentAvatar.expression}
-                      motion={dailyOpponentAvatar.motion}
-                      motionKey={dailyOpponentAvatar.motionKey}
-                      active={dailyOpponentAvatar.active}
                     />
                   </View>
                   <Text style={styles.vsName} numberOfLines={1}>{dailyDuel?.opponent_display_name ?? "Opponent"}</Text>
@@ -637,10 +544,6 @@ export default function VersusScreen() {
                     color={profile.avatar_color}
                     symbol={profile.avatar_symbol}
                     variant="lg"
-                    expression={rankedCurrentAvatar.expression}
-                    motion={rankedCurrentAvatar.motion}
-                    motionKey={rankedCurrentAvatar.motionKey}
-                    active={rankedCurrentAvatar.active}
                   />
                 </View>
                 <Text style={styles.rankedFaceoffName} numberOfLines={1}>
@@ -670,10 +573,6 @@ export default function VersusScreen() {
                     avatar_accessory={rankedDuel?.opponent_avatar_accessory}
                     avatar_frame={rankedDuel?.opponent_avatar_frame}
                     variant="lg"
-                    expression={rankedOpponentAvatar.expression}
-                    motion={rankedOpponentAvatar.motion}
-                    motionKey={rankedOpponentAvatar.motionKey}
-                    active={rankedOpponentAvatar.active}
                   />
                 </View>
                 <Text style={styles.rankedFaceoffName} numberOfLines={1}>

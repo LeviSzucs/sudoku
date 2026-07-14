@@ -1,5 +1,4 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useIsFocused } from "@react-navigation/native";
 import { ArrowLeft, Flag, Shield, Trophy } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -64,7 +63,6 @@ export default function PublicPlayerProfileScreen() {
   const insets = useSafeAreaInsets();
   const auth = useAuth();
   const { fetchPublicPlayerProfile, getUserBlockState, blockUser, unblockUser, reportUser } = usePlayerProfile();
-  const isFocused = useIsFocused();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<PublicPlayerProfilePage>({ profile: null, recent_results: [] });
   const [blockLoading, setBlockLoading] = useState(false);
@@ -220,9 +218,6 @@ export default function PublicPlayerProfileScreen() {
                   symbol={profile.avatar_symbol}
                   variant="xl"
                   size={104}
-                  expression="neutral"
-                  motion="idle"
-                  active={isFocused}
                 />
                 <Text style={styles.name}>{profileName}</Text>
                 {profile.username_handle ? <Text style={styles.handle}>@{profile.username_handle}</Text> : null}
