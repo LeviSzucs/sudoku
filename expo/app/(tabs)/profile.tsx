@@ -1,4 +1,4 @@
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { router } from "expo-router";
 import { ChevronRight, Flame, Lock, Settings as SettingsIcon, Shield, Target, Timer, Trophy, Users } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -50,6 +50,7 @@ export default function ProfileScreen() {
   const auth = useAuth();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const isFocused = useIsFocused();
   const {
     profile,
     fetchFriends,
@@ -220,7 +221,15 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.avatarBlock}>
-          <Avatar {...profile} initials={profile.initials} color={profile.avatar_color} symbol={profile.avatar_symbol} variant="xl" />
+          <Avatar
+            {...profile}
+            initials={profile.initials}
+            color={profile.avatar_color}
+            symbol={profile.avatar_symbol}
+            variant="xl"
+            motion="idle"
+            active={isFocused}
+          />
           <Text style={styles.username}>{profile.display_name ?? profile.username}</Text>
           {profile.username_handle ? <Text style={styles.handle}>@{profile.username_handle}</Text> : null}
           <View style={styles.rankBadge}>
