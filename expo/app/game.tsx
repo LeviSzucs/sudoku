@@ -17,7 +17,7 @@ import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import type { Difficulty } from "@/constants/mockData";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
-import { getCachedAppPreferences, playSoundEffect, triggerHaptic, type BoardSizePreference } from "@/lib/appPreferences";
+import { getCachedAppPreferences, loadAppPreferences, playSoundEffect, triggerHaptic, type BoardSizePreference } from "@/lib/appPreferences";
 import { tapLight } from "@/lib/haptics";
 import useSudokuGame, { type GameMode, type PuzzleResult, type SessionSnapshot } from "@/hooks/useSudokuGame";
 import { getDailyDateKey } from "@/lib/daily";
@@ -47,26 +47,74 @@ const PUZZLE_LOAD_TIMEOUT_MS = 15_000;
 
 const BOARD_SIZE_WIDTH_PADDING: Record<BoardSizePreference, number> = {
   standard: 16,
-  large: 8,
+  large: 6,
   xl: 0,
 };
 
 const BOARD_SIZE_PHONE_MAX_WIDTH: Record<BoardSizePreference, number> = {
   standard: 430,
-  large: 446,
-  xl: 462,
+  large: 470,
+  xl: 520,
 };
 
 const BOARD_SIZE_TABLET_PORTRAIT_MAX_WIDTH: Record<BoardSizePreference, number> = {
   standard: 620,
-  large: 676,
-  xl: 732,
+  large: 710,
+  xl: 790,
 };
 
 const BOARD_SIZE_TABLET_CONTROL_MAX_WIDTH: Record<BoardSizePreference, number> = {
   standard: 360,
-  large: 340,
-  xl: 320,
+  large: 344,
+  xl: 328,
+};
+
+const BOARD_SIZE_TARGET_SCALE: Record<BoardSizePreference, number> = {
+  standard: 1,
+  large: 1.1,
+  xl: 1.2,
+};
+
+const BOARD_SIZE_RESERVED_REDUCTION: Record<BoardSizePreference, number> = {
+  standard: 0,
+  large: 22,
+  xl: 44,
+};
+
+const BOARD_SIZE_SPLIT_GAP: Record<BoardSizePreference, number> = {
+  standard: 24,
+  large: 18,
+  xl: 14,
+};
+
+const BOARD_SIZE_BOARD_WRAP_MARGIN_TOP: Record<BoardSizePreference, number> = {
+  standard: 10,
+  large: 6,
+  xl: 2,
+};
+
+const BOARD_SIZE_CONTROLS_MARGIN_TOP: Record<BoardSizePreference, number> = {
+  standard: 10,
+  large: 8,
+  xl: 6,
+};
+
+const BOARD_SIZE_NUMBER_PAD_MARGIN_TOP: Record<BoardSizePreference, number> = {
+  standard: 10,
+  large: 8,
+  xl: 6,
+};
+
+const BOARD_SIZE_NUMBER_PAD_HORIZONTAL_PADDING: Record<BoardSizePreference, number> = {
+  standard: 8,
+  large: 4,
+  xl: 0,
+};
+
+const BOARD_SIZE_TOP_BAR_PADDING_BOTTOM: Record<BoardSizePreference, number> = {
+  standard: 8,
+  large: 6,
+  xl: 4,
 };
 
 interface ChallengeOutcomeCopy {
@@ -437,6 +485,7 @@ export default function GameScreen() {
   const gameOverFeedbackPlayedRef = useRef<boolean>(false);
   const placementPulseTokenRef = useRef<number>(0);
   const shareCardCaptureRef = useRef<ViewShot | null>(null);
+  const [boardSizePreference, setBoardSizePreference] = useState<BoardSizePreference>(() => getCachedAppPreferences().boardSize);
   const navIsFocused = useIsFocused();
   const [isFocused, setIsFocused] = useState<boolean>(true);
   const renderCountRef = useRef<number>(0);
@@ -526,6 +575,23 @@ export default function GameScreen() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      setBoardSizePreference(getCachedAppPreferences().boardSize);
+      void loadAppPreferences(auth.user?.id ?? null).then((preferences) => {
+        if (active) {
+          setBoardSizePreference(preferences.boardSize);
+        }
+      }).catch(() => {});
+
+      return () => {
+        active = false;
+      };
+    }, [auth.user?.id])
+  );
 
   useEffect(() => {
     logDevDiagnostic("GameScreen render", {
@@ -805,12 +871,22 @@ export default function GameScreen() {
 
   const isTablet = isTabletWidth(width);
   const isLandscape = width > height;
-  const boardSizePreference = getCachedAppPreferences().boardSize;
+  const usesSplitGameLayout = isTablet && isLandscape;
+  const minimumBoardSize = usesSplitGameLayout ? 320 : 224;
+  const standardGameShellMaxWidth = getCenteredContentMaxWidth(
+    width,
+    isTablet ? 1100 : BOARD_SIZE_PHONE_MAX_WIDTH.standard,
+  );
   const gameShellMaxWidth = getCenteredContentMaxWidth(
     width,
     isTablet ? 1100 : BOARD_SIZE_PHONE_MAX_WIDTH[boardSizePreference],
   );
-  const usesSplitGameLayout = isTablet && isLandscape;
+  const standardControlColumnWidth = usesSplitGameLayout
+    ? Math.min(
+      BOARD_SIZE_TABLET_CONTROL_MAX_WIDTH.standard,
+      Math.max(280, Math.floor(standardGameShellMaxWidth * 0.34)),
+    )
+    : standardGameShellMaxWidth;
   const controlColumnWidth = usesSplitGameLayout
     ? Math.min(
       BOARD_SIZE_TABLET_CONTROL_MAX_WIDTH[boardSizePreference],
@@ -818,17 +894,29 @@ export default function GameScreen() {
     )
     : gameShellMaxWidth;
   const reserved = 50 + 58 + 60 + 168 + 40 + insets.top + Math.max(insets.bottom, 12);
-  const horizontalPadding = BOARD_SIZE_WIDTH_PADDING[boardSizePreference];
+  const standardBoardMaxWidth = usesSplitGameLayout
+    ? standardGameShellMaxWidth - standardControlColumnWidth - BOARD_SIZE_SPLIT_GAP.standard
+    : Math.min(
+      standardGameShellMaxWidth,
+      isTablet ? BOARD_SIZE_TABLET_PORTRAIT_MAX_WIDTH.standard : width - BOARD_SIZE_WIDTH_PADDING.standard,
+    );
+  const standardBoardSize = Math.max(
+    minimumBoardSize,
+    Math.min(standardBoardMaxWidth, Math.floor(height - reserved))
+  );
   const boardMaxWidth = usesSplitGameLayout
-    ? gameShellMaxWidth - controlColumnWidth - 24
+    ? gameShellMaxWidth - controlColumnWidth - BOARD_SIZE_SPLIT_GAP[boardSizePreference]
     : Math.min(
       gameShellMaxWidth,
-      isTablet ? BOARD_SIZE_TABLET_PORTRAIT_MAX_WIDTH[boardSizePreference] : width - horizontalPadding,
+      isTablet ? BOARD_SIZE_TABLET_PORTRAIT_MAX_WIDTH[boardSizePreference] : width - BOARD_SIZE_WIDTH_PADDING[boardSizePreference],
     );
-  const boardSize = Math.max(
-    usesSplitGameLayout ? 320 : 224,
-    Math.min(boardMaxWidth, Math.floor(height - reserved))
+  const boardMaxHeight = Math.floor(height - (reserved - BOARD_SIZE_RESERVED_REDUCTION[boardSizePreference]));
+  const maxSafeBoardSize = Math.max(
+    minimumBoardSize,
+    Math.min(boardMaxWidth, boardMaxHeight)
   );
+  const desiredBoardSize = Math.round(standardBoardSize * BOARD_SIZE_TARGET_SCALE[boardSizePreference]);
+  const boardSize = Math.min(maxSafeBoardSize, Math.max(standardBoardSize, desiredBoardSize));
 
   const dateLabel = useMemo(() => {
     const d = new Date();
@@ -1297,7 +1385,7 @@ export default function GameScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={[styles.gameShell, { maxWidth: gameShellMaxWidth }]}>
-        <View style={[styles.topBar, { paddingTop: insets.top + 4 }]}>
+        <View style={[styles.topBar, { paddingTop: insets.top + 4, paddingBottom: BOARD_SIZE_TOP_BAR_PADDING_BOTTOM[boardSizePreference] }]}>
         <Pressable hitSlop={10} onPress={onBackPress} style={styles.topBtn}>
           <ChevronLeft color={C.ink} size={26} />
         </Pressable>
@@ -1324,7 +1412,7 @@ export default function GameScreen() {
 
         <View style={[styles.gameBody, usesSplitGameLayout && styles.gameBodySplit]}>
           <View style={styles.boardColumn}>
-            <View style={styles.boardWrap}>
+            <View style={[styles.boardWrap, { marginTop: BOARD_SIZE_BOARD_WRAP_MARGIN_TOP[boardSizePreference] }]}>
         <View style={{ position: "relative" }}>
           <SudokuGrid
             initial={game.initial}
@@ -1351,7 +1439,7 @@ export default function GameScreen() {
       </View>
 
           <View style={[styles.controlsColumn, usesSplitGameLayout && { width: controlColumnWidth }]}>
-            <View style={styles.controlsWrap}>
+            <View style={[styles.controlsWrap, { marginTop: BOARD_SIZE_CONTROLS_MARGIN_TOP[boardSizePreference] }]}>
               <GameControls
                 notesMode={game.notesMode}
                 hintAllowed={game.hintAllowed}
@@ -1369,7 +1457,16 @@ export default function GameScreen() {
               </View>
             ) : null}
 
-            <View style={[styles.numberPadWrap, { marginBottom: Math.max(12, insets.bottom + 4) }]}>
+            <View
+              style={[
+                styles.numberPadWrap,
+                {
+                  marginTop: BOARD_SIZE_NUMBER_PAD_MARGIN_TOP[boardSizePreference],
+                  paddingHorizontal: BOARD_SIZE_NUMBER_PAD_HORIZONTAL_PADDING[boardSizePreference],
+                  marginBottom: Math.max(12, insets.bottom + 4),
+                },
+              ]}
+            >
               <NumberPad
                 onPressNumber={(n) => {
                   game.enterNumber(n);
