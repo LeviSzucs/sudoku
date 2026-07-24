@@ -6,6 +6,7 @@ import Animated, { cancelAnimation, Easing, Extrapolation, interpolate, runOnJS,
 import AnimatedUnlockSurface from "@/components/AnimatedUnlockSurface";
 import { C } from "@/constants/colors";
 import { buttonShadow } from "@/constants/depth";
+import { typography } from "@/constants/typography";
 import { success as hapticSuccess, tapMedium } from "@/lib/haptics";
 import type { RankPromotionSummary } from "@/lib/playerProfile";
 import type { ScoreBreakdown } from "@/lib/scoring";
@@ -643,7 +644,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: C.goldSoft,
   },
-  title: { fontSize: 25, fontWeight: "700", color: C.ink, marginTop: 6, letterSpacing: -0.5, textAlign: "center" },
+  title: { ...typography.celebrationTitle, fontSize: 25, color: C.ink, marginTop: 6, letterSpacing: -0.5, textAlign: "center" },
   titleVictory: { color: C.accent },
   sub: { fontSize: 13, color: C.muted, marginTop: 4, textAlign: "center" },
   outcomeSub: { fontSize: 13, color: C.accent, marginTop: 4, textAlign: "center", fontWeight: "800" },
@@ -661,7 +662,7 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 18, fontWeight: "700", color: C.ink, marginTop: 3 },
   scoreBox: { marginTop: 14, alignItems: "center", position: "relative", overflow: "visible" },
   scoreLabel: { fontSize: 10, color: C.muted, fontWeight: "800", letterSpacing: 1.6 },
-  scoreValue: { fontSize: 38, fontWeight: "800", color: C.ink, letterSpacing: -1, marginTop: 4 },
+  scoreValue: { ...typography.celebrationNumber, fontSize: 38, color: C.ink, letterSpacing: -1, marginTop: 4 },
   celebrationLayer: {
     position: "absolute",
     top: 10,
@@ -699,7 +700,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   promotionKicker: { fontSize: 11, color: C.gold, fontWeight: "900", letterSpacing: 1.6 },
-  promotionTitle: { fontSize: 20, color: C.ink, fontWeight: "900", textAlign: "center", letterSpacing: -0.4 },
+  promotionTitle: { ...typography.promotionTitle, fontSize: 20, color: C.ink, textAlign: "center", letterSpacing: -0.4 },
   promotionSub: { fontSize: 12, color: C.inkSoft, fontWeight: "700", textAlign: "center" },
   badgeRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 10 },
   badgeChipWrap: { borderRadius: 999 },

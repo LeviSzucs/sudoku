@@ -1,4 +1,7 @@
+import { Fraunces_600SemiBold } from "@expo-google-fonts/fraunces/600SemiBold";
+import { Fraunces_700Bold } from "@expo-google-fonts/fraunces/700Bold";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useFonts } from "expo-font";
 import { router, Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -23,7 +26,7 @@ import {
 import { parseNotificationDeepLink } from "@/lib/notificationNavigation";
 import { flushPendingRuntimeErrorReports, installGlobalErrorHandlers, setRuntimeErrorContext } from "@/lib/runtimeErrors";
 
-SplashScreen.preventAutoHideAsync();
+void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 const queryClient = new QueryClient();
 
@@ -208,10 +211,21 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    Fraunces_600SemiBold,
+    Fraunces_700Bold,
+  });
+
   useEffect(() => {
     installGlobalErrorHandlers();
-    SplashScreen.hideAsync();
   }, []);
+
+  useEffect(() => {
+    if (!fontsLoaded && !fontError) return;
+    void SplashScreen.hideAsync().catch(() => undefined);
+  }, [fontError, fontsLoaded]);
+
+  if (!fontsLoaded && !fontError) return null;
 
   return (
     <QueryClientProvider client={queryClient}>

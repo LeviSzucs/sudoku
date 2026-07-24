@@ -8,6 +8,7 @@ import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
 import { C } from "@/constants/colors";
 import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
+import { typography } from "@/constants/typography";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile, type PublicAvatarConfig } from "@/hooks/usePlayerProfile";
 import { getDailyDateKey } from "@/lib/daily";
@@ -284,7 +285,7 @@ export default function LeaderboardsScreen() {
         {showDailyJoinPrompt ? (
           <Card style={{ alignItems: "center", paddingVertical: 32, marginBottom: 18 }}>
             <Trophy size={36} color={C.mutedSoft} strokeWidth={1.5} />
-            <Text style={styles.emptyTitle}>Complete today's Daily Sudoku to join the leaderboard</Text>
+            <Text style={styles.emptyTitle}>Complete today&apos;s Daily Sudoku to join the leaderboard</Text>
           </Card>
         ) : null}
         {showWeeklyJoinPrompt ? (
@@ -434,8 +435,8 @@ const styles = StyleSheet.create({
     letterSpacing: 1.6,
   },
   title: {
+    ...typography.screenTitle,
     fontSize: 32,
-    fontWeight: "700",
     color: C.ink,
     letterSpacing: -0.6,
     marginTop: 2,

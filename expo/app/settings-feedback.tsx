@@ -8,6 +8,7 @@ import Card from "@/components/Card";
 import { APP_VERSION } from "@/constants/appInfo";
 import { APP_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
+import { typography } from "@/constants/typography";
 import { SUPPORT_EMAIL_LABEL } from "@/constants/legal";
 import { useAuth } from "@/hooks/useAuth";
 import { openSupportEmail } from "@/lib/support";
@@ -165,7 +166,7 @@ const styles = StyleSheet.create({
   backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
   icon: { width: 42, height: 42, borderRadius: 14, backgroundColor: C.bgElevated, alignItems: "center", justifyContent: "center" },
   eyebrow: { color: C.muted, fontSize: 11, fontWeight: "900", letterSpacing: 1.4 },
-  title: { color: C.ink, fontSize: 28, fontWeight: "900", letterSpacing: -0.6, marginTop: 2 },
+  title: { ...typography.screenTitle, color: C.ink, fontSize: 28, letterSpacing: -0.6, marginTop: 2 },
   sub: { color: C.muted, fontSize: 13, fontWeight: "700", marginTop: 4, lineHeight: 18 },
   label: { color: C.ink, fontWeight: "900", marginBottom: 8 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
