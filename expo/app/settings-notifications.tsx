@@ -6,6 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import Card from "@/components/Card";
 import { C } from "@/constants/colors";
+import { typography } from "@/constants/typography";
 import { useAuth } from "@/hooks/useAuth";
 import {
   defaultNotificationPreferences,
@@ -311,7 +312,7 @@ const styles = StyleSheet.create({
   backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
   icon: { width: 42, height: 42, borderRadius: 14, backgroundColor: C.bgElevated, alignItems: "center", justifyContent: "center" },
   eyebrow: { color: C.muted, fontSize: 11, fontWeight: "900", letterSpacing: 1.4 },
-  title: { color: C.ink, fontSize: 28, fontWeight: "900", marginTop: 2 },
+  title: { ...typography.screenTitle, color: C.ink, fontSize: 28, marginTop: 2 },
   sub: { color: C.muted, fontSize: 13, fontWeight: "700", marginTop: 4, lineHeight: 18 },
   cardTitle: { color: C.ink, fontSize: 16, fontWeight: "900" },
   body: { color: C.muted, fontSize: 13, fontWeight: "700", lineHeight: 19, marginTop: 4 },

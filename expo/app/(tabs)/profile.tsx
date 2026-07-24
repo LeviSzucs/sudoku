@@ -12,6 +12,7 @@ import SectionHeader from "@/components/SectionHeader";
 import ShareCardCaptureHost from "@/components/share/ShareCardCaptureHost";
 import { C } from "@/constants/colors";
 import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
+import { typography } from "@/constants/typography";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile, type RankedSeasonInfo, type RankedSeasonRecap } from "@/hooks/usePlayerProfile";
 import { getLevelFromXp, getRankFromRp, RANKS, type AchievementBadge } from "@/lib/playerProfile";
@@ -262,7 +263,7 @@ export default function ProfileScreen() {
               <View style={styles.progressHeader}>
                 <View>
                   <Text style={styles.progressKicker}>COMPETITIVE RANK</Text>
-                  <Text style={styles.levelText}>{profile.rank_tier}{profile.rank_division ? ` ${profile.rank_division}` : ""}</Text>
+                  <Text style={styles.rankName}>{profile.rank_tier}{profile.rank_division ? ` ${profile.rank_division}` : ""}</Text>
                 </View>
                 <View style={{ alignItems: "flex-end" }}>
                   <Text style={styles.progressValue}>{profile.rank_points} RP</Text>
@@ -425,7 +426,7 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18, paddingTop: 12 },
   kicker: { fontSize: 11, color: C.muted, fontWeight: "700", letterSpacing: 1.6 },
   avatarBlock: { alignItems: "center", marginBottom: 18 },
-  username: { fontSize: 24, fontWeight: "700", color: C.ink, marginTop: 14, letterSpacing: -0.4 },
+  username: { ...typography.profileName, fontSize: 24, color: C.ink, marginTop: 14, letterSpacing: -0.4 },
   handle: { color: C.muted, fontWeight: "800", marginTop: 3 },
   rankBadge: { flexDirection: "row", alignItems: "center", backgroundColor: C.card, borderWidth: 1, borderColor: C.border, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, marginTop: 8, gap: 6 },
   rankBadgeText: { fontSize: 13, fontWeight: "700", color: C.ink },
@@ -433,8 +434,9 @@ const styles = StyleSheet.create({
   ratingText: { fontSize: 13, color: C.muted, fontWeight: "600" },
   progressHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   progressKicker: { fontSize: 10, color: C.muted, fontWeight: "800", letterSpacing: 1.4 },
-  levelText: { fontSize: 20, fontWeight: "800", color: C.ink, marginTop: 3 },
-  progressValue: { fontSize: 14, color: C.ink, fontWeight: "800" },
+  levelText: { ...typography.statDisplay, fontSize: 20, color: C.ink, marginTop: 3 },
+  rankName: { ...typography.profileName, fontSize: 20, color: C.ink, marginTop: 3 },
+  progressValue: { ...typography.statDisplay, fontSize: 16, color: C.ink },
   xpTotalBlock: { alignItems: "flex-end" },
   xpTotalLabel: { color: C.muted, fontSize: 11, fontWeight: "800", marginTop: 2 },
   barTrack: { height: 8, backgroundColor: C.bgElevated, borderRadius: 999, overflow: "hidden", marginTop: 12 },

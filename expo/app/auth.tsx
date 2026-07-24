@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import BrandMark from "@/components/BrandMark";
 import { C } from "@/constants/colors";
 import { SUPPORT_EMAIL_LABEL } from "@/constants/legal";
+import { typography } from "@/constants/typography";
 import { useAuth } from "@/hooks/useAuth";
 
 type AuthStep = "splash" | "signup" | "login" | "reset_request" | "reset_sent" | "reset_update";
@@ -682,17 +683,17 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   heroTitle: {
+    ...typography.displayHero,
     color: C.ink,
     fontSize: 34,
     lineHeight: 38,
-    fontWeight: "900",
     marginBottom: 10,
   },
   heroSubtitle: {
     color: C.inkSoft,
     fontSize: 15,
     lineHeight: 22,
-    fontWeight: "600",
+    fontWeight: "500",
   },
   heroStats: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 18 },
   heroPill: {
@@ -722,10 +723,10 @@ const styles = StyleSheet.create({
   feature: { flexDirection: "row", gap: 12, alignItems: "center", paddingVertical: 10 },
   featureBody: { flex: 1 },
   featureIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: C.bgElevated, alignItems: "center", justifyContent: "center" },
-  featureTitle: { color: C.ink, fontWeight: "900", fontSize: 15 },
-  featureText: { color: C.muted, fontSize: 13, lineHeight: 18, marginTop: 3, fontWeight: "600" },
-  formTitle: { fontSize: 28, lineHeight: 32, fontWeight: "900", color: C.ink, marginBottom: 8 },
-  formSubtitle: { color: C.muted, fontSize: 14, lineHeight: 21, fontWeight: "600", marginBottom: 6 },
+  featureTitle: { color: C.ink, fontWeight: "700", fontSize: 15 },
+  featureText: { color: C.muted, fontSize: 13, lineHeight: 18, marginTop: 3, fontWeight: "500" },
+  formTitle: { ...typography.screenTitle, fontSize: 28, lineHeight: 34, color: C.ink, marginBottom: 8 },
+  formSubtitle: { color: C.muted, fontSize: 14, lineHeight: 21, fontWeight: "500", marginBottom: 6 },
   socialSection: { marginTop: 18 },
   socialButton: {
     minHeight: 56,
