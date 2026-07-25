@@ -19,6 +19,7 @@ import StreakFlame from "@/components/StreakFlame";
 import { C } from "@/constants/colors";
 import { buttonShadow, premiumShadow } from "@/constants/depth";
 import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
+import { typography } from "@/constants/typography";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { getDailyDateKey } from "@/lib/daily";
@@ -216,7 +217,7 @@ export default function HomeScreen() {
           <Card style={{ marginBottom: 16 }}>
             <Text style={styles.onboardingTitle}>Welcome to SudoDuel</Text>
             <Text style={styles.onboardingBody}>
-              Start with your first Classic puzzle or today's Daily Sudoku. Once you have a solve on the board, try Daily Duel or challenge a friend.
+              Start with your first Classic puzzle or today&apos;s Daily Sudoku. Once you have a solve on the board, try Daily Duel or challenge a friend.
             </Text>
             <View style={styles.onboardingActions}>
               <Pressable style={styles.onboardingPrimary} onPress={() => router.push("/(tabs)/play")}>
@@ -277,7 +278,7 @@ export default function HomeScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.cardTitle}>Daily Duel</Text>
               <Text style={styles.cardSub}>
-                Race a fresh opponent on today's board
+                Race a fresh opponent on today&apos;s board
               </Text>
             </View>
             <ChevronRight color={C.mutedSoft} size={20} />
@@ -383,9 +384,9 @@ const styles = StyleSheet.create({
     fontWeight: "400",
   },
   greetingName: {
+    ...typography.profileName,
     fontSize: 30,
     color: C.ink,
-    fontWeight: "700",
     letterSpacing: -0.5,
     marginTop: -2,
   },
@@ -497,9 +498,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   heroTitle: {
+    ...typography.dailyDate,
     color: "#FBF8F2",
     fontSize: 22,
-    fontWeight: "700",
     letterSpacing: -0.4,
     flexShrink: 1,
   },

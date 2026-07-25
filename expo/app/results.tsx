@@ -8,6 +8,7 @@ import Card from "@/components/Card";
 import PremiumGateCard from "@/components/PremiumGateCard";
 import { C } from "@/constants/colors";
 import { getResultHistoryLimit } from "@/constants/premium";
+import { typography } from "@/constants/typography";
 import { usePremiumStatus } from "@/hooks/usePremiumStatus";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import type { RecentResult } from "@/lib/playerProfile";
@@ -136,7 +137,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
   header: { flexDirection: "row", alignItems: "center", gap: 12 },
   backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
-  title: { fontSize: 30, fontWeight: "800", color: C.ink, letterSpacing: -0.7 },
+  title: { ...typography.screenTitle, fontSize: 30, color: C.ink, letterSpacing: -0.7 },
   sub: { color: C.muted, fontWeight: "700", marginTop: 4 },
   tabs: { gap: 8, paddingVertical: 18 },
   chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border },

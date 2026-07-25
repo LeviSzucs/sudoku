@@ -17,6 +17,7 @@ import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
 import { buttonShadow, cardShadow, premiumShadow } from "@/constants/depth";
 import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
+import { typography } from "@/constants/typography";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import type { GameMode } from "@/hooks/useSudokuGame";
@@ -373,7 +374,7 @@ export default function PlayHubScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle}>Daily Duel</Text>
-                <Text style={styles.cardSub}>Race a fresh opponent on today's board</Text>
+                <Text style={styles.cardSub}>Race a fresh opponent on today&apos;s board</Text>
               </View>
               <ChevronRight color={C.mutedSoft} size={20} />
             </View>
@@ -488,9 +489,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   title: {
+    ...typography.screenTitle,
     fontSize: 30,
     color: C.ink,
-    fontWeight: "700",
     letterSpacing: -0.5,
   },
   iconTile: {
@@ -535,9 +536,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   heroTitle: {
+    ...typography.dailyDate,
     color: "#FBF8F2",
     fontSize: 22,
-    fontWeight: "700",
     letterSpacing: -0.4,
     flexShrink: 1,
   },

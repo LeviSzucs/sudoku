@@ -14,6 +14,7 @@ import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
 import { buttonShadow, premiumShadow } from "@/constants/depth";
 import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
+import { typography } from "@/constants/typography";
 import { usePlayerProfile, type DailyDuelEntry, type RankedDuelEntry } from "@/hooks/usePlayerProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { getDailyDateKey } from "@/lib/daily";
@@ -739,8 +740,8 @@ const styles = StyleSheet.create({
     letterSpacing: 1.6,
   },
   title: {
+    ...typography.screenTitle,
     fontSize: 32,
-    fontWeight: "700",
     color: C.ink,
     letterSpacing: -0.6,
     marginTop: 2,

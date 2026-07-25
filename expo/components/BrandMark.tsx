@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import Svg, { Line, Polygon, Rect } from "react-native-svg";
 
 import { C } from "@/constants/colors";
+import { typography } from "@/constants/typography";
 
 type Props = {
   size?: number;
@@ -70,10 +71,10 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   wordmark: {
+    ...typography.wordmark,
     marginTop: 14,
     color: C.ink,
     fontSize: 30,
-    fontWeight: "900",
     letterSpacing: 0,
   },
   tagline: {

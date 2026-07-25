@@ -4,6 +4,7 @@ import React from "react";
 import Card from "@/components/Card";
 import { C } from "@/constants/colors";
 import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
+import { typography } from "@/constants/typography";
 import type { RankedSeasonInfo, RankedSeasonRecap } from "@/hooks/usePlayerProfile";
 
 type Phase = "recap" | "intro";
@@ -203,10 +204,10 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
   },
   title: {
+    ...typography.celebrationTitle,
     marginTop: 8,
     color: C.ink,
     fontSize: 28,
-    fontWeight: "900",
     letterSpacing: -0.7,
   },
   subtitle: {
@@ -238,10 +239,10 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   heroValue: {
+    ...typography.statDisplay,
     marginTop: 5,
     color: C.ink,
     fontSize: 24,
-    fontWeight: "900",
     letterSpacing: -0.5,
   },
   heroMeta: {

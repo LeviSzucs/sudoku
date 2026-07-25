@@ -10,6 +10,7 @@ import Card from "@/components/Card";
 import { formatAppVersionLabel } from "@/constants/appInfo";
 import { APP_NAME } from "@/constants/branding";
 import { C } from "@/constants/colors";
+import { typography } from "@/constants/typography";
 import { buttonShadow } from "@/constants/depth";
 import { SHOW_DEVELOPER_TOOLS } from "@/constants/developer";
 import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
@@ -303,7 +304,7 @@ const styles = StyleSheet.create({
   shell: { width: "100%", alignSelf: "center" },
   header: { flexDirection: "row", alignItems: "center", gap: 12 },
   backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center", ...buttonShadow },
-  title: { fontSize: 30, fontWeight: "800", color: C.ink, letterSpacing: -0.7 },
+  title: { ...typography.screenTitle, fontSize: 30, color: C.ink, letterSpacing: -0.7 },
   sub: { color: C.muted, fontWeight: "700", marginTop: 4 },
   section: { marginTop: 20 },
   sectionTitle: { color: C.muted, fontSize: 12, fontWeight: "900", letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 },

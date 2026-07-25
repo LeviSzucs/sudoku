@@ -2,14 +2,15 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { C } from "@/constants/colors";
+import { typography } from "@/constants/typography";
 import { shareCardDateLabel, shareCardTimeLabel, type SudoDuelShareCardPayload } from "@/lib/shareCards";
 
 const CARD_SIZE = 1080;
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, primary = false }: { label: string; value: string; primary?: boolean }) {
   return (
     <View style={styles.statCard}>
-      <Text style={styles.statValue}>{value}</Text>
+      <Text style={[styles.statValue, primary ? styles.primaryStatValue : styles.supportingStatValue]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
@@ -50,7 +51,7 @@ function renderStats(payload: SudoDuelShareCardPayload) {
     case "daily":
       return (
         <>
-          <Stat label="Time" value={shareCardTimeLabel(payload.timeSeconds)} />
+          <Stat label="Time" value={shareCardTimeLabel(payload.timeSeconds)} primary />
           <Stat label="Mistakes" value={`${payload.mistakes}`} />
           <Stat label="Streak" value={typeof payload.streak === "number" && payload.streak > 0 ? `${payload.streak}` : "Keep it going"} />
         </>
@@ -60,7 +61,7 @@ function renderStats(payload: SudoDuelShareCardPayload) {
         <>
           <Stat label="Time" value={shareCardTimeLabel(payload.timeSeconds)} />
           <Stat label="Mistakes" value={`${payload.mistakes}`} />
-          <Stat label="RP Change" value={typeof payload.rpChange === "number" ? `${payload.rpChange > 0 ? "+" : ""}${payload.rpChange}` : "Settled"} />
+          <Stat label="RP Change" value={typeof payload.rpChange === "number" ? `${payload.rpChange > 0 ? "+" : ""}${payload.rpChange}` : "Settled"} primary />
           <Stat label="Current Rank" value={payload.currentTierLabel || "Unranked"} />
           <Stat label="Current RP" value={typeof payload.currentRp === "number" ? payload.currentRp.toLocaleString() : "0"} />
         </>
@@ -71,7 +72,7 @@ function renderStats(payload: SudoDuelShareCardPayload) {
       const standing = typeof payload.topPercent === "number" ? `Top ${payload.topPercent.toFixed(1)}%` : "Season complete";
       return (
         <>
-          <Stat label="Final Tier" value={payload.finalTier || "Unranked"} />
+          <Stat label="Final Tier" value={payload.finalTier || "Unranked"} primary />
           <Stat label="Final RP" value={payload.finalRp.toLocaleString()} />
           <Stat label="Record" value={`${payload.wins}-${payload.losses}-${payload.draws}`} />
           <Stat label="Win Rate" value={winRate} />
@@ -86,7 +87,7 @@ function renderStats(payload: SudoDuelShareCardPayload) {
         <>
           <Stat label="Time" value={shareCardTimeLabel(payload.timeSeconds)} />
           <Stat label="Mistakes" value={`${payload.mistakes}`} />
-          <Stat label="Score" value={typeof payload.score === "number" ? payload.score.toLocaleString() : "Solved"} />
+          <Stat label="Score" value={typeof payload.score === "number" ? payload.score.toLocaleString() : "Solved"} primary />
           <Stat label="XP" value={typeof payload.xpEarned === "number" && payload.xpEarned > 0 ? `+${payload.xpEarned}` : "Complete"} />
         </>
       );
@@ -177,9 +178,9 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   brandText: {
+    ...typography.wordmark,
     color: C.bgElevated,
     fontSize: 30,
-    fontWeight: "900",
     letterSpacing: 0.4,
   },
   hero: {
@@ -194,10 +195,10 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   title: {
+    ...typography.displayHero,
     color: C.bgElevated,
     fontSize: 82,
     lineHeight: 92,
-    fontWeight: "900",
     letterSpacing: -1.8,
   },
   subtitle: {
@@ -226,8 +227,13 @@ const styles = StyleSheet.create({
     color: C.bgElevated,
     fontSize: 34,
     lineHeight: 40,
-    fontWeight: "900",
     letterSpacing: -0.4,
+  },
+  supportingStatValue: {
+    fontWeight: "900",
+  },
+  primaryStatValue: {
+    ...typography.statDisplay,
   },
   statLabel: {
     marginTop: 16,

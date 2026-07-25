@@ -8,6 +8,7 @@ import Avatar from "@/components/Avatar";
 import BrandMark from "@/components/BrandMark";
 import { DEFAULT_AVATAR_COLOR } from "@/constants/branding";
 import { C } from "@/constants/colors";
+import { typography } from "@/constants/typography";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile, type UsernameAvailability } from "@/hooks/usePlayerProfile";
 import { initialsFromName } from "@/lib/playerProfile";
@@ -244,8 +245,8 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 10,
   },
-  heroTitle: { color: C.ink, fontSize: 31, lineHeight: 35, fontWeight: "900", marginBottom: 10 },
-  heroSubtitle: { color: C.inkSoft, fontSize: 15, lineHeight: 22, fontWeight: "600" },
+  heroTitle: { ...typography.displayHero, color: C.ink, fontSize: 31, lineHeight: 37, marginBottom: 10 },
+  heroSubtitle: { color: C.inkSoft, fontSize: 15, lineHeight: 22, fontWeight: "500" },
   panel: {
     backgroundColor: C.card,
     borderRadius: 28,
@@ -258,8 +259,8 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 2,
   },
-  formTitle: { fontSize: 28, lineHeight: 32, fontWeight: "900", color: C.ink, marginBottom: 8 },
-  formSubtitle: { color: C.muted, fontSize: 14, lineHeight: 21, fontWeight: "600" },
+  formTitle: { ...typography.screenTitle, fontSize: 28, lineHeight: 34, color: C.ink, marginBottom: 8 },
+  formSubtitle: { color: C.muted, fontSize: 14, lineHeight: 21, fontWeight: "500" },
   previewCard: {
     marginTop: 18,
     borderRadius: 22,

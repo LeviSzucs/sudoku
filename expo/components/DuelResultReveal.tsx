@@ -15,6 +15,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { C } from "@/constants/colors";
+import { typography } from "@/constants/typography";
 import { error as hapticError, success as hapticSuccess, tapMedium } from "@/lib/haptics";
 
 type DuelVerdict = "win" | "loss" | "draw";
@@ -235,12 +236,11 @@ const styles = StyleSheet.create({
     letterSpacing: 1.1,
   },
   scoreValue: {
+    ...typography.statDisplay,
     fontSize: 24,
     color: C.ink,
-    fontWeight: "900",
     marginTop: 4,
     letterSpacing: -0.6,
-    fontVariant: ["tabular-nums"],
   },
   scoreValueCompact: {
     fontSize: 20,

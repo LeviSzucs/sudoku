@@ -7,6 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import Card from "@/components/Card";
 import PremiumGateCard from "@/components/PremiumGateCard";
 import { C } from "@/constants/colors";
+import { typography } from "@/constants/typography";
 import type { Difficulty } from "@/constants/mockData";
 import { usePremiumStatus } from "@/hooks/usePremiumStatus";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
@@ -135,7 +136,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
   header: { flexDirection: "row", alignItems: "center", gap: 12 },
   backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
-  title: { fontSize: 30, fontWeight: "900", color: C.ink },
+  title: { ...typography.screenTitle, fontSize: 30, color: C.ink },
   sub: { color: C.muted, fontWeight: "700", marginTop: 4 },
   tabs: { flexDirection: "row", gap: 8, marginTop: 18 },
   chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border },

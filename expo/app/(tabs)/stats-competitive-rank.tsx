@@ -8,6 +8,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import Card from "@/components/Card";
 import { C } from "@/constants/colors";
 import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
+import { typography } from "@/constants/typography";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { getRankFromRp, RANKS, type RecentResult } from "@/lib/playerProfile";
@@ -231,10 +232,10 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", gap: 12 },
   backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
   kicker: { fontSize: 11, color: C.muted, fontWeight: "800", letterSpacing: 1.5 },
-  title: { fontSize: 30, fontWeight: "900", color: C.ink, letterSpacing: -0.7, marginTop: 2 },
+  title: { ...typography.screenTitle, fontSize: 30, color: C.ink, letterSpacing: -0.7, marginTop: 2 },
   progressHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 14 },
   label: { color: C.muted, fontSize: 11, fontWeight: "800", letterSpacing: 0.8 },
-  bigValue: { color: C.ink, fontSize: 34, fontWeight: "900", letterSpacing: -0.8, marginTop: 3 },
+  bigValue: { ...typography.statDisplay, color: C.ink, fontSize: 34, letterSpacing: -0.8, marginTop: 3 },
   seasonText: { color: C.inkSoft, fontSize: 13, fontWeight: "800", marginTop: 5, textAlign: "right" },
   barTrack: { height: 8, backgroundColor: C.bgElevated, borderRadius: 999, overflow: "hidden", marginTop: 14 },
   rankBar: { height: 8, backgroundColor: C.gold, borderRadius: 999 },

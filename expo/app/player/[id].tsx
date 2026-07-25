@@ -8,6 +8,7 @@ import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
 import SectionHeader from "@/components/SectionHeader";
 import { C } from "@/constants/colors";
+import { typography } from "@/constants/typography";
 import { SUPPORT_EMAIL_LABEL } from "@/constants/legal";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile, type PublicPlayerProfilePage, type PublicPlayerRecentResult } from "@/hooks/usePlayerProfile";
@@ -381,7 +382,7 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 18, paddingTop: 12 },
   iconButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
   kicker: { fontSize: 11, color: C.muted, fontWeight: "700", letterSpacing: 1.6 },
-  title: { color: C.ink, fontSize: 28, fontWeight: "900", marginTop: 2 },
+  title: { ...typography.profileName, color: C.ink, fontSize: 28, marginTop: 2 },
   hero: { alignItems: "center", gap: 8, paddingVertical: 10 },
   name: { color: C.ink, fontSize: 28, fontWeight: "900", textAlign: "center" },
   handle: { color: C.muted, fontWeight: "800", fontSize: 14 },
