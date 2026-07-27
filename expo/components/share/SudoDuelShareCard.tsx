@@ -1,126 +1,181 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
+import BrandMark from "@/components/BrandMark";
 import { C } from "@/constants/colors";
 import { typography } from "@/constants/typography";
 import { shareCardDateLabel, shareCardTimeLabel, type SudoDuelShareCardPayload } from "@/lib/shareCards";
 
 const CARD_SIZE = 1080;
 
-function Stat({ label, value, primary = false }: { label: string; value: string; primary?: boolean }) {
+type CardStat = {
+  label: string;
+  value: string;
+};
+
+type CardContent = {
+  kicker: string;
+  title: string;
+  primary: CardStat;
+  supporting: CardStat[];
+};
+
+function SupportingStat({ label, value, wide = false }: CardStat & { wide?: boolean }) {
   return (
-    <View style={styles.statCard}>
-      <Text style={[styles.statValue, primary ? styles.primaryStatValue : styles.supportingStatValue]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+    <View style={[styles.supportingCard, wide && styles.supportingCardWide]}>
+      <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.72}
+        numberOfLines={1}
+        style={styles.supportingValue}
+      >
+        {value}
+      </Text>
+      <Text numberOfLines={1} style={styles.supportingLabel}>
+        {label}
+      </Text>
     </View>
   );
 }
 
-function getHeaderCopy(payload: SudoDuelShareCardPayload): { eyebrow: string; title: string; subtitle: string } {
+function getCardContent(payload: SudoDuelShareCardPayload): CardContent {
   switch (payload.kind) {
     case "daily":
       return {
-        eyebrow: `Daily Sudoku · ${payload.difficulty}`,
+        kicker: `Daily Sudoku / ${payload.difficulty}`,
         title: payload.resultLabel?.trim() || "Daily Complete",
-        subtitle: shareCardDateLabel(payload),
+        primary: {
+          label: "Completion time",
+          value: shareCardTimeLabel(payload.timeSeconds),
+        },
+        supporting: [
+          { label: "Mistakes", value: `${payload.mistakes}` },
+          {
+            label: "Daily streak",
+            value: typeof payload.streak === "number" && payload.streak > 0 ? `${payload.streak}` : "Keep going",
+          },
+        ],
       };
     case "ranked":
       return {
-        eyebrow: `Ranked Duel · ${payload.difficulty}`,
+        kicker: `Ranked Duel / ${payload.difficulty}`,
         title: payload.outcomeLabel.trim() || "Ranked Duel Complete",
-        subtitle: shareCardDateLabel(payload),
+        primary: {
+          label: "RP change",
+          value: typeof payload.rpChange === "number"
+            ? `${payload.rpChange > 0 ? "+" : ""}${payload.rpChange}`
+            : "Settled",
+        },
+        supporting: [
+          { label: "Time", value: shareCardTimeLabel(payload.timeSeconds) },
+          { label: "Mistakes", value: `${payload.mistakes}` },
+          { label: "Current rank", value: payload.currentTierLabel || "Unranked" },
+          {
+            label: "Current RP",
+            value: typeof payload.currentRp === "number" ? payload.currentRp.toLocaleString() : "0",
+          },
+        ],
       };
-    case "season":
-      return {
-        eyebrow: payload.seasonNumber ? `Season ${payload.seasonNumber}` : "Ranked Season",
-        title: payload.seasonName,
-        subtitle: `Season complete · ${shareCardDateLabel(payload)}`,
-      };
-    case "puzzle":
-    default:
-      return {
-        eyebrow: `${payload.modeLabel} · ${payload.difficulty}`,
-        title: payload.resultLabel?.trim() || "Puzzle Complete",
-        subtitle: shareCardDateLabel(payload),
-      };
-  }
-}
-
-function renderStats(payload: SudoDuelShareCardPayload) {
-  switch (payload.kind) {
-    case "daily":
-      return (
-        <>
-          <Stat label="Time" value={shareCardTimeLabel(payload.timeSeconds)} primary />
-          <Stat label="Mistakes" value={`${payload.mistakes}`} />
-          <Stat label="Streak" value={typeof payload.streak === "number" && payload.streak > 0 ? `${payload.streak}` : "Keep it going"} />
-        </>
-      );
-    case "ranked":
-      return (
-        <>
-          <Stat label="Time" value={shareCardTimeLabel(payload.timeSeconds)} />
-          <Stat label="Mistakes" value={`${payload.mistakes}`} />
-          <Stat label="RP Change" value={typeof payload.rpChange === "number" ? `${payload.rpChange > 0 ? "+" : ""}${payload.rpChange}` : "Settled"} primary />
-          <Stat label="Current Rank" value={payload.currentTierLabel || "Unranked"} />
-          <Stat label="Current RP" value={typeof payload.currentRp === "number" ? payload.currentRp.toLocaleString() : "0"} />
-        </>
-      );
     case "season": {
       const winRate = payload.matchesPlayed > 0 ? `${Math.round((payload.wins / payload.matchesPlayed) * 100)}%` : "0%";
       const finish = payload.finalRankPosition ? `#${payload.finalRankPosition}` : "Unplaced";
-      const standing = typeof payload.topPercent === "number" ? `Top ${payload.topPercent.toFixed(1)}%` : "Season complete";
-      return (
-        <>
-          <Stat label="Final Tier" value={payload.finalTier || "Unranked"} primary />
-          <Stat label="Final RP" value={payload.finalRp.toLocaleString()} />
-          <Stat label="Record" value={`${payload.wins}-${payload.losses}-${payload.draws}`} />
-          <Stat label="Win Rate" value={winRate} />
-          <Stat label="Finish" value={finish} />
-          <Stat label="Standing" value={standing} />
-        </>
-      );
+      const standing = typeof payload.topPercent === "number" ? `Top ${payload.topPercent.toFixed(1)}%` : "Complete";
+      return {
+        kicker: payload.seasonName || (payload.seasonNumber ? `Season ${payload.seasonNumber}` : "Ranked Season"),
+        title: "Season Complete",
+        primary: {
+          label: "Final tier",
+          value: payload.finalTier || "Unranked",
+        },
+        supporting: [
+          { label: "Final RP", value: payload.finalRp.toLocaleString() },
+          { label: "Record", value: `${payload.wins}-${payload.losses}-${payload.draws}` },
+          { label: "Win rate", value: winRate },
+          { label: "Final position", value: finish },
+          { label: "Standing", value: standing },
+        ],
+      };
     }
     case "puzzle":
     default:
-      return (
-        <>
-          <Stat label="Time" value={shareCardTimeLabel(payload.timeSeconds)} />
-          <Stat label="Mistakes" value={`${payload.mistakes}`} />
-          <Stat label="Score" value={typeof payload.score === "number" ? payload.score.toLocaleString() : "Solved"} primary />
-          <Stat label="XP" value={typeof payload.xpEarned === "number" && payload.xpEarned > 0 ? `+${payload.xpEarned}` : "Complete"} />
-        </>
-      );
+      return {
+        kicker: `${payload.modeLabel} / ${payload.difficulty}`,
+        title: payload.resultLabel?.trim() || "Puzzle Complete",
+        primary: {
+          label: "Final score",
+          value: typeof payload.score === "number" ? payload.score.toLocaleString() : "Solved",
+        },
+        supporting: [
+          { label: "Time", value: shareCardTimeLabel(payload.timeSeconds) },
+          { label: "Mistakes", value: `${payload.mistakes}` },
+          {
+            label: "XP earned",
+            value: typeof payload.xpEarned === "number" && payload.xpEarned > 0 ? `+${payload.xpEarned}` : "Complete",
+          },
+        ],
+      };
   }
 }
 
 export default function SudoDuelShareCard({ payload }: { payload: SudoDuelShareCardPayload }) {
-  const header = getHeaderCopy(payload);
+  const content = getCardContent(payload);
+  const hasOddSupportingCount = content.supporting.length % 2 === 1;
 
   return (
     <View collapsable={false} style={styles.canvas}>
-      <View style={styles.card}>
-        <View style={styles.glowA} />
-        <View style={styles.glowB} />
-
-        <View style={styles.topRow}>
-          <View style={styles.brandMark}>
-            <Text style={styles.brandMarkText}>SD</Text>
-          </View>
-          <Text style={styles.brandText}>SudoDuel</Text>
+      <View style={styles.frame}>
+        <View style={styles.brand}>
+          <BrandMark size={70} />
+          <Text style={styles.wordmark}>SudoDuel</Text>
         </View>
 
         <View style={styles.hero}>
-          <Text style={styles.eyebrow}>{header.eyebrow}</Text>
-          <Text style={styles.title}>{header.title}</Text>
-          <Text style={styles.subtitle}>{header.subtitle}</Text>
+          <Text numberOfLines={1} style={styles.kicker}>
+            {content.kicker}
+          </Text>
+          <Text
+            adjustsFontSizeToFit
+            minimumFontScale={0.72}
+            numberOfLines={2}
+            style={styles.title}
+          >
+            {content.title}
+          </Text>
+          <Text style={styles.date}>{shareCardDateLabel(payload)}</Text>
         </View>
 
-        <View style={styles.statsGrid}>{renderStats(payload)}</View>
+        <View style={styles.primaryCard}>
+          <View style={styles.primaryAccent} />
+          <Text style={styles.primaryLabel}>{content.primary.label}</Text>
+          <Text
+            adjustsFontSizeToFit
+            minimumFontScale={0.65}
+            numberOfLines={1}
+            style={styles.primaryValue}
+          >
+            {content.primary.value}
+          </Text>
+        </View>
+
+        <View style={styles.supportingGrid}>
+          {content.supporting.map((stat, index) => (
+            <SupportingStat
+              key={`${stat.label}-${index}`}
+              {...stat}
+              wide={hasOddSupportingCount && index === content.supporting.length - 1}
+            />
+          ))}
+        </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Play SudoDuel</Text>
-          <Text style={styles.footerMeta}>Competitive Sudoku with friends.</Text>
+          <View style={styles.footerRule} />
+          <View style={styles.footerCopy}>
+            <Text style={styles.footerTitle}>Ready for your next puzzle?</Text>
+            <Text style={styles.footerMeta}>Competitive Sudoku with friends.</Text>
+          </View>
+          <View style={styles.footerCta}>
+            <Text style={styles.footerCtaText}>Play SudoDuel</Text>
+          </View>
         </View>
       </View>
     </View>
@@ -131,133 +186,172 @@ const styles = StyleSheet.create({
   canvas: {
     width: CARD_SIZE,
     height: CARD_SIZE,
-    backgroundColor: C.accent,
+    padding: 40,
+    backgroundColor: C.bg,
   },
-  card: {
+  frame: {
     flex: 1,
     overflow: "hidden",
-    backgroundColor: C.accent,
-    paddingHorizontal: 72,
-    paddingTop: 72,
-    paddingBottom: 64,
+    paddingHorizontal: 52,
+    paddingTop: 42,
+    paddingBottom: 38,
+    borderWidth: 2,
+    borderColor: C.borderStrong,
+    borderRadius: 46,
+    backgroundColor: C.bgElevated,
   },
-  glowA: {
-    position: "absolute",
-    width: 420,
-    height: 420,
-    borderRadius: 999,
-    backgroundColor: "rgba(232,155,42,0.18)",
-    top: -70,
-    right: -80,
-  },
-  glowB: {
-    position: "absolute",
-    width: 320,
-    height: 320,
-    borderRadius: 999,
-    backgroundColor: "rgba(251,248,242,0.08)",
-    bottom: 110,
-    left: -100,
-  },
-  topRow: {
+  brand: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 18,
   },
-  brandMark: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
-    backgroundColor: C.bgElevated,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  brandMarkText: {
-    color: C.accent,
-    fontSize: 28,
-    fontWeight: "900",
-  },
-  brandText: {
+  wordmark: {
     ...typography.wordmark,
-    color: C.bgElevated,
-    fontSize: 30,
-    letterSpacing: 0.4,
+    color: C.ink,
+    fontSize: 42,
+    letterSpacing: 0,
   },
   hero: {
-    marginTop: 92,
-    gap: 12,
+    alignItems: "center",
+    marginTop: 24,
   },
-  eyebrow: {
-    color: C.goldSoft,
-    fontSize: 26,
+  kicker: {
+    color: C.gold,
+    fontSize: 19,
     fontWeight: "800",
-    letterSpacing: 1.6,
+    letterSpacing: 1.5,
     textTransform: "uppercase",
   },
   title: {
     ...typography.displayHero,
-    color: C.bgElevated,
-    fontSize: 82,
-    lineHeight: 92,
-    letterSpacing: -1.8,
+    maxWidth: 850,
+    marginTop: 8,
+    color: C.ink,
+    fontSize: 58,
+    lineHeight: 64,
+    textAlign: "center",
   },
-  subtitle: {
-    color: "rgba(251,248,242,0.78)",
-    fontSize: 30,
-    fontWeight: "700",
+  date: {
+    marginTop: 7,
+    color: C.muted,
+    fontSize: 23,
+    fontWeight: "600",
   },
-  statsGrid: {
-    marginTop: 74,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 18,
-  },
-  statCard: {
-    width: 294,
-    minHeight: 148,
-    paddingHorizontal: 22,
-    paddingVertical: 20,
+  primaryCard: {
+    position: "relative",
+    minHeight: 154,
+    marginTop: 24,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: C.border,
     borderRadius: 28,
-    backgroundColor: "rgba(251,248,242,0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(251,248,242,0.12)",
-    justifyContent: "space-between",
+    backgroundColor: C.card,
+    paddingHorizontal: 34,
+    paddingVertical: 20,
   },
-  statValue: {
-    color: C.bgElevated,
-    fontSize: 34,
-    lineHeight: 40,
-    letterSpacing: -0.4,
+  primaryAccent: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 8,
+    backgroundColor: C.gold,
   },
-  supportingStatValue: {
-    fontWeight: "900",
-  },
-  primaryStatValue: {
-    ...typography.statDisplay,
-  },
-  statLabel: {
-    marginTop: 16,
-    color: "rgba(251,248,242,0.68)",
+  primaryLabel: {
+    color: C.muted,
     fontSize: 18,
     fontWeight: "800",
-    letterSpacing: 1.1,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
+  primaryValue: {
+    ...typography.statDisplay,
+    marginTop: 5,
+    color: C.accent,
+    fontSize: 72,
+    lineHeight: 78,
+    textAlign: "center",
+  },
+  supportingGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 14,
+    marginTop: 18,
+  },
+  supportingCard: {
+    width: 431,
+    minHeight: 88,
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: C.border,
+    borderRadius: 20,
+    backgroundColor: C.card,
+    paddingHorizontal: 24,
+    paddingVertical: 13,
+  },
+  supportingCardWide: {
+    width: "100%",
+  },
+  supportingValue: {
+    color: C.ink,
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
+  },
+  supportingLabel: {
+    marginTop: 3,
+    color: C.muted,
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: 0.8,
     textTransform: "uppercase",
   },
   footer: {
+    minHeight: 88,
     marginTop: "auto",
-    borderTopWidth: 1,
-    borderTopColor: "rgba(251,248,242,0.12)",
-    paddingTop: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: 20,
   },
-  footerText: {
-    color: C.bgElevated,
-    fontSize: 30,
-    fontWeight: "900",
+  footerRule: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: C.border,
+  },
+  footerCopy: {
+    flex: 1,
+    paddingRight: 24,
+  },
+  footerTitle: {
+    color: C.ink,
+    fontSize: 21,
+    fontWeight: "800",
   },
   footerMeta: {
-    marginTop: 8,
-    color: "rgba(251,248,242,0.7)",
-    fontSize: 22,
-    fontWeight: "700",
+    marginTop: 4,
+    color: C.muted,
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  footerCta: {
+    minWidth: 190,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 18,
+    backgroundColor: C.accent,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+  },
+  footerCtaText: {
+    color: C.bgElevated,
+    fontSize: 18,
+    fontWeight: "800",
   },
 });
