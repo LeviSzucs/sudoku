@@ -685,8 +685,8 @@ const styles = StyleSheet.create({
   heroTitle: {
     ...typography.displayHero,
     color: C.ink,
-    fontSize: 34,
-    lineHeight: 38,
+    fontSize: 32,
+    lineHeight: 36,
     marginBottom: 10,
   },
   heroSubtitle: {

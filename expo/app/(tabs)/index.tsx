@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: 22,
-    color: C.muted,
+    color: C.inkSoft,
     fontWeight: "400",
   },
   greetingName: {
