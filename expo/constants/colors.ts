@@ -93,7 +93,7 @@ export const difficultyColors = {
     accent: primitiveColors.amber,
     softBackground: primitiveColors.amberSoft,
     border: primitiveColors.amberBorder,
-    textOnAccent: primitiveColors.ink,
+    textOnAccent: primitiveColors.white,
   },
   Expert: {
     accent: primitiveColors.coral,
@@ -159,7 +159,7 @@ export const duelColors = {
     accentStrong: semanticColors.prestige,
     softBackground: semanticColors.prestigeSoft,
     border: primitiveColors.goldBorder,
-    textOnAccent: primitiveColors.ink,
+    textOnAccent: primitiveColors.white,
   },
   standard: {
     accent: semanticColors.interactive,
