@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Card from "@/components/Card";
 import SectionHeader from "@/components/SectionHeader";
-import { C } from "@/constants/colors";
+import { C, difficultyColors, duelColors, featuredColors } from "@/constants/colors";
 import { buttonShadow, cardShadow, premiumShadow } from "@/constants/depth";
 import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import { typography } from "@/constants/typography";
@@ -27,12 +27,12 @@ import { getDailyDateKey } from "@/lib/daily";
 import { logDevDiagnostic } from "@/lib/performanceDiagnostics";
 import { fetchClassicPuzzle, fetchDailyPuzzle, makeEmptyNotes, type RawPuzzleData } from "@/lib/sudoku";
 
-const DIFFICULTIES: { key: Difficulty; sub: string; tone: "muted" | "accent" | "amber" | "red" | "purple" }[] = [
-  { key: "Easy", sub: "Warm up - ~4 min", tone: "muted" },
-  { key: "Medium", sub: "Balanced - ~7 min", tone: "accent" },
-  { key: "Hard", sub: "Challenging - ~12 min", tone: "amber" },
-  { key: "Expert", sub: "Brutal - 20+ min", tone: "red" },
-  { key: "Master", sub: "Diabolical - 30+ min", tone: "purple" },
+const DIFFICULTIES: { key: Difficulty; sub: string }[] = [
+  { key: "Easy", sub: "Warm up - ~4 min" },
+  { key: "Medium", sub: "Balanced - ~7 min" },
+  { key: "Hard", sub: "Challenging - ~12 min" },
+  { key: "Expert", sub: "Brutal - 20+ min" },
+  { key: "Master", sub: "Diabolical - 30+ min" },
 ];
 
 function formatElapsed(seconds: number): string {
@@ -286,7 +286,10 @@ export default function PlayHubScreen() {
           {({ pressed }) => (
             <View style={[styles.heroCard, pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}>
               <LinearGradient
-                colors={["#15171C", "#2A2D36"]}
+                colors={[
+                  featuredColors.dailySudoku.background,
+                  featuredColors.dailySudoku.backgroundAlt,
+                ]}
                 style={StyleSheet.absoluteFillObject}
               />
               <View style={styles.heroInner}>
@@ -295,8 +298,23 @@ export default function PlayHubScreen() {
                     <Text style={styles.heroKicker}>DAILY SUDOKU</Text>
                     <Text style={styles.heroTitle}>{dateStr}</Text>
                   </View>
-                  <View style={styles.heroBadge}>
-                    <Text style={styles.heroBadgeText}>Medium</Text>
+                  <View
+                    style={[
+                      styles.heroBadge,
+                      {
+                        backgroundColor: difficultyColors.Medium.accent,
+                        borderColor: difficultyColors.Medium.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.heroBadgeText,
+                        { color: difficultyColors.Medium.textOnAccent },
+                      ]}
+                    >
+                      Medium
+                    </Text>
                   </View>
                 </View>
                 <View style={styles.heroFooter}>
@@ -325,29 +343,14 @@ export default function PlayHubScreen() {
                     style={[
                       styles.iconTile,
                       {
-                        backgroundColor:
-                          d.tone === "accent"
-                            ? C.accentSoft
-                            : d.tone === "amber"
-                            ? C.amberSoft
-                            : d.tone === "red"
-                            ? "#C5483E22"
-                            : C.border,
+                        backgroundColor: difficultyColors[d.key].softBackground,
+                        borderColor: difficultyColors[d.key].border,
+                        borderWidth: 1,
                       },
                     ]}
                   >
                     <Zap
-                      color={
-                        d.tone === "accent"
-                          ? C.accent
-                          : d.tone === "amber"
-                          ? C.amber
-                          : d.tone === "red"
-                          ? "#C5483E"
-                          : d.tone === "purple"
-                          ? "#6B4FA0"
-                          : C.muted
-                      }
+                      color={difficultyColors[d.key].accent}
                       size={20}
                       strokeWidth={2}
                     />
@@ -369,8 +372,17 @@ export default function PlayHubScreen() {
           <SectionHeader title="Compete" />
           <Card onPress={startDuel}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-              <View style={[styles.iconTile, { backgroundColor: C.amberSoft }]}>
-                <Swords color={C.amber} size={22} strokeWidth={2} />
+              <View
+                style={[
+                  styles.iconTile,
+                  {
+                    backgroundColor: duelColors.daily.softBackground,
+                    borderColor: duelColors.daily.border,
+                    borderWidth: 1,
+                  },
+                ]}
+              >
+                <Swords color={duelColors.daily.accent} size={22} strokeWidth={2} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle}>Daily Duel</Text>
@@ -381,8 +393,17 @@ export default function PlayHubScreen() {
           </Card>
           <Card onPress={openRanked} style={{ marginTop: 10 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-              <View style={[styles.iconTile, { backgroundColor: "#1E1B4B22" }]}>
-                <Crown color={C.gold} size={22} strokeWidth={2} />
+              <View
+                style={[
+                  styles.iconTile,
+                  {
+                    backgroundColor: duelColors.ranked.softBackground,
+                    borderColor: duelColors.ranked.border,
+                    borderWidth: 1,
+                  },
+                ]}
+              >
+                <Crown color={duelColors.ranked.accent} size={22} strokeWidth={2} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle}>Ranked Duel</Text>
