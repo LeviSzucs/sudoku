@@ -11,7 +11,7 @@ import Card from "@/components/Card";
 import DuelResultReveal from "@/components/DuelResultReveal";
 import Pill from "@/components/Pill";
 import SectionHeader from "@/components/SectionHeader";
-import { C } from "@/constants/colors";
+import { C, duelColors, semanticColors } from "@/constants/colors";
 import { buttonShadow, premiumShadow } from "@/constants/depth";
 import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import { typography } from "@/constants/typography";
@@ -436,7 +436,7 @@ export default function VersusScreen() {
           {({ pressed }) => (
             <View style={[styles.duelHero, pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}>
               <LinearGradient
-                colors={["#1E1B4B", "#3B2A6A"]}
+                colors={[duelColors.daily.accentStrong, duelColors.daily.accent]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFillObject}
@@ -522,13 +522,27 @@ export default function VersusScreen() {
           <SectionHeader title="Find a match" />
           <Card style={{ marginBottom: 12 }}>
             <View style={styles.rankedCardTop}>
-              <View style={[styles.iconTile, { backgroundColor: C.amberSoft }]}>
-                <Zap color={C.amber} size={22} fill={C.amber} strokeWidth={1.5} />
+              <View
+                style={[
+                  styles.iconTile,
+                  {
+                    backgroundColor: duelColors.ranked.softBackground,
+                    borderColor: duelColors.ranked.border,
+                    borderWidth: 1,
+                  },
+                ]}
+              >
+                <Zap
+                  color={duelColors.ranked.accent}
+                  size={22}
+                  fill={duelColors.ranked.accent}
+                  strokeWidth={1.5}
+                />
               </View>
               <View style={styles.rankedCardText}>
                 <View style={styles.rankedTitleRow}>
                   <Text style={styles.cardTitle}>Ranked Duel</Text>
-                  <Pill label={rankedDuelCopy.badge} tone="amber" />
+                  <Pill label={rankedDuelCopy.badge} tone="gold" />
                 </View>
                 <Text style={styles.cardSub}>
                   {auth.isGuest ? "Sign up to play ranked matches" : rankedDuelCopy.sub}
@@ -755,9 +769,11 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     padding: 22,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: duelColors.daily.border,
   },
   heroKicker: {
-    color: C.gold,
+    color: duelColors.daily.textOnAccent,
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 1.6,
@@ -832,7 +848,7 @@ const styles = StyleSheet.create({
     fontFamily: "Georgia",
   },
   heroCTA: {
-    backgroundColor: C.gold,
+    backgroundColor: semanticColors.surface,
     paddingVertical: 12,
     borderRadius: 999,
     flexDirection: "row",

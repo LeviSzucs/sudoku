@@ -14,11 +14,17 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { C } from "@/constants/colors";
+import { C, resultStateColors } from "@/constants/colors";
 import { typography } from "@/constants/typography";
 import { error as hapticError, success as hapticSuccess, tapMedium } from "@/lib/haptics";
 
 type DuelVerdict = "win" | "loss" | "draw";
+
+const VERDICT_LABELS = {
+  win: "WIN",
+  loss: "LOSS",
+  draw: "DRAW",
+} as const satisfies Readonly<Record<DuelVerdict, string>>;
 
 interface Props {
   revealKey: string;
@@ -176,9 +182,10 @@ export default function DuelResultReveal({
   }));
 
   const verdictCopy = useMemo(() => {
-    if (verdict === "win") return { label: "WIN", tone: styles.winVerdict };
-    if (verdict === "loss") return { label: "LOSS", tone: styles.lossVerdict };
-    return { label: "DRAW", tone: styles.drawVerdict };
+    return {
+      label: VERDICT_LABELS[verdict],
+      colors: resultStateColors[verdict],
+    };
   }, [verdict]);
 
   return (
@@ -191,8 +198,19 @@ export default function DuelResultReveal({
         <ScoreColumn compact={compact} label={opponentLabel} value={displayOpponentScore} />
       </View>
 
-      <Animated.View style={[styles.verdictPill, verdictCopy.tone, verdictStyle]}>
-        <Text style={styles.verdictText}>{verdictCopy.label}</Text>
+      <Animated.View
+        style={[
+          styles.verdictPill,
+          {
+            backgroundColor: verdictCopy.colors.softBackground,
+            borderColor: verdictCopy.colors.border,
+          },
+          verdictStyle,
+        ]}
+      >
+        <Text style={[styles.verdictText, { color: verdictCopy.colors.accent }]}>
+          {verdictCopy.label}
+        </Text>
       </Animated.View>
     </View>
   );
@@ -264,19 +282,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 8,
     borderRadius: 999,
+    borderWidth: 1,
   },
   verdictText: {
     fontSize: 12,
     fontWeight: "900",
     letterSpacing: 1.5,
-  },
-  winVerdict: {
-    backgroundColor: "#DCEBE0",
-  },
-  lossVerdict: {
-    backgroundColor: "#F7DEDA",
-  },
-  drawVerdict: {
-    backgroundColor: C.bgElevated,
   },
 });

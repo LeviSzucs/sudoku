@@ -16,7 +16,7 @@ import Card from "@/components/Card";
 import Pill from "@/components/Pill";
 import SectionHeader from "@/components/SectionHeader";
 import StreakFlame from "@/components/StreakFlame";
-import { C } from "@/constants/colors";
+import { C, difficultyColors, duelColors, featuredColors } from "@/constants/colors";
 import { buttonShadow, premiumShadow } from "@/constants/depth";
 import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import { typography } from "@/constants/typography";
@@ -234,7 +234,10 @@ export default function HomeScreen() {
           {({ pressed }) => (
             <View style={[styles.heroCard, pressed && { opacity: 0.92, transform: [{ scale: 0.99 }] }]}>
               <LinearGradient
-                colors={["#15171C", "#2A2D36"]}
+                colors={[
+                  featuredColors.dailySudoku.background,
+                  featuredColors.dailySudoku.backgroundAlt,
+                ]}
                 style={StyleSheet.absoluteFillObject}
               />
               <View style={styles.heroInner}>
@@ -243,8 +246,23 @@ export default function HomeScreen() {
                     <Text style={styles.heroKicker}>DAILY SUDOKU</Text>
                     <Text style={styles.heroTitle}>{dateStr}</Text>
                   </View>
-                  <View style={styles.heroBadge}>
-                    <Text style={styles.heroBadgeText}>Medium</Text>
+                  <View
+                    style={[
+                      styles.heroBadge,
+                      {
+                        backgroundColor: difficultyColors.Medium.accent,
+                        borderColor: difficultyColors.Medium.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.heroBadgeText,
+                        { color: difficultyColors.Medium.textOnAccent },
+                      ]}
+                    >
+                      Medium
+                    </Text>
                   </View>
                 </View>
 
@@ -270,10 +288,14 @@ export default function HomeScreen() {
             <View
               style={[
                 styles.iconTile,
-                { backgroundColor: C.amberSoft },
+                {
+                  backgroundColor: duelColors.daily.softBackground,
+                  borderColor: duelColors.daily.border,
+                  borderWidth: 1,
+                },
               ]}
             >
-              <Swords color={C.amber} size={22} strokeWidth={2} />
+              <Swords color={duelColors.daily.accent} size={22} strokeWidth={2} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.cardTitle}>Daily Duel</Text>
