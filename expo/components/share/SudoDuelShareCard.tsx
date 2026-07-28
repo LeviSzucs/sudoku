@@ -6,7 +6,8 @@ import { C } from "@/constants/colors";
 import { typography } from "@/constants/typography";
 import { shareCardDateLabel, shareCardTimeLabel, type SudoDuelShareCardPayload } from "@/lib/shareCards";
 
-const CARD_SIZE = 1080;
+const CARD_WIDTH = 1080;
+const CARD_HEIGHT = 1350;
 
 type CardStat = {
   label: string;
@@ -20,9 +21,22 @@ type CardContent = {
   supporting: CardStat[];
 };
 
-function SupportingStat({ label, value, wide = false }: CardStat & { wide?: boolean }) {
+function SupportingStat({
+  label,
+  value,
+  wide = false,
+  compact = false,
+  relaxed = false,
+}: CardStat & { wide?: boolean; compact?: boolean; relaxed?: boolean }) {
   return (
-    <View style={[styles.supportingCard, wide && styles.supportingCardWide]}>
+    <View
+      style={[
+        styles.supportingCard,
+        compact && styles.supportingCardCompact,
+        relaxed && styles.supportingCardRelaxed,
+        wide && styles.supportingCardWide,
+      ]}
+    >
       <Text
         adjustsFontSizeToFit
         minimumFontScale={0.72}
@@ -120,12 +134,14 @@ function getCardContent(payload: SudoDuelShareCardPayload): CardContent {
 export default function SudoDuelShareCard({ payload }: { payload: SudoDuelShareCardPayload }) {
   const content = getCardContent(payload);
   const hasOddSupportingCount = content.supporting.length % 2 === 1;
+  const usesCompactSupportingCards = content.supporting.length > 4;
+  const usesRelaxedSupportingCards = content.supporting.length <= 2;
 
   return (
     <View collapsable={false} style={styles.canvas}>
       <View style={styles.frame}>
         <View style={styles.brand}>
-          <BrandMark size={70} />
+          <BrandMark size={78} />
           <Text style={styles.wordmark}>SudoDuel</Text>
         </View>
 
@@ -135,8 +151,8 @@ export default function SudoDuelShareCard({ payload }: { payload: SudoDuelShareC
           </Text>
           <Text
             adjustsFontSizeToFit
-            minimumFontScale={0.72}
-            numberOfLines={2}
+            minimumFontScale={0.62}
+            numberOfLines={1}
             style={styles.title}
           >
             {content.title}
@@ -162,6 +178,8 @@ export default function SudoDuelShareCard({ payload }: { payload: SudoDuelShareC
             <SupportingStat
               key={`${stat.label}-${index}`}
               {...stat}
+              compact={usesCompactSupportingCards}
+              relaxed={usesRelaxedSupportingCards}
               wide={hasOddSupportingCount && index === content.supporting.length - 1}
             />
           ))}
@@ -184,17 +202,17 @@ export default function SudoDuelShareCard({ payload }: { payload: SudoDuelShareC
 
 const styles = StyleSheet.create({
   canvas: {
-    width: CARD_SIZE,
-    height: CARD_SIZE,
-    padding: 40,
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
+    padding: 48,
     backgroundColor: C.bg,
   },
   frame: {
     flex: 1,
     overflow: "hidden",
-    paddingHorizontal: 52,
-    paddingTop: 42,
-    paddingBottom: 38,
+    paddingHorizontal: 56,
+    paddingTop: 60,
+    paddingBottom: 56,
     borderWidth: 2,
     borderColor: C.borderStrong,
     borderRadius: 46,
@@ -209,12 +227,12 @@ const styles = StyleSheet.create({
   wordmark: {
     ...typography.wordmark,
     color: C.ink,
-    fontSize: 42,
+    fontSize: 46,
     letterSpacing: 0,
   },
   hero: {
     alignItems: "center",
-    marginTop: 24,
+    marginTop: 42,
   },
   kicker: {
     color: C.gold,
@@ -226,31 +244,31 @@ const styles = StyleSheet.create({
   title: {
     ...typography.displayHero,
     maxWidth: 850,
-    marginTop: 8,
+    marginTop: 10,
     color: C.ink,
-    fontSize: 58,
-    lineHeight: 64,
+    fontSize: 66,
+    lineHeight: 74,
     textAlign: "center",
   },
   date: {
-    marginTop: 7,
+    marginTop: 9,
     color: C.muted,
-    fontSize: 23,
+    fontSize: 25,
     fontWeight: "600",
   },
   primaryCard: {
     position: "relative",
-    minHeight: 154,
-    marginTop: 24,
+    minHeight: 250,
+    marginTop: 38,
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
     borderColor: C.border,
-    borderRadius: 28,
+    borderRadius: 30,
     backgroundColor: C.card,
-    paddingHorizontal: 34,
-    paddingVertical: 20,
+    paddingHorizontal: 38,
+    paddingVertical: 28,
   },
   primaryAccent: {
     position: "absolute",
@@ -269,41 +287,47 @@ const styles = StyleSheet.create({
   },
   primaryValue: {
     ...typography.statDisplay,
-    marginTop: 5,
+    marginTop: 8,
     color: C.accent,
-    fontSize: 72,
-    lineHeight: 78,
+    fontSize: 88,
+    lineHeight: 96,
     textAlign: "center",
   },
   supportingGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 14,
-    marginTop: 18,
+    gap: 18,
+    marginTop: 30,
   },
   supportingCard: {
-    width: 431,
-    minHeight: 88,
+    width: 425,
+    minHeight: 148,
     justifyContent: "center",
     borderWidth: 1.5,
     borderColor: C.border,
-    borderRadius: 20,
+    borderRadius: 22,
     backgroundColor: C.card,
-    paddingHorizontal: 24,
-    paddingVertical: 13,
+    paddingHorizontal: 26,
+    paddingVertical: 18,
+  },
+  supportingCardCompact: {
+    minHeight: 104,
+  },
+  supportingCardRelaxed: {
+    minHeight: 188,
   },
   supportingCardWide: {
     width: "100%",
   },
   supportingValue: {
     color: C.ink,
-    fontSize: 28,
-    lineHeight: 32,
+    fontSize: 30,
+    lineHeight: 36,
     fontWeight: "700",
     fontVariant: ["tabular-nums"],
   },
   supportingLabel: {
-    marginTop: 3,
+    marginTop: 6,
     color: C.muted,
     fontSize: 16,
     fontWeight: "700",
@@ -311,11 +335,9 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   footer: {
-    minHeight: 88,
-    marginTop: "auto",
-    flexDirection: "row",
+    marginTop: 40,
     alignItems: "center",
-    paddingTop: 20,
+    paddingTop: 24,
   },
   footerRule: {
     position: "absolute",
@@ -326,8 +348,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.border,
   },
   footerCopy: {
-    flex: 1,
-    paddingRight: 24,
+    alignItems: "center",
   },
   footerTitle: {
     color: C.ink,
@@ -341,7 +362,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   footerCta: {
-    minWidth: 190,
+    width: "100%",
+    minHeight: 58,
+    marginTop: 18,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 18,
