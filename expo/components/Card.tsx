@@ -9,9 +9,17 @@ interface CardProps {
   style?: ViewStyle | ViewStyle[];
   padded?: boolean;
   testID?: string;
+  accessibilityLabel?: string;
 }
 
-export default function Card({ children, onPress, style, padded = true, testID }: CardProps) {
+export default function Card({
+  children,
+  onPress,
+  style,
+  padded = true,
+  testID,
+  accessibilityLabel,
+}: CardProps) {
   const content = (
     <View style={[styles.card, padded && styles.padded, style]} testID={testID}>
       {children}
@@ -19,7 +27,12 @@ export default function Card({ children, onPress, style, padded = true, testID }
   );
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={({ pressed }) => [pressed && pressedDepth]}>
+      <Pressable
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole={accessibilityLabel ? "button" : undefined}
+        onPress={onPress}
+        style={({ pressed }) => [pressed && pressedDepth]}
+      >
         {content}
       </Pressable>
     );
