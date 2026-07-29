@@ -28,11 +28,11 @@ import { logDevDiagnostic } from "@/lib/performanceDiagnostics";
 import { fetchClassicPuzzle, fetchDailyPuzzle, makeEmptyNotes, type RawPuzzleData } from "@/lib/sudoku";
 
 const DIFFICULTIES: { key: Difficulty; sub: string }[] = [
-  { key: "Easy", sub: "Warm up - ~4 min" },
-  { key: "Medium", sub: "Balanced - ~7 min" },
-  { key: "Hard", sub: "Challenging - ~12 min" },
-  { key: "Expert", sub: "Brutal - 20+ min" },
-  { key: "Master", sub: "Diabolical - 30+ min" },
+  { key: "Easy", sub: "Relaxed" },
+  { key: "Medium", sub: "Balanced" },
+  { key: "Hard", sub: "Challenging" },
+  { key: "Expert", sub: "Brutal" },
+  { key: "Master", sub: "Diabolical" },
 ];
 
 function formatElapsed(seconds: number): string {
