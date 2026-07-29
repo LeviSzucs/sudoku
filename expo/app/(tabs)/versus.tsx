@@ -429,7 +429,7 @@ export default function VersusScreen() {
         <View style={[styles.shell, { maxWidth: shellMaxWidth }]}>
         <Text style={styles.kicker}>HEAD TO HEAD</Text>
         <Text style={styles.title}>Versus</Text>
-        <Text style={styles.subtitle}>One attempt. Highest score wins.</Text>
+        <Text style={styles.subtitle}>Compete against other players.</Text>
 
         {/* Daily Duel hero */}
         <Pressable onPress={startDailyDuel} style={[{ marginTop: 22 }, premiumShadow]}>
@@ -451,6 +451,7 @@ export default function VersusScreen() {
                   <Text style={styles.endsInText}>{dailyDuelCopy.badge}</Text>
                 </View>
               </View>
+              <Text style={styles.heroSupporting}>One attempt today. Highest score wins.</Text>
 
               <View style={styles.vsRow}>
                 <View style={styles.vsPlayer}>
@@ -784,6 +785,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginTop: 3,
     letterSpacing: -0.3,
+  },
+  heroSupporting: {
+    color: "#FBF8F2CC",
+    fontSize: 12,
+    lineHeight: 17,
   },
   endsIn: {
     flexDirection: "row",
