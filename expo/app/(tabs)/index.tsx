@@ -1,4 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
+import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import {
   ChevronRight,
@@ -13,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
+import DailyDuelVignette from "@/components/DailyDuelVignette";
 import Pill from "@/components/Pill";
 import SectionHeader from "@/components/SectionHeader";
 import StreakFlame from "@/components/StreakFlame";
@@ -39,6 +41,7 @@ function isContinueSessionMode(mode: string): boolean {
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const isFocused = useIsFocused();
   const router = useRouter();
   const { profile, activeSessions, classicContinueSession, startPuzzleSession, getInProgressDailySession, getCompletedDailyResult, lastStreakIncreaseKey, clearLastStreakIncrease } = usePlayerProfile();
   const auth = useAuth();
@@ -159,6 +162,7 @@ export default function HomeScreen() {
   const streak = profile.current_streak;
   const streakDots = Math.min(streak, 7);
   const isTablet = isTabletWidth(width);
+  const showDailyDuelPreviewBesideCopy = width >= 600;
   const shellMaxWidth = getCenteredContentMaxWidth(width, isTablet ? 860 : 480);
 
   return (
@@ -283,27 +287,51 @@ export default function HomeScreen() {
         </Pressable>
 
         {/* Daily Duel */}
-        <Card onPress={openDuel} style={{ marginTop: 14 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+        <Card
+          accessibilityLabel="Daily Duel. Race another player on today's puzzle."
+          onPress={openDuel}
+          style={{ marginTop: 14 }}
+        >
+          <View
+            style={[
+              styles.dailyDuelContent,
+              showDailyDuelPreviewBesideCopy && styles.dailyDuelContentWide,
+            ]}
+          >
             <View
               style={[
-                styles.iconTile,
-                {
-                  backgroundColor: duelColors.daily.softBackground,
-                  borderColor: duelColors.daily.border,
-                  borderWidth: 1,
-                },
+                styles.dailyDuelHeading,
+                showDailyDuelPreviewBesideCopy && styles.dailyDuelHeadingWide,
               ]}
             >
-              <Swords color={duelColors.daily.accent} size={22} strokeWidth={2} />
+              <View
+                style={[
+                  styles.iconTile,
+                  {
+                    backgroundColor: duelColors.daily.softBackground,
+                    borderColor: duelColors.daily.border,
+                    borderWidth: 1,
+                  },
+                ]}
+              >
+                <Swords color={duelColors.daily.accent} size={22} strokeWidth={2} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle}>Daily Duel</Text>
+                <Text style={styles.cardSub}>
+                  Race a fresh opponent on today&apos;s board
+                </Text>
+              </View>
+              {!showDailyDuelPreviewBesideCopy ? (
+                <ChevronRight color={C.mutedSoft} size={20} />
+              ) : null}
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle}>Daily Duel</Text>
-              <Text style={styles.cardSub}>
-                Race a fresh opponent on today&apos;s board
-              </Text>
-            </View>
-            <ChevronRight color={C.mutedSoft} size={20} />
+
+            <DailyDuelVignette active={isFocused} />
+
+            {showDailyDuelPreviewBesideCopy ? (
+              <ChevronRight color={C.mutedSoft} size={20} />
+            ) : null}
           </View>
         </Card>
 
@@ -597,6 +625,23 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+  },
+  dailyDuelContent: {
+    alignItems: "center",
+    gap: 14,
+  },
+  dailyDuelContentWide: {
+    flexDirection: "row",
+  },
+  dailyDuelHeading: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  dailyDuelHeadingWide: {
+    width: "auto",
+    flex: 1,
   },
   cardTitle: {
     fontSize: 16,
