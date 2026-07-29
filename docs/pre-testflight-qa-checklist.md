@@ -66,6 +66,15 @@ Use this checklist before TestFlight builds and before adding another major feat
 ## B. Home
 
 - [ ] Home loads.
+- [ ] Daily Duel vignette plays one clean 6.6-second sequence on the first Home focus.
+- [ ] Rapid tab switching does not restart the Daily Duel vignette; its final frame holds.
+- [ ] Leaving Home during playback cancels safely, with no animation surviving blur or unmount.
+- [ ] Reduced-motion devices show the complete static vignette immediately.
+- [ ] Tapping the vignette area still opens Daily Duel; the decorative preview does not intercept touches.
+- [ ] Daily Duel vignette fits narrow, standard, and large iPhones without making the card disproportionate.
+- [ ] Daily Duel vignette remains capped and balanced on iPad portrait and landscape.
+- [ ] Home navigation does not reach the global runtime error boundary after repeated visits.
+- [ ] Profile avatar animation is unchanged, and no unrelated Home card animates.
 - [ ] New users see a lightweight explanation of what SudoDuel is and a clear first-puzzle action.
 - [ ] Onboarding guidance does not block the app or trap the user in a long intro.
 - [ ] Streak card displays correctly.
