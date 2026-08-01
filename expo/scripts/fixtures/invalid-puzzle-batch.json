@@ -1,0 +1,33 @@
+{
+  "batch": "inventory_tooling_invalid_fixture",
+  "puzzles": [
+    {
+      "puzzle_id": "fixture_invalid_shape",
+      "difficulty": "Impossible",
+      "givens": "123",
+      "solution": "123",
+      "rating_score": 1000,
+      "source": "",
+      "is_active": false
+    },
+    {
+      "puzzle_id": "fixture_duplicate_0001",
+      "difficulty": "Easy",
+      "givens": "000093084905800026400267309106000003080612007050430060297000618003100070800020430",
+      "solution": "672593184935841726418267359126975843384612597759438261297354618543186972861729435",
+      "rating_score": 1000,
+      "source": "inventory_tooling_fixture",
+      "is_active": false
+    },
+    {
+      "puzzle_id": "fixture_duplicate_0001",
+      "difficulty": "Easy",
+      "givens": "000093084905800026400267309106000003080612007050430060297000618003100070800020430",
+      "solution": "672593184935841726418267359126975843384612597759438261297354618543186972861729435",
+      "rating_score": 1000,
+      "source": "inventory_tooling_fixture",
+      "is_active": false
+    }
+  ]
+}
+
