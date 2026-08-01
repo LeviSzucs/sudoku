@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
 import DailyDuelVignette from "@/components/DailyDuelVignette";
+import PastDailiesRail from "@/components/PastDailiesRail";
 import Pill from "@/components/Pill";
 import SectionHeader from "@/components/SectionHeader";
 import StreakFlame from "@/components/StreakFlame";
@@ -285,6 +286,8 @@ export default function HomeScreen() {
             </View>
           )}
         </Pressable>
+
+        <PastDailiesRail active={isFocused} />
 
         {/* Daily Duel */}
         <Card
