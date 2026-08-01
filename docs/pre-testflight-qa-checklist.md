@@ -75,6 +75,19 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Daily Duel vignette remains capped and balanced on iPad portrait and landscape.
 - [ ] Home navigation does not reach the global runtime error boundary after repeated visits.
 - [ ] Profile avatar animation is unchanged, and no unrelated Home card animates.
+- [ ] Past Dailies shows yesterday through seven days ago, most recent first, and never includes today.
+- [ ] Past Dailies uses the same UTC date-key convention as Daily Sudoku.
+- [ ] Solved Past Dailies match stored score and elapsed-time result fields.
+- [ ] Past Dailies loading placeholders never appear as Missed.
+- [ ] Past Dailies request failures show Unavailable rather than Missed.
+- [ ] Past Dailies cards remain read-only and never open a historical puzzle.
+- [ ] Past Dailies has a visible next-card peek on narrow, standard, and large iPhones.
+- [ ] Past Dailies shows more capped-width cards naturally on iPad portrait and landscape.
+- [ ] Past Dailies weekday, score, and time text do not truncate or clip.
+- [ ] Horizontal Past Dailies scrolling does not block vertical Home scrolling.
+- [ ] Rapid Home tab switching does not create duplicate Past Dailies requests.
+- [ ] Guest and signed-out states do not issue protected Past Dailies queries.
+- [ ] Today's Daily Sudoku and the Daily Duel vignette behave unchanged.
 - [ ] New users see a lightweight explanation of what SudoDuel is and a clear first-puzzle action.
 - [ ] Onboarding guidance does not block the app or trap the user in a long intro.
 - [ ] Streak card displays correctly.
