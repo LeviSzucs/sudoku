@@ -11,6 +11,9 @@
     "generate:puzzles": "node scripts/generate-puzzles.js",
     "validate:puzzles": "node scripts/validate-puzzles.js",
     "validate:unique-puzzles": "node scripts/validate-puzzles.js",
+    "puzzles:audit": "node scripts/audit-puzzle-inventory.js",
+    "puzzles:validate-batch": "node scripts/validate-puzzle-batch.js",
+    "puzzles:test-tooling": "node scripts/test-puzzle-inventory.js",
     "validate:scoring": "node scripts/validate-scoring.js",
     "audit:difficulty": "node scripts/audit-difficulty.js",
     "audit:technique-difficulty": "node scripts/audit-technique-difficulty.js",
@@ -18,7 +21,7 @@
     "export:puzzles-sql": "node scripts/export-puzzles-sql.js",
     "validate:givens": "node scripts/validate-given-cells.js",
     "qa:android-store": "node scripts/verify-android-store-config.js",
-    "qa:preflight": "npm run validate:puzzles && npm run validate:unique-puzzles && npm run validate:givens && npm run validate:scoring",
+    "qa:preflight": "npm run puzzles:test-tooling && npm run validate:puzzles && npm run validate:unique-puzzles && npm run validate:givens && npm run validate:scoring",
     "build:android:preview": "eas build --platform android --profile preview",
     "build:android:production": "eas build --platform android --profile production"
   },

@@ -1,5 +1,7 @@
+/* global __dirname */
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const ROOT = path.resolve(__dirname, "..");
 const MIGRATIONS_DIR = path.join(ROOT, "supabase", "migrations");
@@ -29,7 +31,15 @@ function sortedDigits(value) {
 }
 
 function normalizeGivens(value) {
-  return value.replace(/\./g, "0");
+  return String(value ?? "").replace(/\./g, "0");
+}
+
+function puzzleFingerprint(givens) {
+  return crypto.createHash("sha256").update(normalizeGivens(givens)).digest("hex");
+}
+
+function solutionFingerprint(solution) {
+  return crypto.createHash("sha256").update(String(solution ?? "")).digest("hex");
 }
 
 function parseBoard(givens) {
@@ -211,12 +221,29 @@ function extractSqlSeedPuzzles() {
 
   for (const file of files) {
     const filePath = path.join(MIGRATIONS_DIR, file);
+    const sql = fs.readFileSync(filePath, "utf8");
     const rows = extractSqlPuzzlesFromFile(filePath);
     rawCount += rows.length;
     for (const row of rows) byId.set(row.puzzle_id, row);
+    applyPuzzleActivityUpdates(sql, byId);
   }
 
   return { rawCount, puzzles: Array.from(byId.values()) };
+}
+
+function applyPuzzleActivityUpdates(sql, byId) {
+  const updatePattern = /update\s+public\.puzzles\s+set\s+is_active\s*=\s*(true|false)\s+where\s+source\s+(=\s*'([^']+)'|in\s*\(([\s\S]*?)\))[^;]*;/gi;
+  let match;
+  while ((match = updatePattern.exec(sql)) !== null) {
+    const active = match[1].toLowerCase() === "true";
+    const sources = match[3]
+      ? [match[3]]
+      : Array.from(match[4].matchAll(/'([^']+)'/g), (sourceMatch) => sourceMatch[1]);
+    const sourceSet = new Set(sources);
+    for (const puzzle of byId.values()) {
+      if (sourceSet.has(puzzle.source_name)) puzzle.active = active;
+    }
+  }
 }
 
 function extractJoinedString(expression) {
@@ -550,6 +577,8 @@ module.exports = {
   countSolutions,
   validatePuzzle,
   normalizeGivens,
+  puzzleFingerprint,
+  solutionFingerprint,
   extractSqlSeedPuzzles,
   extractFallbackPuzzles,
   extractGeneratedPuzzles,

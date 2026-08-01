@@ -20,6 +20,17 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Production Supabase includes the ranked season rollover foundation in [ranked-season-foundation.md](ranked-season-foundation.md) before testing a real season rollover or recap eligibility.
 - [ ] Production Supabase includes the block/report read-path hardening in [user-safety-enforcement.md](user-safety-enforcement.md) before validating blocked profile and challenge visibility.
 
+## Puzzle Inventory Tooling
+
+- [ ] Canonical puzzle inventory audit passes without writes (`npm.cmd run puzzles:audit`).
+- [ ] Puzzle inventory tooling fixtures pass (`npm.cmd run puzzles:test-tooling`).
+- [ ] A proposed JSON batch passes the read-only batch validator before SQL is prepared.
+- [ ] Batch validation rejects malformed boards, conflicting givens, invalid solutions/difficulties, and duplicate IDs/givens.
+- [ ] Unique-solution checks distinguish zero, one, and multiple solutions and stop after two.
+- [ ] Inventory includes Easy, Medium, Hard, Expert, and Master.
+- [ ] Audit and batch validation do not require or print production credentials.
+- [ ] Puzzle tooling does not alter live selection, gameplay, scoring, XP, RP, or result writing.
+
 ## A. App Launch And Auth
 
 - [ ] App opens cleanly.
