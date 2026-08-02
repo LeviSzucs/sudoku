@@ -6,13 +6,12 @@ import {
   type DailyHistoryLoadStatus,
   type PastDailyHistoryEntry,
 } from "@/lib/pastDailies";
+import { createDailyHistoryRequestStore, isCurrentDailyHistoryRequest } from "@/lib/dailyHistoryRequestStore";
 import { shouldLoadDailyHistory } from "@/lib/weeklyDailySummary";
 
 const CACHE_FRESH_MS = 5 * 60 * 1000;
 
-interface HistoryCacheEntry {
-  fetchedAt: number;
-  refreshKey: string | null;
+interface HistoryValue {
   entries: PastDailyHistoryEntry[];
   status: "ready" | "unavailable";
 }
@@ -36,8 +35,7 @@ interface UseDailyHistoryInput {
   refreshKey?: string | null;
 }
 
-const historyCache = new Map<string, HistoryCacheEntry>();
-const inFlightHistory = new Map<string, Promise<HistoryCacheEntry>>();
+const historyRequests = createDailyHistoryRequestStore<HistoryValue>();
 
 function placeholderEntries(todayKey: string, state: "loading" | "unavailable"): PastDailyHistoryEntry[] {
   return getDailyHistoryDateKeys(todayKey).map((dateKey) => ({
@@ -60,52 +58,40 @@ export function useDailyHistory({
     status: userId ? "loading" : "idle",
   }), [cacheKey, todayKey, userId]);
   const [state, setState] = useState<DailyHistoryState>(initialState);
-  const requestKeyRef = useRef<string | null>(null);
+  const requestIdentityRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!shouldLoadDailyHistory(active, userId) || !userId || !cacheKey) return;
 
-    const cached = historyCache.get(cacheKey);
-    const cacheIsFresh = cached
-      && Date.now() - cached.fetchedAt < CACHE_FRESH_MS
-      && cached.refreshKey === refreshKey;
+    const cached = historyRequests.peek(cacheKey);
+    const cacheIsFresh = historyRequests.peekFresh(cacheKey, refreshKey, CACHE_FRESH_MS);
 
     if (cached) {
-      setState({ cacheKey, entries: cached.entries, status: cached.status });
+      setState({ cacheKey, entries: cached.value.entries, status: cached.value.status });
       if (cacheIsFresh) return;
     } else {
       setState(initialState);
     }
 
-    requestKeyRef.current = cacheKey;
-    const inFlightKey = `${cacheKey}:${refreshKey ?? "no-result"}`;
-    let request = inFlightHistory.get(inFlightKey);
-    if (!request) {
-      request = fetchDailyHistory(userId, todayKey).then((result) => ({
-        fetchedAt: Date.now(),
-        refreshKey,
+    const request = historyRequests.begin(cacheKey, refreshKey, () =>
+      fetchDailyHistory(userId, todayKey).then((result) => ({
         entries: result.entries,
         status: result.status,
-      }));
-      inFlightHistory.set(inFlightKey, request);
-      const clearInFlight = () => {
-        if (inFlightHistory.get(inFlightKey) === request) inFlightHistory.delete(inFlightKey);
-      };
-      void request.then(clearInFlight, clearInFlight);
-    }
+      }))
+    );
+    requestIdentityRef.current = request.identity;
 
     let cancelled = false;
-    void request
-      .then((next) => {
-        historyCache.set(cacheKey, next);
-        if (!cancelled && requestKeyRef.current === cacheKey) {
-          setState({ cacheKey, entries: next.entries, status: next.status });
+    void request.promise
+      .then((resolution) => {
+        if (!cancelled && isCurrentDailyHistoryRequest(requestIdentityRef.current, resolution)) {
+          setState({ cacheKey, entries: resolution.value.entries, status: resolution.value.status });
         }
       })
       .catch((error) => {
         console.warn("[Daily History] Request failed:", error instanceof Error ? error.message : "Unknown history error");
         const entries = placeholderEntries(todayKey, "unavailable");
-        if (!cancelled && requestKeyRef.current === cacheKey) {
+        if (!cancelled && requestIdentityRef.current === request.identity) {
           setState({ cacheKey, entries, status: "unavailable" });
         }
       });
