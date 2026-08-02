@@ -98,6 +98,21 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Horizontal Past Dailies scrolling does not block vertical Home scrolling.
 - [ ] Rapid Home tab switching does not create duplicate Past Dailies requests.
 - [ ] Guest and signed-out states do not issue protected Past Dailies queries.
+- [ ] `YOUR WEEK` keeps Monday-to-Sunday ordering across month and year boundaries.
+- [ ] The weekly denominator counts Monday through today, not all seven days before they occur.
+- [ ] Today is shown as available, in progress, or solved and is never labelled missed while still available.
+- [ ] Future week days remain upcoming and past unsolved days use the quiet missed state only after a successful history query.
+- [ ] Weekly solved count includes only successful Daily Sudoku results; Classic, Daily Duel, Ranked, and duplicate rows do not inflate it.
+- [ ] Weekly best score matches the highest stored Daily score for the current week and is omitted when unavailable.
+- [ ] Loading and query errors reserve the weekly layout without briefly showing zero completions or missed days.
+- [ ] Past Dailies and `YOUR WEEK` share one bounded today-plus-seven-days history query, cache, and in-flight request.
+- [ ] Completing today's Daily refreshes the shared history on Home focus even inside the five-minute cache window.
+- [ ] Rapid Home tab switching coalesces identical history requests and does not repeatedly log the same unavailable state.
+- [ ] Guest and signed-out states hide Daily history and issue no protected query.
+- [ ] Narrow/large iPhone and iPad portrait/landscape show all seven day markers without wrapping or collision.
+- [ ] VoiceOver reads the weekly summary and meaningful labels for solved, missed, today, upcoming, and unavailable days.
+- [ ] The Past Dailies rail still scrolls/snaps normally and its phone next-card peek remains visible.
+- [ ] The Daily Duel vignette layout, playback, reduced-motion behaviour, and card navigation remain unchanged.
 - [ ] Today's Daily Sudoku and the Daily Duel vignette behave unchanged.
 - [ ] New users see a lightweight explanation of what SudoDuel is and a clear first-puzzle action.
 - [ ] Onboarding guidance does not block the app or trap the user in a long intro.
