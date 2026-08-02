@@ -1,3 +1,5 @@
+/* global __dirname */
+
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -21,6 +23,10 @@ const {
   getCurrentWeekDateKeys,
   shouldLoadDailyHistory,
 } = loadTypeScriptModule("lib/weeklyDailySummary.ts");
+const {
+  createDailyHistoryRequestStore,
+  isCurrentDailyHistoryRequest,
+} = loadTypeScriptModule("lib/dailyHistoryRequestStore.ts");
 
 function solved(dateKey, score = 800, elapsedSeconds = 240, mode = "daily") {
   return {
@@ -123,5 +129,83 @@ assert.equal(shouldLoadDailyHistory(true, "user-id"), true);
 assert.equal(shouldLoadDailyHistory(false, "user-id"), false);
 assert.equal(shouldLoadDailyHistory(true, null), false, "signed-out and guest states issue no protected request");
 
-console.log("Weekly Daily Summary tests passed.");
+function deferred() {
+  let resolve;
+  const promise = new Promise((next) => { resolve = next; });
+  return { promise, resolve };
+}
+
+async function testRequestOrdering() {
+  let clock = 100;
+  const store = createDailyHistoryRequestStore(() => clock++);
+  const stale = deferred();
+  const refreshed = deferred();
+  let visible = null;
+
+  const requestA = store.begin("user-a:2026-08-05", "old-result", () => stale.promise);
+  const requestB = store.begin("user-a:2026-08-05", "new-result", () => refreshed.promise);
+  let currentIdentity = requestB.identity;
+  const apply = async (request) => {
+    const resolution = await request.promise;
+    if (isCurrentDailyHistoryRequest(currentIdentity, resolution)) visible = resolution.value;
+  };
+  const appliedA = apply(requestA);
+  const appliedB = apply(requestB);
+
+  refreshed.resolve({ today: "solved" });
+  await appliedB;
+  stale.resolve({ today: "unsolved" });
+  await appliedA;
+
+  assert.deepEqual(visible, { today: "solved" }, "stale request cannot replace the latest visible value");
+  assert.deepEqual(store.peek("user-a:2026-08-05").value, { today: "solved" }, "stale request cannot replace the latest cache value");
+  assert.deepEqual(store.peekFresh("user-a:2026-08-05", "new-result", 300_000).value, { today: "solved" }, "later consumer receives the refreshed cache value");
+
+  const shared = deferred();
+  let loaderCalls = 0;
+  const first = store.begin("user-a:2026-08-06", "same-result", () => {
+    loaderCalls += 1;
+    return shared.promise;
+  });
+  const second = store.begin("user-a:2026-08-06", "same-result", () => {
+    loaderCalls += 1;
+    return shared.promise;
+  });
+  assert.equal(second.coalesced, true);
+  assert.equal(first.promise, second.promise, "identical request identities share one promise");
+  shared.resolve({ today: "solved" });
+  await Promise.all([first.promise, second.promise]);
+  assert.equal(loaderCalls, 1, "identical request identities call the loader once");
+
+  const staleUser = deferred();
+  const oldUser = store.begin("user-a:2026-08-08", "result", () => staleUser.promise);
+  const otherUser = store.begin("user-b:2026-08-05", "new-result", async () => ({ owner: "user-b" }));
+  currentIdentity = otherUser.identity;
+  const otherUserResolution = await otherUser.promise;
+  assert.equal(isCurrentDailyHistoryRequest(currentIdentity, otherUserResolution), true);
+  staleUser.resolve({ owner: "user-a" });
+  const oldUserResolution = await oldUser.promise;
+  assert.equal(isCurrentDailyHistoryRequest(currentIdentity, oldUserResolution), false, "switching users rejects the prior user's visible result");
+  assert.deepEqual(store.peek("user-a:2026-08-05").value, { today: "solved" }, "switching users cannot replace another user's cache");
+  assert.deepEqual(store.peek("user-b:2026-08-05").value, { owner: "user-b" });
+
+  const staleDate = deferred();
+  const oldDate = store.begin("user-c:2026-08-06", "result", () => staleDate.promise);
+  const otherDate = store.begin("user-c:2026-08-07", "new-result", async () => ({ date: "2026-08-07" }));
+  currentIdentity = otherDate.identity;
+  const otherDateResolution = await otherDate.promise;
+  assert.equal(isCurrentDailyHistoryRequest(currentIdentity, otherDateResolution), true);
+  staleDate.resolve({ date: "2026-08-06" });
+  const oldDateResolution = await oldDate.promise;
+  assert.equal(isCurrentDailyHistoryRequest(currentIdentity, oldDateResolution), false, "changing dates rejects the older date's visible result");
+  assert.deepEqual(store.peek("user-c:2026-08-06").value, { date: "2026-08-06" });
+  assert.deepEqual(store.peek("user-c:2026-08-07").value, { date: "2026-08-07" });
+}
+
+testRequestOrdering()
+  .then(() => console.log("Weekly Daily Summary tests passed."))
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 
