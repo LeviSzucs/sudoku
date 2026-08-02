@@ -2,6 +2,7 @@ import { getDailyDateKey, getDailyDateWindow } from "@/lib/daily";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 export const PAST_DAILY_COUNT = 7;
+export const DAILY_HISTORY_COUNT = PAST_DAILY_COUNT + 1;
 
 export interface PastDailySolvedResult {
   resultId: string;
@@ -10,12 +11,20 @@ export interface PastDailySolvedResult {
   score: number;
   elapsedSeconds: number;
   completedAt: string;
+  mode: "daily";
 }
 
 export interface PastDailyHistoryEntry {
   dateKey: string;
   state: "loading" | "solved" | "missed" | "unavailable";
   result: PastDailySolvedResult | null;
+}
+
+export type DailyHistoryLoadStatus = "idle" | "loading" | "ready" | "unavailable";
+
+export interface DailyHistoryLoadResult {
+  entries: PastDailyHistoryEntry[];
+  status: "ready" | "unavailable";
 }
 
 interface PastDailyResultRow {
@@ -45,6 +54,10 @@ export function getPastDailyDateKeys(todayKey = getDailyDateKey()): string[] {
   });
 }
 
+export function getDailyHistoryDateKeys(todayKey = getDailyDateKey()): string[] {
+  return [todayKey, ...getPastDailyDateKeys(todayKey)];
+}
+
 function resultRows(value: PastDailySessionRow["game_results"]): PastDailyResultRow[] {
   if (Array.isArray(value)) return value;
   return value ? [value] : [];
@@ -59,17 +72,26 @@ function isStoredDailySolve(result: PastDailyResultRow): boolean {
   );
 }
 
-export async function fetchPastDailyHistory(
+function isBetterDailyResult(candidate: PastDailySolvedResult, current: PastDailySolvedResult): boolean {
+  if (candidate.score !== current.score) return candidate.score > current.score;
+  if (candidate.elapsedSeconds !== current.elapsedSeconds) return candidate.elapsedSeconds < current.elapsedSeconds;
+  return candidate.completedAt > current.completedAt;
+}
+
+export async function fetchDailyHistory(
   userId: string,
   todayKey = getDailyDateKey()
-): Promise<PastDailyHistoryEntry[]> {
-  const dateKeys = getPastDailyDateKeys(todayKey);
+): Promise<DailyHistoryLoadResult> {
+  const dateKeys = getDailyHistoryDateKeys(todayKey);
   const unavailable = () =>
-    dateKeys.map<PastDailyHistoryEntry>((dateKey) => ({
-      dateKey,
-      state: "unavailable",
-      result: null,
-    }));
+    ({
+      status: "unavailable" as const,
+      entries: dateKeys.map<PastDailyHistoryEntry>((dateKey) => ({
+        dateKey,
+        state: "unavailable",
+        result: null,
+      })),
+    });
 
   if (!isSupabaseConfigured) return unavailable();
 
@@ -99,7 +121,7 @@ export async function fetchPastDailyHistory(
       .eq("user_id", userId)
       .eq("mode", "daily")
       .gte("created_at", oldestWindow.startIso)
-      .lt("created_at", todayWindow.startIso)
+      .lt("created_at", todayWindow.endIso)
       .order("created_at", { ascending: false });
 
     if (response.error) {
@@ -126,27 +148,35 @@ export async function fetchPastDailyHistory(
       .filter(isStoredDailySolve)
       .sort(
         (left, right) =>
-          new Date(right.completed_at).getTime() - new Date(left.completed_at).getTime()
+          right.final_score - left.final_score
+          || left.elapsed_seconds - right.elapsed_seconds
+          || new Date(right.completed_at).getTime() - new Date(left.completed_at).getTime()
       )[0];
-    if (!storedResult || solvedByDate.has(dateKey)) continue;
+    if (!storedResult) continue;
 
-    solvedByDate.set(dateKey, {
+    const candidate: PastDailySolvedResult = {
       resultId: storedResult.result_id,
       puzzleId: storedResult.puzzle_id ?? session.puzzle_id,
       difficulty: storedResult.difficulty || session.difficulty,
       score: storedResult.final_score,
       elapsedSeconds: storedResult.elapsed_seconds,
       completedAt: storedResult.completed_at,
-    });
+      mode: "daily",
+    };
+    const current = solvedByDate.get(dateKey);
+    if (!current || isBetterDailyResult(candidate, current)) solvedByDate.set(dateKey, candidate);
   }
 
-  return dateKeys.map<PastDailyHistoryEntry>((dateKey) => {
-    const result = solvedByDate.get(dateKey) ?? null;
-    return {
-      dateKey,
-      state: result ? "solved" : "missed",
-      result,
-    };
-  });
+  return {
+    status: "ready",
+    entries: dateKeys.map<PastDailyHistoryEntry>((dateKey) => {
+      const result = solvedByDate.get(dateKey) ?? null;
+      return {
+        dateKey,
+        state: result ? "solved" : "missed",
+        result,
+      };
+    }),
+  };
 }
 
