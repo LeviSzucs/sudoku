@@ -562,6 +562,23 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Daily Duel rows show duel outcome from `daily_duels`, not `game_results.won`.
 - [ ] Friend Challenge history/H2H shows correct outcomes.
 
+### Post-Game Continuity
+
+- [ ] Completed Easy, Medium, Hard, and Expert Classic results recommend the next difficulty in order.
+- [ ] A completed Master result recommends another Master puzzle and never points beyond Master.
+- [ ] Starting the recommended Classic puzzle uses the existing session path and does not reuse the completed puzzle.
+- [ ] A completed Daily Sudoku recommends Daily Duel and cannot replay today's Daily Sudoku.
+- [ ] A completed Daily Duel recommends Ranked Duel for a signed-in player, without allowing a second Daily Duel attempt.
+- [ ] A guest or otherwise ranked-unavailable Daily Duel result falls back to Classic puzzle selection.
+- [ ] Ranked wins, losses, and draws recommend another Ranked Duel and only open the existing Versus flow after a deliberate tap.
+- [ ] Friend Challenge results return to Friends/challenges; no rematch or duplicate challenge is created automatically.
+- [ ] Pending opponent outcomes, unresolved games, abandoned sessions, and failed result submissions do not show a new-session action.
+- [ ] Repeated taps while a continuation is opening cause at most one navigation or session action.
+- [ ] Share result remains available and its payload/card are unchanged.
+- [ ] Back home and close navigation remain available.
+- [ ] Continuation labels and supporting copy fit on narrow iPhone and iPad layouts.
+- [ ] VoiceOver announces the destination, disabled state, and loading state of the continuation button.
+
 ## N. Puzzle Bank
 
 - [ ] Classic uses active technique-calibrated puzzles.
