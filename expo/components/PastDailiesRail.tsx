@@ -1,111 +1,36 @@
 import { CircleCheck } from "lucide-react-native";
-import React, { memo, useEffect, useMemo, useRef, useState } from "react";
+import React, { memo, useMemo } from "react";
 import { FlatList, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import { C, resultStateColors } from "@/constants/colors";
 import { typography } from "@/constants/typography";
-import { useAuth } from "@/hooks/useAuth";
-import { getDailyDateKey } from "@/lib/daily";
 import {
-  fetchPastDailyHistory,
   getPastDailyDateKeys,
   type PastDailyHistoryEntry,
 } from "@/lib/pastDailies";
+import type { DailyHistorySnapshot } from "@/hooks/useDailyHistory";
 
 const CARD_GAP = 12;
 const CARD_HEIGHT = 148;
-const CACHE_FRESH_MS = 5 * 60 * 1000;
-
 interface PastDailiesRailProps {
-  active: boolean;
+  history: DailyHistorySnapshot;
 }
 
-interface HistoryCacheEntry {
-  fetchedAt: number;
-  entries: PastDailyHistoryEntry[];
-}
-
-const historyCache = new Map<string, HistoryCacheEntry>();
-const inFlightHistory = new Map<string, Promise<PastDailyHistoryEntry[]>>();
-
-function loadingEntries(todayKey: string): PastDailyHistoryEntry[] {
-  return getPastDailyDateKeys(todayKey).map((dateKey) => ({
-    dateKey,
-    state: "loading" as const,
-    result: null,
-  }));
-}
-
-export default function PastDailiesRail({ active }: PastDailiesRailProps) {
+export default function PastDailiesRail({ history }: PastDailiesRailProps) {
   const { width } = useWindowDimensions();
-  const auth = useAuth();
-  const userId = auth.isSignedIn ? auth.user?.id ?? null : null;
-  const todayKey = getDailyDateKey();
-  const cacheKey = userId ? `${userId}:${todayKey}` : null;
-  const initialEntries = useMemo(() => loadingEntries(todayKey), [todayKey]);
-  const [entries, setEntries] = useState<PastDailyHistoryEntry[]>(initialEntries);
-  const requestKeyRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!active || !userId || !cacheKey) return;
-
-    const cached = historyCache.get(cacheKey);
-    if (cached) {
-      setEntries(cached.entries);
-      if (Date.now() - cached.fetchedAt < CACHE_FRESH_MS) return;
-    } else {
-      setEntries(initialEntries);
+  const entriesByDate = useMemo(() => new Map(history.entries.map((entry) => [entry.dateKey, entry])), [history.entries]);
+  const entries = useMemo(() => getPastDailyDateKeys(history.todayKey).map<PastDailyHistoryEntry>((dateKey) =>
+    entriesByDate.get(dateKey) ?? {
+      dateKey,
+      state: history.status === "unavailable" ? "unavailable" : "loading",
+      result: null,
     }
-
-    requestKeyRef.current = cacheKey;
-    let request = inFlightHistory.get(cacheKey);
-    if (!request) {
-      request = fetchPastDailyHistory(userId, todayKey);
-      inFlightHistory.set(cacheKey, request);
-      const clearInFlight = () => {
-        if (inFlightHistory.get(cacheKey) === request) {
-          inFlightHistory.delete(cacheKey);
-        }
-      };
-      void request.then(clearInFlight, clearInFlight);
-    }
-
-    let cancelled = false;
-    void request
-      .then((nextEntries) => {
-        historyCache.set(cacheKey, {
-          fetchedAt: Date.now(),
-          entries: nextEntries,
-        });
-        if (!cancelled && requestKeyRef.current === cacheKey) {
-          setEntries(nextEntries);
-        }
-      })
-      .catch((error) => {
-        console.warn(
-          "[Past Dailies] History request failed:",
-          error instanceof Error ? error.message : "Unknown history error"
-        );
-        if (!cancelled && requestKeyRef.current === cacheKey) {
-          setEntries(
-            getPastDailyDateKeys(todayKey).map((dateKey) => ({
-              dateKey,
-              state: "unavailable",
-              result: null,
-            }))
-          );
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [active, cacheKey, initialEntries, todayKey, userId]);
+  ), [entriesByDate, history.status, history.todayKey]);
 
   const contentWidth = Math.min(Math.max(width - 40, 0), 860);
   const cardWidth = Math.min(188, Math.max(132, Math.round(contentWidth * 0.44)));
 
-  if (!userId) return null;
+  if (history.status === "idle") return null;
 
   return (
     <View style={styles.section}>

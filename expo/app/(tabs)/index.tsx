@@ -6,7 +6,6 @@ import {
   Crown,
   Play,
   Swords,
-  Trophy,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
@@ -16,15 +15,15 @@ import Avatar from "@/components/Avatar";
 import Card from "@/components/Card";
 import DailyDuelVignette from "@/components/DailyDuelVignette";
 import PastDailiesRail from "@/components/PastDailiesRail";
-import Pill from "@/components/Pill";
-import SectionHeader from "@/components/SectionHeader";
 import StreakFlame from "@/components/StreakFlame";
+import WeeklyDailySummary from "@/components/WeeklyDailySummary";
 import { C, difficultyColors, duelColors, featuredColors } from "@/constants/colors";
 import { buttonShadow, premiumShadow } from "@/constants/depth";
 import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import { typography } from "@/constants/typography";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { useAuth } from "@/hooks/useAuth";
+import { useDailyHistory } from "@/hooks/useDailyHistory";
 import { getDailyDateKey } from "@/lib/daily";
 import { logDevDiagnostic } from "@/lib/performanceDiagnostics";
 import { fetchDailyPuzzle, makeEmptyNotes } from "@/lib/sudoku";
@@ -63,6 +62,23 @@ export default function HomeScreen() {
   const hasActiveSession = Boolean(activeSession);
   const isGuest = auth.isGuest;
   const isNewPlayer = profile.puzzles_completed === 0;
+  const todayKey = getDailyDateKey();
+  const latestDailyResult = profile.recent_results.find((result) => result.mode === "daily" && result.completed);
+  const dailyHistoryRefreshKey = latestDailyResult
+    ? `${latestDailyResult.result_id ?? latestDailyResult.session_id ?? latestDailyResult.puzzle_id}:${latestDailyResult.completed_at}`
+    : null;
+  const dailyHistory = useDailyHistory({
+    active: isFocused,
+    userId: auth.isSignedIn ? auth.user?.id ?? null : null,
+    todayKey,
+    refreshKey: dailyHistoryRefreshKey,
+  });
+  const todayDailyInProgress = activeSessions.some((session) =>
+    session.mode === "daily"
+    && session.status === "in_progress"
+    && typeof session.created_at === "string"
+    && getDailyDateKey(new Date(session.created_at)) === todayKey
+  );
 
   const openSignedInDailyMode = async (mode: "daily" | "daily_duel") => {
     if (!auth.user) {
@@ -287,7 +303,8 @@ export default function HomeScreen() {
           )}
         </Pressable>
 
-        <PastDailiesRail active={isFocused} />
+        <PastDailiesRail history={dailyHistory} />
+        <WeeklyDailySummary history={dailyHistory} todayInProgress={todayDailyInProgress} />
 
         {/* Daily Duel */}
         <Card
@@ -658,3 +675,4 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 });
+
