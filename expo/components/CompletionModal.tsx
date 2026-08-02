@@ -1,14 +1,15 @@
-import { Flame, Home, RotateCw, Share2, X } from "lucide-react-native";
+import { Flame, Home, Share2, X } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { cancelAnimation, Easing, Extrapolation, interpolate, runOnJS, useAnimatedReaction, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming, type SharedValue } from "react-native-reanimated";
 
 import AnimatedUnlockSurface from "@/components/AnimatedUnlockSurface";
+import ResultContinuationAction from "@/components/ResultContinuationAction";
 import { C } from "@/constants/colors";
-import { buttonShadow } from "@/constants/depth";
 import { typography } from "@/constants/typography";
 import { success as hapticSuccess, tapMedium } from "@/lib/haptics";
 import type { RankPromotionSummary } from "@/lib/playerProfile";
+import type { ResultContinuation } from "@/lib/resultContinuation";
 import type { ScoreBreakdown } from "@/lib/scoring";
 import { formatTime } from "@/lib/sudoku";
 
@@ -34,9 +35,9 @@ interface Props {
   outcomeTitle?: string | null;
   outcomeSubtitle?: string | null;
   celebrationKey?: string | null;
-  primaryLabel?: string;
+  continuation?: ResultContinuation | null;
   showLeaderboardEligibility?: boolean;
-  onNext: () => void;
+  onContinue: () => void | Promise<void>;
   onShare: () => void;
   onHome: () => void;
   onClose: () => void;
@@ -64,9 +65,9 @@ export default function CompletionModal({
   outcomeTitle = null,
   outcomeSubtitle = null,
   celebrationKey = null,
-  primaryLabel = "Next puzzle",
+  continuation = null,
   showLeaderboardEligibility = true,
-  onNext,
+  onContinue,
   onShare,
   onHome,
   onClose,
@@ -524,10 +525,7 @@ export default function CompletionModal({
             </View>
           ) : null}
 
-          <Pressable style={styles.primary} onPress={onNext}>
-            <RotateCw size={16} color="#FBF8F2" />
-            <Text style={styles.primaryText}>{primaryLabel}</Text>
-          </Pressable>
+          {continuation ? <ResultContinuationAction continuation={continuation} onPress={onContinue} /> : null}
 
           <View style={styles.secondaryRow}>
             <Pressable style={styles.secondary} onPress={onShare}>
@@ -719,19 +717,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   streakText: { fontSize: 12, color: C.streak, fontWeight: "700" },
-  primary: {
-    flexDirection: "row",
-    width: "100%",
-    backgroundColor: C.ink,
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    marginTop: 16,
-    ...buttonShadow,
-  },
-  primaryText: { color: "#FBF8F2", fontSize: 15, fontWeight: "700" },
   secondaryRow: {
     flexDirection: "row",
     width: "100%",
