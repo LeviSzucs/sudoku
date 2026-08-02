@@ -22,6 +22,7 @@ import { tapLight } from "@/lib/haptics";
 import useSudokuGame, { type GameMode, type PuzzleResult, type SessionSnapshot } from "@/hooks/useSudokuGame";
 import { getDailyDateKey } from "@/lib/daily";
 import { logDevDiagnostic, measureAsync } from "@/lib/performanceDiagnostics";
+import { getResultContinuation, type ResultContinuationOutcome } from "@/lib/resultContinuation";
 import { shareSudoDuelCard, type SudoDuelShareCardPayload } from "@/lib/shareCards";
 import type { ProfileUpdateSummary } from "@/lib/playerProfile";
 import type { ScoreBreakdown } from "@/lib/scoring";
@@ -146,11 +147,16 @@ function rankedOutcomeCopy(entry: { status: string; winner_user_id: string | nul
   return { title: "You finished", subtitle: `Waiting for ${entry.opponent_display_name ?? "opponent"}`, isResolved: false };
 }
 
-function completionPrimaryLabel(mode: GameMode): string {
-  if (mode === "classic") return "Next puzzle";
-  if (mode === "daily") return "Back to Play";
-  if (mode === "daily_duel" || mode === "duel" || mode === "friend_challenge" || mode === "ranked_duel" || mode === "ranked") return "Back to Versus";
-  return "Back to Play";
+function completionOutcomeForContinuation(
+  needsResolvedOutcome: boolean,
+  outcome: ChallengeOutcomeCopy | null
+): ResultContinuationOutcome {
+  if (needsResolvedOutcome && !outcome?.isResolved) return "unresolved";
+  const title = outcome?.title.trim().toLowerCase() ?? "";
+  if (title.includes("won")) return "win";
+  if (title.includes("lost")) return "loss";
+  if (title.includes("draw")) return "draw";
+  return "completed";
 }
 
 function supportsOfficialFailedFinalisation(mode: GameMode): boolean {
@@ -945,6 +951,15 @@ export default function GameScreen() {
     : undefined;
   const completionNeedsResolvedOutcome = effectiveMode === "friend_challenge" || effectiveMode === "ranked" || effectiveMode === "ranked_duel";
   const completionCelebrationReady = !completionNeedsResolvedOutcome || Boolean(challengeOutcome?.isResolved) || !!officialSubmitError;
+  const resultContinuation = useMemo(() => getResultContinuation({
+    mode: effectiveMode,
+    difficulty: game.difficulty,
+    outcome: completionOutcomeForContinuation(completionNeedsResolvedOutcome, challengeOutcome),
+    resultRecorded: completionOfficialStatus === "guest" || completionOfficialStatus === "saved",
+    rankedAvailable: auth.isSignedIn,
+    // Result payloads do not expose a safe same-opponent challenge creation path.
+    friendRematchSupported: false,
+  }), [auth.isSignedIn, challengeOutcome, completionNeedsResolvedOutcome, completionOfficialStatus, effectiveMode, game.difficulty]);
   const completionCelebrationKey = game.result
     ? [
         MODE_LABEL[effectiveMode],
@@ -1256,7 +1271,8 @@ export default function GameScreen() {
     clearTransientUiRef.current();
   }, [auth.isSignedIn, cancelPendingSave, closeSessionForPuzzle, game.result]);
 
-  const handleCompletionNext = useCallback(() => {
+  const handleResultContinuation = useCallback(async () => {
+    if (!resultContinuation) return;
     const completedPuzzleId = game.result?.puzzle_id ?? game.puzzleId;
     cleanupCompletedSession();
     setCompletionSummary(null);
@@ -1268,60 +1284,68 @@ export default function GameScreen() {
     setOfficialOutcomeSessionId(null);
     setProcessedResultId(null);
     setProcessedFailedSessionId(null);
-    if (effectiveMode === "classic") {
+    if (resultContinuation.actionKind === "start_classic" && resultContinuation.targetDifficulty) {
+      const targetDifficulty = resultContinuation.targetDifficulty;
       if (auth.isSignedIn) {
-        void (async () => {
-          try {
-            const puzzle = await fetchClassicPuzzle(auth.user?.id ?? null, game.difficulty, completedPuzzleId);
-            const session = await startPuzzleSession({
-              puzzleId: puzzle.puzzle_id,
+        try {
+          const puzzle = await fetchClassicPuzzle(auth.user?.id ?? null, targetDifficulty, completedPuzzleId);
+          const session = await startPuzzleSession({
+            puzzleId: puzzle.puzzle_id,
+            mode: "classic",
+            difficulty: puzzle.difficulty,
+            initialBoardState: puzzle.givens.map((row) => [...row]),
+            initialNotesState: makeEmptyNotes(),
+          });
+          router.replace({
+            pathname: "/game",
+            params: {
               mode: "classic",
               difficulty: puzzle.difficulty,
-              initialBoardState: puzzle.givens.map((row) => [...row]),
-              initialNotesState: makeEmptyNotes(),
-            });
-            router.replace({
-              pathname: "/game",
-              params: {
-                mode: "classic",
-                difficulty: puzzle.difficulty,
-                sessionId: session.session_id,
-                session_id: session.session_id,
-                puzzleId: puzzle.puzzle_id,
-                puzzle_id: puzzle.puzzle_id,
-                ...(completedPuzzleId ? { excludePuzzleId: completedPuzzleId } : {}),
-              },
-            });
-          } catch (error: unknown) {
-            logDevDiagnostic("puzzle session create result", {
-              authUserId: auth.user?.id ?? null,
-              mode: "classic",
-              difficulty: game.difficulty,
-              sessionCreateSuccess: false,
-              supabaseError: error instanceof Error ? error.message : "Unknown Supabase error",
-            });
-            Alert.alert("Could not start puzzle", "Please try again.");
-            router.replace("/(tabs)/play");
-          }
-        })();
+              sessionId: session.session_id,
+              session_id: session.session_id,
+              puzzleId: puzzle.puzzle_id,
+              puzzle_id: puzzle.puzzle_id,
+              ...(completedPuzzleId ? { excludePuzzleId: completedPuzzleId } : {}),
+            },
+          });
+        } catch (error: unknown) {
+          logDevDiagnostic("puzzle session create result", {
+            authUserId: auth.user?.id ?? null,
+            mode: "classic",
+            difficulty: targetDifficulty,
+            sessionCreateSuccess: false,
+            supabaseError: error instanceof Error ? error.message : "Unknown Supabase error",
+          });
+          Alert.alert("Could not start puzzle", "Please try again from Play.");
+          router.replace("/(tabs)/play");
+        }
         return;
       }
       router.replace({
         pathname: "/game",
         params: {
           mode: "classic",
-          difficulty: game.difficulty,
+          difficulty: targetDifficulty,
           ...(completedPuzzleId ? { excludePuzzleId: completedPuzzleId } : {}),
         },
       });
       return;
     }
-    if (effectiveMode === "ranked_duel" || effectiveMode === "ranked" || effectiveMode === "daily_duel" || effectiveMode === "duel" || effectiveMode === "friend_challenge") {
-      router.replace("/(tabs)/versus");
+
+    if (resultContinuation.actionKind === "open_classic") {
+      router.replace("/(tabs)/play");
       return;
     }
-    router.replace("/(tabs)/play");
-  }, [auth.isSignedIn, auth.user?.id, cleanupCompletedSession, effectiveMode, game.difficulty, game.puzzleId, game.result?.puzzle_id, router, startPuzzleSession]);
+
+    if (resultContinuation.actionKind === "open_friends" || resultContinuation.actionKind === "challenge_again") {
+      router.replace({ pathname: "/friends", params: { mode: "challenge", source: "result" } });
+      return;
+    }
+
+    if (resultContinuation.actionKind === "open_daily_duel" || resultContinuation.actionKind === "open_ranked_duel") {
+      router.replace("/(tabs)/versus");
+    }
+  }, [auth.isSignedIn, auth.user?.id, cleanupCompletedSession, game.puzzleId, game.result?.puzzle_id, resultContinuation, router, startPuzzleSession]);
 
   const handleShareResult = useCallback(() => {
     if (!shareCardPayload) return;
@@ -1557,9 +1581,9 @@ export default function GameScreen() {
         rankPromotion={completionSummary?.rankPromotion ?? null}
         unlockedBadges={completionSummary?.unlockedBadges.map((badge) => ({ badge_id: badge.badge_id, name: badge.name, icon: badge.icon })) ?? []}
         celebrationKey={completionCelebrationKey}
-        primaryLabel={completionPrimaryLabel(effectiveMode)}
+        continuation={resultContinuation}
         showLeaderboardEligibility={effectiveMode !== "ranked_duel"}
-        onNext={handleCompletionNext}
+        onContinue={handleResultContinuation}
         onShare={handleShareResult}
         onHome={() => {
           cleanupCompletedSession();
