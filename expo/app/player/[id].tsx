@@ -219,6 +219,10 @@ export default function PublicPlayerProfileScreen() {
                   symbol={profile.avatar_symbol}
                   variant="xl"
                   size={104}
+                  context="profile"
+                  animated={false}
+                  source="remote"
+                  accessibilityLabel={`${profileName}'s avatar`}
                 />
                 <Text style={styles.name}>{profileName}</Text>
                 {profile.username_handle ? <Text style={styles.handle}>@{profile.username_handle}</Text> : null}
