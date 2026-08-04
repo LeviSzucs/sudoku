@@ -48,6 +48,9 @@ export default function AvatarEditor({ value, onChange, error, hasPremiumCosmeti
             symbol={null}
             variant="xl"
             size={108}
+            context="profile"
+            animated={false}
+            decorative
           />
         </View>
       </View>
