@@ -1,7 +1,7 @@
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { Bell, Brush, ChevronLeft, Database, FlaskConical, HelpCircle, LifeBuoy, LogOut, MessageSquare, Palette, Shield, Trash2, UserRound } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View, useWindowDimensions } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import AvatarEditor from "@/components/AvatarEditor";
@@ -18,23 +18,19 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePlayerProfile } from "@/hooks/usePlayerProfile";
 import { printActionAuditReport } from "@/lib/actionAudit";
 import { loadAppPreferences, saveAppPreferences, triggerHaptic, type AppPreferences, type BoardSizePreference } from "@/lib/appPreferences";
-import { normalizeAvatarConfig, type CharacterAvatarConfig } from "@/lib/avatar";
+import {
+  avatarDraftsEqual,
+  createAvatarDraft,
+  type AvatarDraft,
+} from "@/lib/avatarEditor";
 import type { PlayerProfile, ProfileSettings } from "@/lib/playerProfile";
 import { supabaseConfigDiagnostics } from "@/lib/supabase";
 
-type AvatarDraft = CharacterAvatarConfig & { initials: string; avatar_color: string; avatar_symbol?: string | null };
-
 function avatarDraftFromProfile(profile: PlayerProfile): AvatarDraft {
-  const config = normalizeAvatarConfig(profile, { initials: profile.initials, color: profile.avatar_color, symbol: profile.avatar_symbol });
-  return {
-    initials: config.avatar_initials ?? profile.initials,
-    avatar_color: config.avatar_bg_color ?? profile.avatar_color,
-    avatar_symbol: profile.avatar_symbol ?? null,
-    ...config,
-  };
+  return createAvatarDraft(profile);
 }
 
-const BOARD_SIZE_OPTIONS: Array<{ value: BoardSizePreference; label: string; detail: string }> = [
+const BOARD_SIZE_OPTIONS: { value: BoardSizePreference; label: string; detail: string }[] = [
   { value: "standard", label: "Standard", detail: "Current board size · 100%" },
   { value: "large", label: "Large", detail: "Roomier board sizing · about 110%" },
   { value: "xl", label: "XL", detail: "Largest safe board size · up to about 120%" },
@@ -46,7 +42,7 @@ function boardSizeLabel(value: BoardSizePreference): string {
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { height, width } = useWindowDimensions();
   const params = useLocalSearchParams<{ panel?: string }>();
   const auth = useAuth();
   const profileState = usePlayerProfile();
@@ -59,8 +55,12 @@ export default function SettingsScreen() {
   const [name, setName] = useState<string>(profile.username);
   const [nameError, setNameError] = useState<string | null>(null);
   const [avatarDraft, setAvatarDraft] = useState<AvatarDraft>(() => avatarDraftFromProfile(profile));
+  const [avatarPersistedDraft, setAvatarPersistedDraft] = useState<AvatarDraft>(() => avatarDraftFromProfile(profile));
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [avatarSaving, setAvatarSaving] = useState<boolean>(false);
+  const avatarSaveInFlightRef = useRef(false);
+  const latestProfileRef = useRef(profile);
+  latestProfileRef.current = profile;
   const [notifications, setNotifications] = useState<ProfileSettings["notifications"]>(profile.settings.notifications);
   const [privacy, setPrivacy] = useState<ProfileSettings["privacy"]>(profile.settings.privacy);
   const [settingsError, setSettingsError] = useState<string | null>(null);
@@ -69,9 +69,20 @@ export default function SettingsScreen() {
   const dailyDiagnostics = diagnostics.daily;
   const developerToolsEnabled = SHOW_DEVELOPER_TOOLS && profile.settings.devMode;
   const isTablet = isTabletWidth(width);
+  const avatarUsesTabletLayout = isTablet && Math.min(width, height) >= 700;
   const shellMaxWidth = getCenteredContentMaxWidth(width, isTablet ? 760 : 560);
+  const avatarDirty = !avatarDraftsEqual(avatarDraft, avatarPersistedDraft);
 
-  useEffect(() => { if (params.panel) setPanel(params.panel); }, [params.panel]);
+  useEffect(() => {
+    if (!params.panel) return;
+    if (params.panel === "avatar") {
+      const next = avatarDraftFromProfile(latestProfileRef.current);
+      setAvatarPersistedDraft(next);
+      setAvatarDraft(next);
+      setAvatarError(null);
+    }
+    setPanel(params.panel);
+  }, [params.panel]);
   useEffect(() => {
     let active = true;
     void loadAppPreferences(auth.user?.id ?? null).then((next) => {
@@ -81,10 +92,14 @@ export default function SettingsScreen() {
   }, [auth.user?.id]);
   useEffect(() => {
     setName(profile.username);
-    setAvatarDraft(avatarDraftFromProfile(profile));
+    if (panel !== "avatar") {
+      const nextAvatar = avatarDraftFromProfile(profile);
+      setAvatarPersistedDraft(nextAvatar);
+      setAvatarDraft(nextAvatar);
+    }
     setNotifications(profile.settings.notifications);
     setPrivacy(profile.settings.privacy);
-  }, [profile]);
+  }, [panel, profile]);
 
   const showResult = async (label: string, action: () => Promise<{ ok: boolean; error?: string }>) => {
     const result = await action();
@@ -107,15 +122,52 @@ export default function SettingsScreen() {
   };
 
   const saveAvatar = async () => {
+    if (avatarSaveInFlightRef.current || !avatarDirty) return;
+    avatarSaveInFlightRef.current = true;
     setAvatarSaving(true);
-    const result = await updateAvatar(avatarDraft);
-    setAvatarSaving(false);
-    if (!result.ok) {
-      setAvatarError(result.error ?? "Unable to save avatar.");
-      return;
+    setAvatarError(null);
+    try {
+      const result = await updateAvatar(avatarDraft);
+      if (!result.ok) {
+        setAvatarError(result.error ?? "Unable to save avatar.");
+        return;
+      }
+      setAvatarPersistedDraft(avatarDraft);
+      setPanel(null);
+    } finally {
+      avatarSaveInFlightRef.current = false;
+      setAvatarSaving(false);
     }
+  };
+
+  const openAvatarEditor = () => {
+    const next = avatarDraftFromProfile(profile);
+    setAvatarPersistedDraft(next);
+    setAvatarDraft(next);
+    setAvatarError(null);
+    setPanel("avatar");
+  };
+
+  const discardAvatarChanges = () => {
+    setAvatarDraft(avatarPersistedDraft);
     setAvatarError(null);
     setPanel(null);
+  };
+
+  const requestCloseAvatarEditor = () => {
+    if (avatarSaving) return;
+    if (!avatarDirty) {
+      discardAvatarChanges();
+      return;
+    }
+    Alert.alert(
+      "Discard avatar changes?",
+      "Your unsaved avatar changes will be lost.",
+      [
+        { text: "Keep editing", style: "cancel" },
+        { text: "Discard", style: "destructive", onPress: discardAvatarChanges },
+      ],
+    );
   };
 
   const closePanel = () => {
@@ -165,7 +217,7 @@ export default function SettingsScreen() {
 
         <Section title="Account">
           <Row icon={<UserRound size={18} color={C.inkSoft} />} title="Profile" detail={profile.display_name ?? profile.username} onPress={() => setPanel("display")} />
-          <Row icon={<Palette size={18} color={C.inkSoft} />} title="Avatar" detail="Character, colours and frame" onPress={() => setPanel("avatar")} />
+          <Row icon={<Palette size={18} color={C.inkSoft} />} title="Avatar" detail="Appearance, outfit and frame" onPress={openAvatarEditor} />
           <Row icon={<Bell size={18} color={C.inkSoft} />} title="Notifications" detail="Push, duels and social updates" onPress={() => router.push("/settings-notifications")} />
           <Row icon={<Shield size={18} color={C.inkSoft} />} title="Privacy" detail={privacy.showOnGlobalLeaderboards ? "Leaderboard opt-in on" : "Leaderboard opt-in off"} onPress={() => setPanel("privacy")} />
           <Row icon={<Trash2 size={18} color={C.danger} />} title="Delete account" detail="Permanently delete or anonymise this account" onPress={() => router.push("/settings-delete-account")} />
@@ -222,8 +274,47 @@ export default function SettingsScreen() {
         <View style={styles.backdrop}><Card style={styles.modalCard}><Text style={styles.modalTitle}>Profile</Text><TextInput value={name} onChangeText={(value) => { setName(value); setNameError(null); }} maxLength={20} placeholder="Player" style={styles.input} /><Text style={styles.helper}>{name.trim().length}/20 characters · initials update automatically</Text>{nameError ? <Text style={styles.error}>{nameError}</Text> : null}<Actions onCancel={() => setPanel(null)} onSave={saveName} /></Card></View>
       </Modal>
 
-      <Modal visible={panel === "avatar"} transparent animationType="fade" onRequestClose={() => setPanel(null)}>
-        <View style={styles.backdrop}><Card style={styles.modalCard}><ScrollView showsVerticalScrollIndicator={false}><Text style={styles.modalTitle}>Avatar</Text><AvatarEditor value={avatarDraft} onChange={(next) => { setAvatarDraft(next); setAvatarError(null); }} error={avatarError} hasPremiumCosmetics onLockedPress={() => Alert.alert("Avatar", "That cosmetic is not available in this release.")} /><Actions onCancel={() => setPanel(null)} onSave={() => { void saveAvatar(); }} saveLabel={avatarSaving ? "Saving..." : "Done"} disabled={avatarSaving} /></ScrollView></Card></View>
+      <Modal visible={panel === "avatar"} transparent animationType="fade" onRequestClose={requestCloseAvatarEditor}>
+        <View style={[styles.backdrop, styles.avatarBackdrop]}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={styles.avatarKeyboardAvoider}
+          >
+          <Card style={avatarUsesTabletLayout
+            ? [styles.modalCard, styles.avatarModalCard, styles.avatarModalCardTablet]
+            : [styles.modalCard, styles.avatarModalCard]}>
+            <View style={styles.avatarModalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.avatarModalTitle}>Customise avatar</Text>
+                <Text style={styles.avatarModalSubtitle}>Choose how your avatar appears across SudoDuel.</Text>
+              </View>
+              <Text style={styles.avatarChangeState}>{avatarDirty ? "Unsaved changes" : "Up to date"}</Text>
+            </View>
+            <AvatarEditor
+              value={avatarDraft}
+              onChange={(next) => {
+                setAvatarDraft(next);
+                setAvatarError(null);
+              }}
+              error={avatarError}
+              hasPremiumCosmetics
+              onLockedPress={() => Alert.alert("Avatar", "That option is not available for this account.")}
+            />
+            {avatarSaving ? (
+              <Text accessibilityLiveRegion="polite" style={styles.savingStatus}>Saving avatar...</Text>
+            ) : null}
+            <Actions
+              onCancel={requestCloseAvatarEditor}
+              onSave={() => { void saveAvatar(); }}
+              saveLabel={avatarSaving ? "Saving..." : "Save avatar"}
+              saveAccessibilityLabel="Save avatar changes"
+              cancelAccessibilityLabel="Cancel avatar editing"
+              disabled={avatarSaving || !avatarDirty}
+              cancelDisabled={avatarSaving}
+            />
+          </Card>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       <Modal visible={panel === "notifications"} transparent animationType="fade" onRequestClose={closePanel}>
@@ -281,8 +372,47 @@ function Toggle({ label, value, onValueChange }: { label: string; value: boolean
   return <View style={styles.toggleRow}><Text style={styles.toggleLabel}>{label}</Text><Switch value={value} onValueChange={onValueChange} trackColor={{ false: C.border, true: C.accentSoft }} thumbColor={value ? C.accent : C.mutedSoft} /></View>;
 }
 
-function Actions({ onCancel, onSave, saveLabel = "Done", disabled = false }: { onCancel: () => void; onSave: () => void; saveLabel?: string; disabled?: boolean }) {
-  return <View style={styles.actions}><Pressable style={styles.cancel} onPress={onCancel}><Text style={styles.cancelText}>Cancel</Text></Pressable><Pressable disabled={disabled} style={[styles.save, disabled && { opacity: 0.55 }]} onPress={onSave}><Text style={styles.saveText}>{saveLabel}</Text></Pressable></View>;
+function Actions({
+  onCancel,
+  onSave,
+  saveLabel = "Done",
+  disabled = false,
+  cancelDisabled = false,
+  saveAccessibilityLabel,
+  cancelAccessibilityLabel,
+}: {
+  onCancel: () => void;
+  onSave: () => void;
+  saveLabel?: string;
+  disabled?: boolean;
+  cancelDisabled?: boolean;
+  saveAccessibilityLabel?: string;
+  cancelAccessibilityLabel?: string;
+}) {
+  return (
+    <View style={styles.actions}>
+      <Pressable
+        accessibilityLabel={cancelAccessibilityLabel}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: cancelDisabled }}
+        disabled={cancelDisabled}
+        style={[styles.cancel, cancelDisabled && styles.actionDisabled]}
+        onPress={onCancel}
+      >
+        <Text style={styles.cancelText}>Cancel</Text>
+      </Pressable>
+      <Pressable
+        accessibilityLabel={saveAccessibilityLabel}
+        accessibilityRole="button"
+        accessibilityState={{ disabled }}
+        disabled={disabled}
+        style={[styles.save, disabled && styles.actionDisabled]}
+        onPress={onSave}
+      >
+        <Text style={styles.saveText}>{saveLabel}</Text>
+      </Pressable>
+    </View>
+  );
 }
 
 function DevButton({ label, onPress }: { label: string; onPress: () => void }) {
@@ -324,6 +454,15 @@ const styles = StyleSheet.create({
   devButtonText: { color: "#FBF8F2", fontWeight: "800", fontSize: 12 },
   backdrop: { flex: 1, backgroundColor: "#15171CB8", alignItems: "center", justifyContent: "center", padding: 24 },
   modalCard: { width: "100%", maxWidth: 420, maxHeight: "90%", padding: 20 },
+  avatarBackdrop: { paddingHorizontal: 12, paddingVertical: 18 },
+  avatarKeyboardAvoider: { width: "100%", height: "100%", alignItems: "center", justifyContent: "center" },
+  avatarModalCard: { height: "94%", maxHeight: 760, padding: 16 },
+  avatarModalCardTablet: { maxWidth: 780, height: "82%", minHeight: 570, padding: 20 },
+  avatarModalHeader: { flexDirection: "row", alignItems: "flex-start", gap: 12, marginBottom: 14 },
+  avatarModalTitle: { color: C.ink, fontWeight: "900", fontSize: 22 },
+  avatarModalSubtitle: { color: C.muted, fontSize: 12, lineHeight: 17, marginTop: 3 },
+  avatarChangeState: { color: C.muted, fontSize: 10, fontWeight: "800", marginTop: 5 },
+  savingStatus: { color: C.accent, fontSize: 12, fontWeight: "800", textAlign: "center", marginTop: 6 },
   modalHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
   modalTitle: { color: C.ink, fontWeight: "900", fontSize: 22, marginBottom: 14 },
   input: { backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, color: C.ink, fontSize: 16, fontWeight: "700" },
@@ -343,6 +482,7 @@ const styles = StyleSheet.create({
   toggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border },
   toggleLabel: { color: C.ink, fontWeight: "700", flex: 1 },
   actions: { flexDirection: "row", gap: 10, marginTop: 18 },
+  actionDisabled: { opacity: 0.5 },
   optionGroup: { marginTop: 16, gap: 14 },
   optionCard: {
     flexDirection: "row",
