@@ -865,14 +865,9 @@ const styles = StyleSheet.create({
   },
   vsAvatarShell: {
     padding: 6,
-    borderRadius: 999,
-    backgroundColor: "#FBF8F214",
-    borderWidth: 1,
-    borderColor: "#FBF8F224",
   },
   vsAvatarShellMuted: {
-    backgroundColor: "#FBF8F20D",
-    borderColor: "#FBF8F218",
+    opacity: 0.72,
   },
   vsName: {
     color: "#FBF8F2",
@@ -994,10 +989,6 @@ const styles = StyleSheet.create({
   },
   rankedAvatarShell: {
     padding: 4,
-    borderRadius: 999,
-    backgroundColor: C.bgElevated,
-    borderWidth: 1,
-    borderColor: C.border,
   },
   rankedAvatarShellMuted: {
     opacity: 0.78,
