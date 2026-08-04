@@ -115,7 +115,7 @@ export default function UsernameSetupScreen() {
               <Text style={styles.formSubtitle}>This only takes a moment, and you can change it later if needed.</Text>
 
               <View style={styles.previewCard}>
-                <Avatar initials={previewInitials} color={DEFAULT_AVATAR_COLOR} variant="lg" />
+                <Avatar initials={previewInitials} color={DEFAULT_AVATAR_COLOR} variant="lg" context="home" decorative />
                 <View style={styles.previewCopy}>
                   <Text style={styles.previewName}>{trimmedDisplayName || "Your display name"}</Text>
                   <Text style={styles.previewHandle}>{normalized ? `@${normalized}` : "@username"}</Text>
