@@ -80,3 +80,22 @@ Existing inline artwork should move only when real production art is imported an
 
 The next focused step is to import one professionally delivered layered character, validate alignment at all five sizes, and map expression assets without changing screen APIs. A later customisation project can define persistence for stable layer IDs, availability, unlock ownership, and migration from current value fields. Shops, currencies, inventories, and unlock rules do not belong in the renderer.
 
+## Motion and reactions
+
+The character layer alone moves; backgrounds and frames remain fixed.
+
+- Idle uses neutral expression, sub-pixel vertical movement, and a maximum 0.6% scale change over a slow eased cycle.
+- Matchmaking and unresolved opponent waits use focused expression and a slow 1.1-degree thinking tilt.
+- Authoritative wins and successful solo completions use happy expression and one 660 ms lift/scale celebration.
+- Authoritative losses use sad expression and one 700 ms downward settle/tilt.
+- Draws, cancelled results, unresolved outcomes, failed saves, and unknown future outcomes are neutral and static.
+
+`getAvatarReactionForOutcome`, `getOpponentAvatarReactionForOutcome`, and `getAvatarReactionForMatchState` are the pure mapping contract. The completion modal only reacts once its existing save/outcome state is safe. The Versus card uses completed duel IDs plus completion timestamps for player/opponent reaction keys. The game completion modal uses the existing completion key with a player suffix.
+
+One-shot keys are claimed once per app session by a bounded 100-key tracker. Rerenders and revisiting an old result do not replay a reaction; a genuinely new result key can. Native animations cancel and reset on motion changes and unmount.
+
+System Reduced Motion keeps happy, sad, focused, and neutral expressions but forces all motion static. Static contexts still do not mount animation hooks.
+
+Current emotional placements are own Profile, Daily/Ranked Versus and matchmaking, and the game completion modal for Classic, Daily, Daily Duel, Ranked, and Friend Challenge flows. Home, public profiles, leaderboards, friends/search rows, notifications, compact cards, and editor previews remain static.
+
+The inline renderer can make restrained brow and mouth changes for all four expressions. Professional art should later provide aligned eye, brow, and mouth layers for each expression, plus consistent character anchors, so stronger expression fidelity does not require changing screen APIs or animation policy.
