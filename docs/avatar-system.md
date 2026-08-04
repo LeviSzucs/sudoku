@@ -49,7 +49,7 @@ System reduced motion is read inside animated placements. An explicit override s
 
 Missing, loading, guest, stale remote, unknown character, unknown layer, unsupported expression, unsupported motion, or removed future-asset values resolve to the stable `character_v1` default and known layer defaults. Unsupported expression becomes neutral. Unsupported animated motion uses idle only when supported; otherwise it is static. Invalid internal IDs are never displayed or announced.
 
-Avatar accessibility is one identity-level image label where identity matters, such as â€œOpponent avatarâ€. Decorative previews are removed from the accessibility tree. Layers, internal IDs, and motion names are never announced.
+Avatar accessibility is one identity-level image label where identity matters, such as "Opponent avatar". Decorative previews are removed from the accessibility tree. Layers, internal IDs, and motion names are never announced.
 
 ## Professional art delivery
 
