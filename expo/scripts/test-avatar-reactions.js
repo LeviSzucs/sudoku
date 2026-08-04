@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const ts = require("typescript");
 
-const projectRoot = path.join(__dirname, "..");
+const projectRoot = path.resolve();
 
 function loadTypeScript(relativePath) {
   const filePath = path.join(projectRoot, relativePath);
@@ -65,18 +65,42 @@ assert.equal(reducedWin.expression, "happy");
 assert.equal(reducedWin.motion, "static");
 assert.equal(reducedWin.animated, false);
 
-const tracker = playback.createAvatarReactionPlaybackTracker(2);
-assert.equal(tracker.claim("result-1:you"), true);
-assert.equal(tracker.claim("result-1:you"), false, "the same result key must not replay");
-assert.equal(tracker.claim("result-2:you"), true, "a new result key may react");
-assert.equal(tracker.claim("result-3:you"), true);
-assert.equal(tracker.hasPlayed("result-1:you"), false, "the tracker must stay bounded");
+const tracker = playback.createAvatarReactionPlaybackTracker();
+const gate = playback.createAvatarReactionPlaybackGate(tracker.claim);
+gate.prepare("result-1:you");
+gate.prepare("result-1:you");
+assert.equal(gate.consume("result-1:you", true), true, "the first stable setup may play once");
+assert.equal(gate.consume("result-1:you", true), false, "a rerender must not replay the same key");
+
+const focusGate = playback.createAvatarReactionPlaybackGate(tracker.claim);
+focusGate.prepare("result-focus:you");
+assert.equal(focusGate.consume("result-focus:you", false), false, "an inactive result is consumed without motion");
+assert.equal(focusGate.consume("result-focus:you", true), false, "focus returning must not replay");
+
+const remountedGate = playback.createAvatarReactionPlaybackGate(tracker.claim);
+assert.equal(remountedGate.consume("result-1:you", true), false, "remounting cannot reclaim an app-session key");
+
+const reducedGate = playback.createAvatarReactionPlaybackGate(tracker.claim);
+reducedGate.prepare("result-reduced:you");
+assert.equal(reducedGate.consume("result-reduced:you", false), false, "Reduced Motion consumes without movement");
+assert.equal(reducedGate.consume("result-reduced:you", true), false, "disabling Reduced Motion cannot revive the result");
+
+assert.equal(gate.consume("result-2:you", true), true, "a genuinely new result key may react");
+const sideTracker = playback.createAvatarReactionPlaybackTracker();
+const playerGate = playback.createAvatarReactionPlaybackGate(sideTracker.claim);
+const opponentGate = playback.createAvatarReactionPlaybackGate(sideTracker.claim);
+assert.equal(playerGate.consume("result-side:you", true), true);
+assert.equal(opponentGate.consume("result-side:opponent", true), true, "player and opponent keys are independent");
 assert.equal(tracker.claim(null), false);
 
 const avatarSource = fs.readFileSync(path.join(projectRoot, "components", "Avatar.tsx"), "utf8");
-assert.match(avatarSource, /claimAvatarReactionPlayback\(reactionKey\)/);
+assert.match(avatarSource, /createAvatarReactionPlaybackGate\(\)/);
+assert.match(avatarSource, /queueMicrotask/);
+assert.match(avatarSource, /reactionGate\.consume\(reactionKey, false\)/);
 assert.match(avatarSource, /cancelAnimation\(translateY\)/);
 assert.doesNotMatch(avatarSource, /setTimeout|setInterval|Math\.random/);
+assert.match(avatarSource, /resolvedMotion === "idle"[\s\S]*withRepeat/);
+assert.match(avatarSource, /resolvedMotion === "thinking"[\s\S]*withRepeat/);
 
 const profileSource = fs.readFileSync(path.join(projectRoot, "app", "(tabs)", "profile.tsx"), "utf8");
 assert.match(profileSource, /context="profile"[\s\S]*active=\{isFocused\}/);
