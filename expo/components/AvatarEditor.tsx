@@ -1,130 +1,451 @@
-import { Lock } from "lucide-react-native";
-import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Check,
+  CircleSlash2,
+  Glasses,
+  Lock,
+  Palette,
+  Scissors,
+  Shirt,
+  Square,
+  UserRound,
+  type LucideIcon,
+} from "lucide-react-native";
+import React, { memo, useEffect, useRef, useState } from "react";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from "react-native";
 
 import Avatar from "@/components/Avatar";
 import { C } from "@/constants/colors";
-import { FREE_FIRST_LAUNCH_MODE } from "@/constants/premium";
-import { avatarItemsFor, normalizeAvatarConfig, type AvatarCategory, type CharacterAvatarConfig } from "@/lib/avatar";
+import { avatarItemsFor, type AvatarItem } from "@/lib/avatar";
+import {
+  AVATAR_EDITOR_CATEGORIES,
+  avatarOptionAccessibilityLabel,
+  createAvatarDraft,
+  updateAvatarDraftField,
+  updateAvatarDraftInitials,
+  type AvatarDraft,
+  type AvatarEditorCategoryDefinition,
+  type AvatarEditorIconId,
+  type AvatarEditorOptionGroup,
+} from "@/lib/avatarEditor";
 
 interface AvatarEditorProps {
-  value: CharacterAvatarConfig & { initials: string; avatar_color: string; avatar_symbol?: string | null };
-  onChange: (value: CharacterAvatarConfig & { initials: string; avatar_color: string; avatar_symbol?: string | null }) => void;
+  value: AvatarDraft;
+  onChange: (value: AvatarDraft) => void;
   error?: string | null;
   hasPremiumCosmetics?: boolean;
   onLockedPress?: (itemLabel: string, unlockRequirement?: string | null) => void;
 }
 
-const sections: { title: string; category: AvatarCategory; field: keyof CharacterAvatarConfig }[] = [
-  { title: "Background", category: "background", field: "avatar_bg_color" },
-  { title: "Skin tone", category: "skinTone", field: "avatar_skin_tone" },
-  { title: "Hair style", category: "hairStyle", field: "avatar_hair_style" },
-  { title: "Hair colour", category: "hairColor", field: "avatar_hair_color" },
-  { title: "Top style", category: "topStyle", field: "avatar_top_style" },
-  { title: "Top colour", category: "topColor", field: "avatar_top_color" },
-  { title: "Accessories", category: "accessory", field: "avatar_accessory" },
-  { title: "Frame", category: "frame", field: "avatar_frame" },
-];
+const CATEGORY_ICONS: Record<AvatarEditorIconId, LucideIcon> = {
+  appearance: UserRound,
+  hair: Scissors,
+  outfit: Shirt,
+  accessories: Glasses,
+  background: Palette,
+  frame: Square,
+};
 
-export default function AvatarEditor({ value, onChange, error, hasPremiumCosmetics = false, onLockedPress }: AvatarEditorProps) {
-  const config = normalizeAvatarConfig(value, { initials: value.initials, color: value.avatar_color, symbol: value.avatar_symbol });
+export default function AvatarEditor({
+  value,
+  onChange,
+  error,
+  hasPremiumCosmetics = false,
+  onLockedPress,
+}: AvatarEditorProps) {
+  const { height, width } = useWindowDimensions();
+  const [activeCategoryId, setActiveCategoryId] = useState(AVATAR_EDITOR_CATEGORIES[0].id);
+  const optionScrollRef = useRef<ScrollView | null>(null);
+  const config = createAvatarDraft(value);
+  const isTablet = Math.min(width, height) >= 700;
+  const activeCategory = AVATAR_EDITOR_CATEGORIES.find((category) => category.id === activeCategoryId)
+    ?? AVATAR_EDITOR_CATEGORIES[0];
 
-  const setField = (field: keyof CharacterAvatarConfig, nextValue: string | null) => {
-    onChange({
-      ...value,
-      [field]: nextValue,
-      avatar_color: field === "avatar_bg_color" && nextValue ? nextValue : value.avatar_color,
-    });
+  useEffect(() => {
+    optionScrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [activeCategoryId]);
+
+  const setField = (field: AvatarEditorOptionGroup["field"], nextValue: string | null) => {
+    onChange(updateAvatarDraftField(value, field, nextValue));
   };
 
   return (
-    <View>
-      <View style={styles.preview}>
+    <View style={[styles.editor, isTablet && styles.editorTablet]}>
+      <View style={[styles.previewPane, isTablet && styles.previewPaneTablet]}>
+        <Text style={styles.previewKicker}>LIVE PREVIEW</Text>
         <View style={styles.previewHalo}>
           <Avatar
             {...config}
-            initials={value.initials}
-            color={config.avatar_bg_color || value.avatar_color}
+            initials={config.initials}
+            color={config.avatar_color}
             symbol={null}
-            variant="xl"
-            size={108}
-            context="profile"
+            size={isTablet ? 160 : 122}
+            context="share"
+            expression="neutral"
+            motion="static"
             animated={false}
             decorative
           />
         </View>
+        <Text style={styles.previewTitle}>Your SudoDuel avatar</Text>
+        <Text style={styles.previewText}>Changes stay on this device until you save.</Text>
       </View>
 
-      <Text style={styles.label}>Initials fallback</Text>
-      <TextInput
-        value={value.initials}
-        onChangeText={(text) => onChange({ ...value, initials: text.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3), avatar_initials: text.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3) })}
-        maxLength={3}
-        placeholder="AB"
-        style={styles.input}
-      />
-      <Text style={styles.helper}>Used only when a compact fallback is needed.</Text>
+      <View style={styles.controlsPane}>
+        <CategoryTabs
+          activeCategory={activeCategory}
+          onSelect={setActiveCategoryId}
+        />
+        <ScrollView
+          ref={optionScrollRef}
+          style={styles.optionScroll}
+          contentContainerStyle={styles.optionContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.categoryTitle}>{activeCategory.label}</Text>
+          {activeCategory.includesInitials ? (
+            <View style={styles.group}>
+              <Text style={styles.groupTitle}>Initials fallback</Text>
+              <TextInput
+                value={value.initials}
+                onChangeText={(text) => onChange(updateAvatarDraftInitials(value, text))}
+                accessibilityLabel="Avatar initials"
+                autoCapitalize="characters"
+                autoCorrect={false}
+                maxLength={3}
+                placeholder="SD"
+                returnKeyType="done"
+                style={styles.input}
+              />
+              <Text style={styles.helper}>One to three letters or numbers, used only when artwork cannot be shown.</Text>
+            </View>
+          ) : null}
 
-      {sections.map((section) => {
-        const selected = config[section.field];
-        return (
-          <View key={section.title} style={styles.section}>
-            <Text style={styles.label}>{section.title}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.optionScroller} contentContainerStyle={styles.options}>
-              {avatarItemsFor(section.category).map((item) => {
-                const active = selected === item.value;
-                const selectable = item.is_available || (item.unlock_type === "premium" && hasPremiumCosmetics);
-                const lockedLabel = item.unlock_type === "premium" ? "Premium" : item.unlock_requirement ?? "Locked";
-                return (
-                  <Pressable
-                    key={item.id}
-                    onPress={() => selectable ? setField(section.field, item.value) : onLockedPress?.(item.label, item.unlock_requirement)}
-                    style={[styles.option, item.color ? styles.colorOption : null, active && styles.optionActive, !selectable && styles.optionLocked]}
-                  >
-                    {item.color ? <View style={[styles.swatch, { backgroundColor: item.color }]} /> : null}
-                    <Text style={[styles.optionText, active && styles.optionTextActive]}>{item.label}</Text>
-                    {!selectable ? (
-                      <View style={styles.lockedTag}>
-                        <Lock size={11} color={active ? C.bgElevated : C.muted} />
-                        <Text style={[styles.lockedTagText, active && styles.optionTextActive]}>{lockedLabel}</Text>
-                      </View>
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        );
-      })}
+          {activeCategory.groups.map((group) => (
+            <OptionGroup
+              key={group.id}
+              group={group}
+              draft={config}
+              hasPremiumCosmetics={hasPremiumCosmetics}
+              onSelect={(nextValue) => setField(group.field, nextValue)}
+              onLockedPress={onLockedPress}
+            />
+          ))}
 
-      <Text style={styles.futureNote}>
-        {FREE_FIRST_LAUNCH_MODE
-          ? "Current avatar customisation is available in this release."
-          : "Locked cosmetics preview future rewards and Premium items."}
-      </Text>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? (
+            <Text accessibilityLiveRegion="polite" style={styles.error}>{error}</Text>
+          ) : null}
+        </ScrollView>
+      </View>
     </View>
   );
 }
 
+function CategoryTabs({
+  activeCategory,
+  onSelect,
+}: {
+  activeCategory: AvatarEditorCategoryDefinition;
+  onSelect: (categoryId: AvatarEditorCategoryDefinition["id"]) => void;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.tabs}
+      style={styles.tabScroll}
+    >
+      {AVATAR_EDITOR_CATEGORIES.map((category) => {
+        const selected = category.id === activeCategory.id;
+        const Icon = CATEGORY_ICONS[category.icon];
+        return (
+          <Pressable
+            key={category.id}
+            accessibilityLabel={category.accessibleLabel}
+            accessibilityRole="tab"
+            accessibilityState={{ selected }}
+            onPress={() => onSelect(category.id)}
+            style={({ pressed }) => [
+              styles.tab,
+              selected && styles.tabSelected,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Icon size={17} color={selected ? C.card : C.inkSoft} />
+            <Text style={[styles.tabText, selected && styles.tabTextSelected]}>{category.label}</Text>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+function OptionGroup({
+  group,
+  draft,
+  hasPremiumCosmetics,
+  onSelect,
+  onLockedPress,
+}: {
+  group: AvatarEditorOptionGroup;
+  draft: AvatarDraft;
+  hasPremiumCosmetics: boolean;
+  onSelect: (value: string | null) => void;
+  onLockedPress?: (itemLabel: string, unlockRequirement?: string | null) => void;
+}) {
+  const items = avatarItemsFor(group.category);
+  const selectedValue = draft[group.field] ?? null;
+  const hasKnownSelection = items.some((item) => item.value === selectedValue);
+
+  return (
+    <View style={styles.group}>
+      <Text style={styles.groupTitle}>{group.label}</Text>
+      {!hasKnownSelection ? (
+        <Text style={styles.legacyNote}>Your saved avatar uses a legacy option. Choose a new one only if you want to replace it.</Text>
+      ) : null}
+      <View style={styles.optionGrid}>
+        {items.map((item) => {
+          const selected = selectedValue === item.value;
+          const selectable = item.is_available || (item.unlock_type === "premium" && hasPremiumCosmetics);
+          return (
+            <AvatarOption
+              key={item.id}
+              draft={draft}
+              field={group.field}
+              groupLabel={group.label}
+              item={item}
+              kind={group.kind}
+              selectable={selectable}
+              selected={selected}
+              onPress={() => {
+                if (selectable) onSelect(item.value);
+                else onLockedPress?.(item.label, item.unlock_requirement);
+              }}
+            />
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const AvatarOption = memo(function AvatarOption({
+  draft,
+  field,
+  groupLabel,
+  item,
+  kind,
+  selectable,
+  selected,
+  onPress,
+}: {
+  draft: AvatarDraft;
+  field: AvatarEditorOptionGroup["field"];
+  groupLabel: string;
+  item: AvatarItem;
+  kind: AvatarEditorOptionGroup["kind"];
+  selectable: boolean;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const previewDraft = updateAvatarDraftField(draft, field, item.value);
+  const selectedIconColor = item.color ? readableCheckColor(item.color) : C.card;
+
+  return (
+    <Pressable
+      accessibilityLabel={avatarOptionAccessibilityLabel(groupLabel, item.label, selected)}
+      accessibilityRole="button"
+      accessibilityState={{ selected, disabled: !selectable }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        kind === "colour" ? styles.colourOption : styles.styleOption,
+        selected && styles.optionSelected,
+        !selectable && styles.optionUnavailable,
+        pressed && styles.pressed,
+      ]}
+    >
+      {kind === "colour" && item.color ? (
+        <View style={[styles.swatchRing, selected && styles.swatchRingSelected]}>
+          <View style={[styles.swatch, { backgroundColor: item.color }]}>
+            {selected ? <Check size={18} strokeWidth={3} color={selectedIconColor} /> : null}
+          </View>
+        </View>
+      ) : item.value === null ? (
+        <View style={[styles.nonePreview, selected && styles.nonePreviewSelected]}>
+          <CircleSlash2 size={24} color={selected ? C.accent : C.muted} />
+        </View>
+      ) : (
+        <View style={styles.optionAvatar}>
+          <Avatar
+            {...previewDraft}
+            initials={previewDraft.initials}
+            color={previewDraft.avatar_color}
+            symbol={null}
+            size={50}
+            context="share"
+            expression="neutral"
+            motion="static"
+            animated={false}
+            decorative
+          />
+          {selected ? (
+            <View style={styles.optionCheck}>
+              <Check size={12} strokeWidth={3} color={C.card} />
+            </View>
+          ) : null}
+        </View>
+      )}
+      <Text style={[styles.optionLabel, selected && styles.optionLabelSelected]} numberOfLines={2}>{item.label}</Text>
+      {!selectable ? (
+        <View style={styles.lockedTag}>
+          <Lock size={10} color={C.muted} />
+          <Text style={styles.lockedText}>{item.unlock_requirement ?? "Unavailable"}</Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+});
+
+function readableCheckColor(hex: string): string {
+  const value = hex.replace("#", "");
+  if (value.length !== 6) return C.card;
+  const red = Number.parseInt(value.slice(0, 2), 16);
+  const green = Number.parseInt(value.slice(2, 4), 16);
+  const blue = Number.parseInt(value.slice(4, 6), 16);
+  return red * 0.299 + green * 0.587 + blue * 0.114 > 170 ? C.ink : C.card;
+}
+
 const styles = StyleSheet.create({
-  preview: { alignItems: "center", marginBottom: 14 },
-  previewHalo: { borderRadius: 64, padding: 8, backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border },
-  label: { color: C.ink, fontWeight: "900", marginTop: 14, marginBottom: 8 },
-  input: { backgroundColor: C.bgElevated, borderWidth: 1, borderColor: C.border, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, color: C.ink, fontSize: 16, fontWeight: "700" },
-  helper: { color: C.muted, fontSize: 12, marginTop: 8 },
-  section: { marginTop: 4 },
-  optionScroller: { marginHorizontal: -8, overflow: "visible" },
-  options: { gap: 8, paddingHorizontal: 8, paddingRight: 18 },
-  option: { minHeight: 38, borderRadius: 999, borderWidth: 1, borderColor: C.border, paddingHorizontal: 12, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: C.card },
-  colorOption: { paddingLeft: 8 },
-  optionActive: { backgroundColor: C.ink, borderColor: C.ink },
-  optionLocked: { opacity: 0.72 },
-  optionText: { color: C.ink, fontWeight: "800", fontSize: 12 },
-  optionTextActive: { color: C.bgElevated },
-  swatch: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: "rgba(21,23,28,0.14)" },
-  lockedTag: { flexDirection: "row", alignItems: "center", gap: 4 },
-  lockedTagText: { color: C.muted, fontSize: 11, fontWeight: "800" },
-  futureNote: { color: C.muted, fontSize: 12, lineHeight: 17, marginTop: 14 },
-  error: { color: C.danger, fontWeight: "700", marginTop: 8 },
+  editor: { flex: 1, minHeight: 0 },
+  editorTablet: { flexDirection: "row", gap: 24 },
+  previewPane: { alignItems: "center", paddingBottom: 14 },
+  previewPaneTablet: {
+    width: 224,
+    alignSelf: "stretch",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingBottom: 0,
+    borderRightWidth: 1,
+    borderRightColor: C.border,
+  },
+  previewKicker: { color: C.muted, fontSize: 10, fontWeight: "800", letterSpacing: 1.4 },
+  previewHalo: {
+    marginTop: 10,
+    borderRadius: 999,
+    padding: 8,
+    backgroundColor: C.bgElevated,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  previewTitle: { color: C.ink, fontWeight: "800", fontSize: 15, marginTop: 10 },
+  previewText: { color: C.muted, fontSize: 11, lineHeight: 16, textAlign: "center", marginTop: 3, maxWidth: 200 },
+  controlsPane: { flex: 1, minWidth: 0, minHeight: 0 },
+  tabScroll: { flexGrow: 0, marginHorizontal: -2 },
+  tabs: { gap: 8, paddingHorizontal: 2, paddingBottom: 12 },
+  tab: {
+    minHeight: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.bgElevated,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  tabSelected: { backgroundColor: C.ink, borderColor: C.ink },
+  tabText: { color: C.inkSoft, fontSize: 12, fontWeight: "700" },
+  tabTextSelected: { color: C.card },
+  optionScroll: { flex: 1, minHeight: 0 },
+  optionContent: { paddingBottom: 18 },
+  categoryTitle: { color: C.ink, fontSize: 20, fontWeight: "800", marginTop: 2 },
+  group: { marginTop: 18 },
+  groupTitle: { color: C.ink, fontWeight: "800", marginBottom: 10 },
+  input: {
+    minHeight: 48,
+    backgroundColor: C.bgElevated,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    color: C.ink,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  helper: { color: C.muted, fontSize: 11, lineHeight: 16, marginTop: 7 },
+  legacyNote: { color: C.muted, fontSize: 11, lineHeight: 16, marginTop: -3, marginBottom: 9 },
+  optionGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  colourOption: {
+    width: 72,
+    minHeight: 88,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.card,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 8,
+  },
+  styleOption: {
+    width: 94,
+    minHeight: 104,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: C.border,
+    backgroundColor: C.card,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 8,
+  },
+  optionSelected: { borderColor: C.accent, borderWidth: 2, backgroundColor: C.accentSoft },
+  optionUnavailable: { opacity: 0.62 },
+  swatchRing: { width: 42, height: 42, borderRadius: 21, padding: 3, borderWidth: 2, borderColor: C.border },
+  swatchRingSelected: { borderColor: C.accent },
+  swatch: {
+    flex: 1,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: "rgba(21,23,28,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nonePreview: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: C.bgElevated,
+    borderWidth: 1,
+    borderColor: C.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nonePreviewSelected: { borderColor: C.accent },
+  optionAvatar: { width: 52, height: 52, alignItems: "center", justifyContent: "center" },
+  optionCheck: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: C.accent,
+    borderWidth: 2,
+    borderColor: C.card,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  optionLabel: { color: C.inkSoft, fontWeight: "700", fontSize: 11, textAlign: "center", marginTop: 7, lineHeight: 14 },
+  optionLabelSelected: { color: C.ink },
+  lockedTag: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 4 },
+  lockedText: { color: C.muted, fontSize: 9, fontWeight: "700", maxWidth: 76, textAlign: "center" },
+  error: { color: C.danger, fontWeight: "700", marginTop: 14, lineHeight: 18 },
+  pressed: { opacity: 0.78 },
 });

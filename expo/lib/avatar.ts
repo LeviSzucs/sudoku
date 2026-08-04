@@ -60,12 +60,12 @@ export const AVATAR_ITEMS: AvatarItem[] = [
   { id: "bg_obsidian", label: "Obsidian", category: "background", value: "#15171C", color: "#15171C", unlock_type: "premium", unlock_requirement: "Premium", is_available: false },
   { id: "bg_champagne", label: "Champagne", category: "background", value: "#E8D4A2", color: "#E8D4A2", unlock_type: "premium", unlock_requirement: "Premium", is_available: false },
 
-  { id: "skin_light", label: "Tone 1", category: "skinTone", value: "#F0C7A1", color: "#F0C7A1", unlock_type: "free", is_available: true },
-  { id: "skin_fair", label: "Tone 2", category: "skinTone", value: "#E5B184", color: "#E5B184", unlock_type: "free", is_available: true },
-  { id: "skin_medium", label: "Tone 3", category: "skinTone", value: "#D19A6E", color: "#D19A6E", unlock_type: "free", is_available: true },
-  { id: "skin_tan", label: "Tone 4", category: "skinTone", value: "#B87856", color: "#B87856", unlock_type: "free", is_available: true },
-  { id: "skin_brown", label: "Tone 5", category: "skinTone", value: "#8E5D43", color: "#8E5D43", unlock_type: "free", is_available: true },
-  { id: "skin_dark", label: "Tone 6", category: "skinTone", value: "#5D3A2D", color: "#5D3A2D", unlock_type: "free", is_available: true },
+  { id: "skin_light", label: "Light", category: "skinTone", value: "#F0C7A1", color: "#F0C7A1", unlock_type: "free", is_available: true },
+  { id: "skin_fair", label: "Fair", category: "skinTone", value: "#E5B184", color: "#E5B184", unlock_type: "free", is_available: true },
+  { id: "skin_medium", label: "Medium", category: "skinTone", value: "#D19A6E", color: "#D19A6E", unlock_type: "free", is_available: true },
+  { id: "skin_tan", label: "Tan", category: "skinTone", value: "#B87856", color: "#B87856", unlock_type: "free", is_available: true },
+  { id: "skin_brown", label: "Deep", category: "skinTone", value: "#8E5D43", color: "#8E5D43", unlock_type: "free", is_available: true },
+  { id: "skin_dark", label: "Dark", category: "skinTone", value: "#5D3A2D", color: "#5D3A2D", unlock_type: "free", is_available: true },
 
   { id: "hair_none", label: "None", category: "hairStyle", value: null, unlock_type: "free", is_available: true },
   { id: "hair_buzz", label: "Buzz", category: "hairStyle", value: "buzz", unlock_type: "free", is_available: true },
