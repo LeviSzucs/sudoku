@@ -1,4 +1,3 @@
-
 const MAX_REACTION_KEYS = 100;
 
 export interface AvatarReactionPlaybackTracker {
