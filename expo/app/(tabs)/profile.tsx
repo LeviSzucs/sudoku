@@ -1,6 +1,6 @@
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { router } from "expo-router";
-import { ChevronRight, Flame, Lock, Settings as SettingsIcon, Shield, Target, Timer, Trophy, Users } from "lucide-react-native";
+import { ChevronRight, Flame, Lock, Pencil, Settings as SettingsIcon, Shield, Target, Timer, Trophy, Users } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -222,16 +222,27 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.avatarBlock}>
-          <Avatar
-            {...profile}
-            initials={profile.initials}
-            color={profile.avatar_color}
-            symbol={profile.avatar_symbol}
-            variant="xl"
-            context="profile"
-            active={isFocused}
-            accessibilityLabel={`${profile.display_name ?? profile.username}'s avatar`}
-          />
+          <Pressable
+            accessibilityLabel="Edit your avatar"
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => router.push({ pathname: "/settings", params: { panel: "avatar" } })}
+            style={({ pressed }) => [styles.avatarEditButton, pressed && styles.avatarEditButtonPressed]}
+          >
+            <Avatar
+              {...profile}
+              initials={profile.initials}
+              color={profile.avatar_color}
+              symbol={profile.avatar_symbol}
+              variant="xl"
+              context="profile"
+              active={isFocused}
+              decorative
+            />
+            <View style={styles.avatarEditBadge}>
+              <Pencil size={13} color={C.card} strokeWidth={2.6} />
+            </View>
+          </Pressable>
           <Text style={styles.username}>{profile.display_name ?? profile.username}</Text>
           {profile.username_handle ? <Text style={styles.handle}>@{profile.username_handle}</Text> : null}
           <View style={styles.rankBadge}>
@@ -427,6 +438,21 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18, paddingTop: 12 },
   kicker: { fontSize: 11, color: C.muted, fontWeight: "700", letterSpacing: 1.6 },
   avatarBlock: { alignItems: "center", marginBottom: 18 },
+  avatarEditButton: { position: "relative", borderRadius: 999 },
+  avatarEditButtonPressed: { opacity: 0.82 },
+  avatarEditBadge: {
+    position: "absolute",
+    right: -3,
+    bottom: -3,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: C.accent,
+    borderWidth: 3,
+    borderColor: C.bg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   username: { ...typography.profileName, fontSize: 24, color: C.ink, marginTop: 14, letterSpacing: -0.4 },
   handle: { color: C.muted, fontWeight: "800", marginTop: 3 },
   rankBadge: { flexDirection: "row", alignItems: "center", backgroundColor: C.card, borderWidth: 1, borderColor: C.border, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, marginTop: 8, gap: 6 },
