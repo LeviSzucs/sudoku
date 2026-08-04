@@ -1131,6 +1131,26 @@ limit 20;
 - [ ] Guest avatar changes retain existing local behavior and signed-in saves use the profile update path.
 - [ ] Profile idle motion and all result/Versus avatar behavior remain unchanged outside the static editor.
 
+## Avatar rendering polish
+
+- [ ] Editor live preview has one clean background/frame edge with no secondary halo.
+- [ ] Completion modal avatar has no grey halo, double circle, or ghosted character layer.
+- [ ] Own Profile and Versus avatars show one background and one selected frame only.
+- [ ] Idle, thinking, celebrate, and defeated motion never reveal a stationary duplicate character beneath the moving layer.
+- [ ] Static and animated avatars look identical when animation is at rest.
+- [ ] None, Buzz, Short, Side part, Curly, Long, and Bun keep both pupils and the eye region readable.
+- [ ] Curly, Long, and Side part hair retain a clean forehead/eye boundary.
+- [ ] Glasses remain visible with every hairstyle, including Curly and None.
+- [ ] Headband remains aligned with every hairstyle, including Short and None.
+- [ ] Headphones remain aligned with every hairstyle, including Long and None.
+- [ ] None accessory and None hair render without a residual shadow or missing head shape.
+- [ ] Bronze, Silver, Gold, ranked crown, premium crown, and no-frame states render one crisp frame treatment.
+- [ ] Light and dark avatar backgrounds retain a clean circular edge without a false outer shadow.
+- [ ] Editor option thumbnails use the corrected static renderer and keep eyes readable.
+- [ ] Reduced Motion remains static while preserving the selected result expression.
+- [ ] Avatar editor Save and Cancel behavior remains unchanged after rendering corrections.
+- [ ] Rendering remains crisp on narrow/large iPhones and iPad portrait/landscape.
+
 ## Avatar motion and result reactions
 
 - [ ] Own Profile breathing is subtle, stops when leaving the tab, resumes once on return, and never moves the frame/background.
