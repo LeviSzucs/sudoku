@@ -1,4 +1,9 @@
 import { DEFAULT_AVATAR_COLOR, DEFAULT_INITIALS } from "@/constants/branding";
+import {
+  resolveAvatarCharacter,
+  type AvatarAppearance,
+  type AvatarCharacterDefinition,
+} from "@/lib/avatarFoundation";
 
 export type AvatarCategory = "background" | "skinTone" | "hairStyle" | "hairColor" | "topStyle" | "topColor" | "accessory" | "frame";
 export type AvatarUnlockType = "free" | "premium" | "ranked" | "achievement" | "season";
@@ -25,6 +30,22 @@ export interface CharacterAvatarConfig {
   avatar_top_color?: string | null;
   avatar_accessory?: string | null;
   avatar_frame?: string | null;
+}
+
+export type AvatarProfileSource = "profile" | "guest" | "loading" | "remote";
+
+export interface LegacyAvatarInput {
+  initials?: string | null;
+  color?: string | null;
+  symbol?: string | null;
+}
+
+export interface ResolvedAvatarRenderModel {
+  appearance: AvatarAppearance;
+  character: AvatarCharacterDefinition;
+  config: Required<CharacterAvatarConfig>;
+  source: AvatarProfileSource;
+  useLegacyFallback: boolean;
 }
 
 export const AVATAR_STYLE_VERSION = "character_v1";
@@ -104,5 +125,85 @@ export function normalizeAvatarConfig(config: CharacterAvatarConfig, legacy?: { 
     avatar_top_color: config.avatar_top_color || "#1E1B4B",
     avatar_accessory: config.avatar_accessory || null,
     avatar_frame: config.avatar_frame || null,
+  };
+}
+
+const DEFAULT_LAYER_IDS = {
+  background: "bg_navy",
+  frame: "frame_none",
+  outfit: "top_tee",
+  accessory: "accessory_none",
+} as const;
+
+function itemById(category: AvatarCategory, id: string | null | undefined): AvatarItem | null {
+  return AVATAR_ITEMS.find((item) => item.category === category && item.id === id) ?? null;
+}
+
+function itemByValue(category: AvatarCategory, value: string | null | undefined): AvatarItem | null {
+  return AVATAR_ITEMS.find((item) => item.category === category && item.value === value) ?? null;
+}
+
+function validColor(value: string | null | undefined, fallback: string): string {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
+}
+
+function knownValue(category: AvatarCategory, value: string | null | undefined, fallback: string | null): string | null {
+  return itemByValue(category, value)?.value ?? fallback;
+}
+
+function requestedLayer(
+  category: AvatarCategory,
+  requestedId: string | null | undefined,
+  defaultId: string
+): AvatarItem {
+  return itemById(category, requestedId) ?? itemById(category, defaultId) as AvatarItem;
+}
+
+export function resolveAvatarRenderModel(
+  config: CharacterAvatarConfig = {},
+  legacy: LegacyAvatarInput = {},
+  requestedAppearance?: Partial<AvatarAppearance> | null,
+  source: AvatarProfileSource = "profile"
+): ResolvedAvatarRenderModel {
+  const normalized = normalizeAvatarConfig(config, legacy);
+  const character = resolveAvatarCharacter(requestedAppearance?.characterId ?? config.avatar_style_version);
+  const background = requestedAppearance?.backgroundId !== undefined
+    ? requestedLayer("background", requestedAppearance.backgroundId, DEFAULT_LAYER_IDS.background)
+    : null;
+  const frame = requestedAppearance?.frameId !== undefined
+    ? requestedLayer("frame", requestedAppearance.frameId, DEFAULT_LAYER_IDS.frame)
+    : null;
+  const outfit = requestedAppearance?.outfitId !== undefined
+    ? requestedLayer("topStyle", requestedAppearance.outfitId, DEFAULT_LAYER_IDS.outfit)
+    : null;
+  const accessory = requestedAppearance?.accessoryId !== undefined
+    ? requestedLayer("accessory", requestedAppearance.accessoryId, DEFAULT_LAYER_IDS.accessory)
+    : null;
+
+  const resolvedConfig: Required<CharacterAvatarConfig> = {
+    avatar_style_version: character.id,
+    avatar_bg_color: background?.value ?? validColor(normalized.avatar_bg_color, DEFAULT_AVATAR_COLOR),
+    avatar_initials: (normalized.avatar_initials || DEFAULT_INITIALS).trim().toUpperCase().slice(0, 3) || DEFAULT_INITIALS,
+    avatar_skin_tone: validColor(normalized.avatar_skin_tone, "#D19A6E"),
+    avatar_hair_style: knownValue("hairStyle", normalized.avatar_hair_style, "short"),
+    avatar_hair_color: validColor(normalized.avatar_hair_color, "#6E432D"),
+    avatar_top_style: outfit?.value ?? knownValue("topStyle", normalized.avatar_top_style, "tee"),
+    avatar_top_color: validColor(normalized.avatar_top_color, "#1E1B4B"),
+    avatar_accessory: accessory?.value ?? knownValue("accessory", normalized.avatar_accessory, null),
+    avatar_frame: frame?.value ?? knownValue("frame", normalized.avatar_frame, null),
+  };
+
+  return {
+    appearance: {
+      characterId: character.id,
+      backgroundId: background?.id ?? itemByValue("background", resolvedConfig.avatar_bg_color)?.id ?? null,
+      frameId: frame?.id ?? itemByValue("frame", resolvedConfig.avatar_frame)?.id ?? DEFAULT_LAYER_IDS.frame,
+      outfitId: outfit?.id ?? itemByValue("topStyle", resolvedConfig.avatar_top_style)?.id ?? DEFAULT_LAYER_IDS.outfit,
+      accessoryId: accessory?.id ?? itemByValue("accessory", resolvedConfig.avatar_accessory)?.id ?? DEFAULT_LAYER_IDS.accessory,
+    },
+    character,
+    config: resolvedConfig,
+    source,
+    useLegacyFallback: Boolean(legacy.symbol) && !config.avatar_style_version,
   };
 }
