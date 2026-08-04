@@ -228,8 +228,9 @@ export default function ProfileScreen() {
             color={profile.avatar_color}
             symbol={profile.avatar_symbol}
             variant="xl"
-            motion="idle"
+            context="profile"
             active={isFocused}
+            accessibilityLabel={`${profile.display_name ?? profile.username}'s avatar`}
           />
           <Text style={styles.username}>{profile.display_name ?? profile.username}</Text>
           {profile.username_handle ? <Text style={styles.handle}>@{profile.username_handle}</Text> : null}
