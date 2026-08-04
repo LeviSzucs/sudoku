@@ -80,7 +80,7 @@ export default function AvatarEditor({
     <View style={[styles.editor, isTablet && styles.editorTablet]}>
       <View style={[styles.previewPane, isTablet && styles.previewPaneTablet]}>
         <Text style={styles.previewKicker}>LIVE PREVIEW</Text>
-        <View style={styles.previewHalo}>
+        <View style={styles.previewStage}>
           <Avatar
             {...config}
             initials={config.initials}
@@ -337,13 +337,10 @@ const styles = StyleSheet.create({
     borderRightColor: C.border,
   },
   previewKicker: { color: C.muted, fontSize: 10, fontWeight: "800", letterSpacing: 1.4 },
-  previewHalo: {
+  previewStage: {
     marginTop: 10,
-    borderRadius: 999,
-    padding: 8,
-    backgroundColor: C.bgElevated,
-    borderWidth: 1,
-    borderColor: C.border,
+    alignItems: "center",
+    justifyContent: "center",
   },
   previewTitle: { color: C.ink, fontWeight: "800", fontSize: 15, marginTop: 10 },
   previewText: { color: C.muted, fontSize: 11, lineHeight: 16, textAlign: "center", marginTop: 3, maxWidth: 200 },
