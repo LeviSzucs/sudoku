@@ -92,9 +92,9 @@ The character layer alone moves; backgrounds and frames remain fixed.
 
 `getAvatarReactionForOutcome`, `getOpponentAvatarReactionForOutcome`, and `getAvatarReactionForMatchState` are the pure mapping contract. The completion modal only reacts once its existing save/outcome state is safe. The Versus card uses completed duel IDs plus completion timestamps for player/opponent reaction keys. The game completion modal uses the existing completion key with a player suffix.
 
-One-shot keys are claimed once per app session by a bounded 100-key tracker. Rerenders and revisiting an old result do not replay a reaction; a genuinely new result key can. Native animations cancel and reset on motion changes and unmount.
+One-shot keys are claimed once per app session. A per-instance gate consumes the claim before motion starts, so rerenders, focus changes, remounts, and revisiting an old result do not replay it; a genuinely new result key can. Immediate React effect setup/cleanup is settled before native motion begins, while later cleanup only cancels the animation and never releases the key.
 
-System Reduced Motion keeps happy, sad, focused, and neutral expressions but forces all motion static. Static contexts still do not mount animation hooks.
+System Reduced Motion keeps happy, sad, focused, and neutral expressions but forces all motion static. A reaction first shown with Reduced Motion is still consumed, so disabling the setting cannot animate that old result later. Static contexts still do not mount animation hooks.
 
 Current emotional placements are own Profile, Daily/Ranked Versus and matchmaking, and the game completion modal for Classic, Daily, Daily Duel, Ranked, and Friend Challenge flows. Home, public profiles, leaderboards, friends/search rows, notifications, compact cards, and editor previews remain static.
 
