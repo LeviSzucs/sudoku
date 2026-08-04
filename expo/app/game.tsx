@@ -471,7 +471,7 @@ export default function GameScreen() {
     isReady: !isLoadingPuzzle && !puzzleLoadError && Boolean(puzzleData),
     onValidPlacement: handleValidPlacement,
   });
-  const { recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchFriendChallenges, fetchRankedDuel } = usePlayerProfile();
+  const { profile, recordPuzzleResult, submitOfficialPuzzleResult, submitFailedPuzzleResult, fetchFriendChallenges, fetchRankedDuel } = usePlayerProfile();
   const [completionSummary, setCompletionSummary] = useState<ProfileUpdateSummary | null>(null);
   const [officialScore, setOfficialScore] = useState<number | null>(null);
   const [officialScoreBreakdown, setOfficialScoreBreakdown] = useState<ScoreBreakdown | null>(null);
@@ -1583,6 +1583,7 @@ export default function GameScreen() {
         celebrationKey={completionCelebrationKey}
         continuation={resultContinuation}
         showLeaderboardEligibility={effectiveMode !== "ranked_duel"}
+        avatar={{ ...profile, displayName: profile.display_name ?? profile.username }}
         onContinue={handleResultContinuation}
         onShare={handleShareResult}
         onHome={() => {
