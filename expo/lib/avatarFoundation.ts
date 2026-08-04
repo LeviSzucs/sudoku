@@ -48,6 +48,30 @@ export interface AvatarRegistryValidation {
   errors: string[];
 }
 
+export type AvatarResultOutcome =
+  | "win"
+  | "loss"
+  | "draw"
+  | "completed"
+  | "cancelled"
+  | "unresolved"
+  | "failed"
+  | "failed_save"
+  | string
+  | null
+  | undefined;
+
+export interface AvatarReaction {
+  expression: AvatarExpression;
+  motion: AvatarMotion;
+}
+
+export interface AvatarReactionOptions {
+  authoritative?: boolean;
+  resultSaveStatus?: "guest" | "pending" | "saved" | "failed";
+  soloCompletion?: boolean;
+}
+
 export const DEFAULT_AVATAR_CHARACTER_ID = "character_v1";
 export const AVATAR_RENDERER_IDS = ["inline_character_v1"] as const;
 
@@ -133,6 +157,43 @@ export function shouldAnimateAvatar(context: AvatarContext): boolean {
   return !STATIC_CONTEXTS.has(context);
 }
 
+export function isAvatarMotionAllowedForContext(context: AvatarContext, motion: AvatarMotion): boolean {
+  if (motion === "static") return true;
+  if (context === "profile" || context === "versus") return motion === "idle";
+  if (context === "matchmaking") return motion === "thinking";
+  if (context === "result") return motion === "celebrate" || motion === "defeated";
+  return false;
+}
+
+export function getAvatarReactionForOutcome(
+  outcome: AvatarResultOutcome,
+  options: AvatarReactionOptions = {}
+): AvatarReaction {
+  const safe = AVATAR_EMOTION_PRESETS.neutral;
+  if (options.authoritative === false || options.resultSaveStatus === "pending" || options.resultSaveStatus === "failed") {
+    return { expression: safe.expression, motion: "static" };
+  }
+
+  if (outcome === "win") return { ...AVATAR_EMOTION_PRESETS.happy };
+  if (outcome === "loss") return { ...AVATAR_EMOTION_PRESETS.sad };
+  if (outcome === "draw") return { expression: "neutral", motion: "static" };
+  if (outcome === "completed" && options.soloCompletion) return { ...AVATAR_EMOTION_PRESETS.happy };
+  return { expression: safe.expression, motion: "static" };
+}
+
+export function getOpponentAvatarReactionForOutcome(outcome: AvatarResultOutcome): AvatarReaction {
+  if (outcome === "win") return getAvatarReactionForOutcome("loss");
+  if (outcome === "loss") return getAvatarReactionForOutcome("win");
+  return getAvatarReactionForOutcome(outcome);
+}
+
+export function getAvatarReactionForMatchState(state?: string | null): AvatarReaction {
+  if (state === "searching" || state === "waiting" || state === "waiting_for_opponent") {
+    return { ...AVATAR_EMOTION_PRESETS.focused };
+  }
+  return { ...AVATAR_EMOTION_PRESETS.neutral };
+}
+
 export function getAvatarPresentationForContext(
   context: AvatarContext,
   options: AvatarPresentationOptions = {}
@@ -141,10 +202,14 @@ export function getAvatarPresentationForContext(
   const animationAllowed = shouldAnimateAvatar(context);
   const active = options.active ?? true;
   const animated = animationAllowed && (options.animated ?? defaults.animated) && active && !options.reducedMotion;
+  const requestedMotion = options.motion ?? defaults.motion;
+  const allowedMotion = isAvatarMotionAllowedForContext(context, requestedMotion)
+    ? requestedMotion
+    : defaults.motion;
 
   return {
     expression: options.expression ?? defaults.expression,
-    motion: animated ? options.motion ?? defaults.motion : "static",
+    motion: animated ? allowedMotion : "static",
     size: options.size ?? defaults.size,
     animated,
     showBackground: options.showBackground ?? defaults.showBackground,
@@ -206,4 +271,3 @@ export function validateAvatarCharacterRegistry(
 
   return { valid: errors.length === 0, errors };
 }
-

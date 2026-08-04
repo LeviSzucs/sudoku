@@ -1111,3 +1111,17 @@ limit 20;
 - [ ] No avatar animation continues after unmount and dense-list scrolling has no regression.
 - [ ] Avatar sizing remains correct on iPhone and iPad.
 - [ ] Identity avatars have one useful accessibility label; decorative previews and internal layers are not announced.
+
+## Avatar motion and result reactions
+
+- [ ] Own Profile breathing is subtle, stops when leaving the tab, resumes once on return, and never moves the frame/background.
+- [ ] Daily and Ranked matchmaking/waiting use focused expression and restrained thinking motion.
+- [ ] Finding an opponent resets both Versus avatars to neutral idle without overlapping loops.
+- [ ] An authoritative win plays one happy celebration; an authoritative loss plays one gentle sad reaction; a draw remains neutral.
+- [ ] Reopening an old result or rerendering it does not replay; a genuinely new result key can react.
+- [ ] Pending, failed, unresolved, cancelled, and unknown result states do not celebrate.
+- [ ] Reduced Motion preserves the happy, sad, focused, or neutral expression with no movement.
+- [ ] Result actions remain immediately usable and score, XP, RP, continuation, and sharing are unchanged.
+- [ ] Completion avatars do not cover result copy on narrow iPhone, large iPhone, iPad portrait, or iPad landscape.
+- [ ] Home, public profiles, leaderboards, friend/search/notification rows, compact cards, and editor previews remain static.
+- [ ] Leaving Versus/Profile or unmounting a result cancels active avatar animation.

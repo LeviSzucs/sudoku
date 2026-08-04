@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
@@ -13,6 +13,7 @@ import Animated, {
 
 import AvatarRenderer from "@/components/AvatarRenderer";
 import type { AvatarProfileSource, CharacterAvatarConfig } from "@/lib/avatar";
+import { createAvatarReactionPlaybackGate, type AvatarReactionPlaybackGate } from "@/lib/avatarReactionPlayback";
 import {
   AVATAR_SIZE_PIXELS,
   getAvatarPresentationForContext,
@@ -45,12 +46,14 @@ interface AvatarProps extends CharacterAvatarConfig {
   source?: AvatarProfileSource;
   decorative?: boolean;
   accessibilityLabel?: string;
+  reactionKey?: string | null;
 }
 
 interface RenderAvatarProps extends AvatarProps {
   resolvedSize: number;
   resolvedExpression: AvatarExpression;
   resolvedMotion: AvatarMotion;
+  requestedMotion?: AvatarMotion;
   showBackground: boolean;
   showFrame: boolean;
 }
@@ -71,6 +74,7 @@ export default function Avatar({
   decorative = false,
   accessibilityLabel,
   appearance,
+  reactionKey,
   source = "profile",
   ...avatarProps
 }: AvatarProps) {
@@ -87,6 +91,9 @@ export default function Avatar({
   const capabilities = resolveAvatarCapabilities(character, presentation);
   const resolvedSize = resolveAvatarSize(variant ?? presentation.size, size);
   const accessible = presentation.accessibilityMode === "identity" && Boolean(accessibilityLabel);
+  const requestedMotion = context === "result" && (motion === "celebrate" || motion === "defeated")
+    ? motion
+    : undefined;
   const renderProps: RenderAvatarProps = {
     ...avatarProps,
     appearance,
@@ -96,9 +103,11 @@ export default function Avatar({
     reduceMotion,
     decorative,
     accessibilityLabel,
+    reactionKey,
     resolvedSize,
     resolvedExpression: capabilities.expression,
     resolvedMotion: capabilities.motion,
+    requestedMotion,
     showBackground: presentation.showBackground,
     showFrame: presentation.showFrame,
   };
@@ -111,7 +120,8 @@ export default function Avatar({
       importantForAccessibility={accessible ? "yes" : "no-hide-descendants"}
       style={{ width: resolvedSize, height: resolvedSize }}
     >
-      {capabilities.animated && capabilities.motion !== "static" ? (
+      {(capabilities.animated && capabilities.motion !== "static")
+        || Boolean(requestedMotion && reactionKey?.trim()) ? (
         <AnimatedAvatar {...renderProps} />
       ) : (
         <StaticAvatar {...renderProps} />
@@ -154,8 +164,15 @@ function AnimatedAvatar(props: RenderAvatarProps) {
   const scale = useSharedValue(1);
   const rotate = useSharedValue(0);
   const shouldAnimate = props.active !== false && !props.reduceMotion && !systemReducedMotion;
+  const isOneShotReaction = props.requestedMotion === "celebrate" || props.requestedMotion === "defeated";
+  const reactionGateRef = useRef<AvatarReactionPlaybackGate | null>(null);
+  const effectGenerationRef = useRef(0);
+  if (!reactionGateRef.current) {
+    reactionGateRef.current = createAvatarReactionPlaybackGate();
+  }
 
   useEffect(() => {
+    const effectGeneration = ++effectGenerationRef.current;
     cancelAnimation(translateY);
     cancelAnimation(scale);
     cancelAnimation(rotate);
@@ -163,21 +180,58 @@ function AnimatedAvatar(props: RenderAvatarProps) {
     scale.value = 1;
     rotate.value = 0;
 
-    if (shouldAnimate) {
+    const reactionKey = props.reactionKey?.trim() || null;
+    const reactionGate = reactionGateRef.current!;
+
+    if (isOneShotReaction && props.requestedMotion) {
+      reactionGate.prepare(reactionKey);
+      const canAnimateReaction = shouldAnimate && props.resolvedMotion === props.requestedMotion;
+
+      if (!canAnimateReaction) {
+        reactionGate.consume(reactionKey, false);
+      } else {
+        queueMicrotask(() => {
+          if (effectGenerationRef.current !== effectGeneration) return;
+          if (!reactionGate.consume(reactionKey, true)) return;
+
+          if (props.requestedMotion === "celebrate") {
+            translateY.value = withSequence(
+              withTiming(-2.5, { duration: 240, easing: Easing.out(Easing.cubic) }),
+              withTiming(0, { duration: 420, easing: Easing.inOut(Easing.quad) }),
+            );
+            scale.value = withSequence(
+              withTiming(1.045, { duration: 240, easing: Easing.out(Easing.cubic) }),
+              withTiming(1, { duration: 420, easing: Easing.inOut(Easing.quad) }),
+            );
+          } else {
+            translateY.value = withSequence(
+              withTiming(2.5, { duration: 280, easing: Easing.inOut(Easing.quad) }),
+              withTiming(0, { duration: 420, easing: Easing.inOut(Easing.quad) }),
+            );
+            rotate.value = withSequence(
+              withTiming(1.4, { duration: 280, easing: Easing.inOut(Easing.quad) }),
+              withTiming(0, { duration: 420, easing: Easing.inOut(Easing.quad) }),
+            );
+          }
+        });
+      }
+    }
+
+    if (shouldAnimate && !isOneShotReaction) {
       if (props.resolvedMotion === "idle") {
         translateY.value = withRepeat(
           withSequence(
-            withTiming(-0.5, { duration: 900, easing: Easing.inOut(Easing.quad) }),
-            withTiming(0.8, { duration: 1200, easing: Easing.inOut(Easing.quad) }),
-            withTiming(0, { duration: 900, easing: Easing.inOut(Easing.quad) }),
+            withTiming(-0.35, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+            withTiming(0.45, { duration: 1650, easing: Easing.inOut(Easing.sin) }),
+            withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
           ),
           -1,
           false,
         );
         scale.value = withRepeat(
           withSequence(
-            withTiming(1.012, { duration: 1400, easing: Easing.inOut(Easing.quad) }),
-            withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.quad) }),
+            withTiming(1.006, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+            withTiming(1, { duration: 1650, easing: Easing.inOut(Easing.sin) }),
           ),
           -1,
           false,
@@ -185,36 +239,18 @@ function AnimatedAvatar(props: RenderAvatarProps) {
       } else if (props.resolvedMotion === "thinking") {
         rotate.value = withRepeat(
           withSequence(
-            withTiming(-1.5, { duration: 1300, easing: Easing.inOut(Easing.quad) }),
-            withTiming(1.5, { duration: 1500, easing: Easing.inOut(Easing.quad) }),
-            withTiming(0, { duration: 1300, easing: Easing.inOut(Easing.quad) }),
+            withTiming(-1.1, { duration: 1800, easing: Easing.inOut(Easing.sin) }),
+            withTiming(1.1, { duration: 2100, easing: Easing.inOut(Easing.sin) }),
+            withTiming(0, { duration: 1800, easing: Easing.inOut(Easing.sin) }),
           ),
           -1,
           false,
-        );
-      } else if (props.resolvedMotion === "celebrate") {
-        translateY.value = withSequence(
-          withTiming(-3, { duration: 180, easing: Easing.out(Easing.quad) }),
-          withTiming(0, { duration: 280, easing: Easing.inOut(Easing.quad) }),
-        );
-        scale.value = withSequence(
-          withTiming(1.06, { duration: 180, easing: Easing.out(Easing.quad) }),
-          withTiming(0.99, { duration: 100, easing: Easing.inOut(Easing.quad) }),
-          withTiming(1, { duration: 180, easing: Easing.inOut(Easing.quad) }),
-        );
-      } else if (props.resolvedMotion === "defeated") {
-        translateY.value = withSequence(
-          withTiming(3, { duration: 240, easing: Easing.inOut(Easing.quad) }),
-          withTiming(0, { duration: 360, easing: Easing.inOut(Easing.quad) }),
-        );
-        rotate.value = withSequence(
-          withTiming(1.8, { duration: 240, easing: Easing.inOut(Easing.quad) }),
-          withTiming(0, { duration: 360, easing: Easing.inOut(Easing.quad) }),
         );
       }
     }
 
     return () => {
+      effectGenerationRef.current += 1;
       cancelAnimation(translateY);
       cancelAnimation(scale);
       cancelAnimation(rotate);
@@ -222,7 +258,7 @@ function AnimatedAvatar(props: RenderAvatarProps) {
       scale.value = 1;
       rotate.value = 0;
     };
-  }, [props.resolvedMotion, rotate, scale, shouldAnimate, translateY]);
+  }, [isOneShotReaction, props.reactionKey, props.requestedMotion, props.resolvedMotion, rotate, scale, shouldAnimate, translateY]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [

@@ -18,6 +18,7 @@ import { typography } from "@/constants/typography";
 import { usePlayerProfile, type DailyDuelEntry, type RankedDuelEntry } from "@/hooks/usePlayerProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { getDailyDateKey } from "@/lib/daily";
+import { getAvatarReactionForMatchState, getAvatarReactionForOutcome, getOpponentAvatarReactionForOutcome } from "@/lib/avatarFoundation";
 import { logDevDiagnostic } from "@/lib/performanceDiagnostics";
 import { formatTime } from "@/lib/sudoku";
 import type { RecentResult } from "@/lib/playerProfile";
@@ -267,6 +268,22 @@ export default function VersusScreen() {
   const dailyDuelOutcome = useMemo(() => getDailyDuelOutcome(dailyDuel, auth.user?.id ?? null), [auth.user?.id, dailyDuel]);
   const rankedDuelCopy = useMemo(() => getRankedDuelCopyV2(rankedDuel, auth.user?.id ?? null, latestRankedDuel), [auth.user?.id, latestRankedDuel, rankedDuel]);
   const rankedDuelOutcome = useMemo(() => getRankedDuelOutcome(rankedDuel, auth.user?.id ?? null), [auth.user?.id, rankedDuel]);
+  const dailyIsWaiting = dailyDuel?.status === "waiting_for_opponent"
+    || (Boolean(dailyDuel?.current_user_result_id) && dailyDuel?.status !== "completed");
+  const rankedIsWaiting = rankedDuel?.status === "waiting_for_opponent"
+    || (Boolean(rankedDuel?.current_user_result_id) && rankedDuel?.status !== "completed");
+  const dailyPlayerReaction = dailyDuelOutcome
+    ? getAvatarReactionForOutcome(dailyDuelOutcome)
+    : getAvatarReactionForMatchState(dailyIsWaiting ? "waiting" : null);
+  const dailyOpponentReaction = dailyDuelOutcome
+    ? getOpponentAvatarReactionForOutcome(dailyDuelOutcome)
+    : getAvatarReactionForMatchState(dailyIsWaiting ? "waiting" : null);
+  const rankedPlayerReaction = rankedDuelOutcome
+    ? getAvatarReactionForOutcome(rankedDuelOutcome)
+    : getAvatarReactionForMatchState(rankedIsWaiting ? "waiting" : null);
+  const rankedOpponentReaction = rankedDuelOutcome
+    ? getOpponentAvatarReactionForOutcome(rankedDuelOutcome)
+    : getAvatarReactionForMatchState(rankedIsWaiting ? "waiting" : null);
   const isTablet = isTabletWidth(width);
   const shellMaxWidth = getCenteredContentMaxWidth(width, isTablet ? 920 : 520);
 
@@ -463,7 +480,10 @@ export default function VersusScreen() {
                       color={profile.avatar_color}
                       symbol={profile.avatar_symbol}
                       variant="xl"
-                      context="versus"
+                      context={dailyDuelOutcome ? "result" : dailyIsWaiting ? "matchmaking" : "versus"}
+                      expression={dailyPlayerReaction.expression}
+                      motion={dailyPlayerReaction.motion}
+                      reactionKey={dailyDuelOutcome ? `${dailyDuel?.duel_id}:${dailyDuel?.completed_at ?? ""}:you` : null}
                       active={isFocused}
                       accessibilityLabel={`${profile.display_name ?? profile.username}'s avatar`}
                     />
@@ -491,7 +511,10 @@ export default function VersusScreen() {
                       avatar_accessory={dailyDuel?.opponent_avatar_accessory}
                       avatar_frame={dailyDuel?.opponent_avatar_frame}
                       variant="xl"
-                      context={dailyDuel?.opponent_user_id ? "versus" : "matchmaking"}
+                      context={dailyDuelOutcome ? "result" : dailyIsWaiting ? "matchmaking" : "versus"}
+                      expression={dailyOpponentReaction.expression}
+                      motion={dailyOpponentReaction.motion}
+                      reactionKey={dailyDuelOutcome ? `${dailyDuel?.duel_id}:${dailyDuel?.completed_at ?? ""}:opponent` : null}
                       active={isFocused}
                       source="remote"
                       accessibilityLabel="Opponent avatar"
@@ -568,7 +591,10 @@ export default function VersusScreen() {
                     color={profile.avatar_color}
                     symbol={profile.avatar_symbol}
                     variant="lg"
-                    context={rankedDuel?.status === "waiting_for_opponent" ? "matchmaking" : "versus"}
+                    context={rankedDuelOutcome ? "result" : rankedIsWaiting ? "matchmaking" : "versus"}
+                    expression={rankedPlayerReaction.expression}
+                    motion={rankedPlayerReaction.motion}
+                    reactionKey={rankedDuelOutcome ? `${rankedDuel?.ranked_duel_id}:${rankedDuel?.completed_at ?? ""}:you` : null}
                     active={isFocused}
                     accessibilityLabel={`${profile.display_name ?? profile.username}'s avatar`}
                   />
@@ -600,7 +626,10 @@ export default function VersusScreen() {
                     avatar_accessory={rankedDuel?.opponent_avatar_accessory}
                     avatar_frame={rankedDuel?.opponent_avatar_frame}
                     variant="lg"
-                    context={rankedDuel?.opponent_user_id ? "versus" : "matchmaking"}
+                    context={rankedDuelOutcome ? "result" : rankedIsWaiting ? "matchmaking" : "versus"}
+                    expression={rankedOpponentReaction.expression}
+                    motion={rankedOpponentReaction.motion}
+                    reactionKey={rankedDuelOutcome ? `${rankedDuel?.ranked_duel_id}:${rankedDuel?.completed_at ?? ""}:opponent` : null}
                     active={isFocused}
                     source="remote"
                     accessibilityLabel="Opponent avatar"
