@@ -1,10 +1,11 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import Svg, { Circle, Ellipse, Line, Path, Polygon, Rect } from "react-native-svg";
+import Svg, { Circle, Ellipse, G, Line, Path, Polygon, Rect } from "react-native-svg";
 
 import { C } from "@/constants/colors";
 import { resolveAvatarRenderModel, type AvatarProfileSource, type CharacterAvatarConfig } from "@/lib/avatar";
 import type { AvatarAppearance, AvatarExpression } from "@/lib/avatarFoundation";
+import { avatarHairTranslateY } from "@/lib/avatarGeometry";
 
 interface AvatarRendererProps extends CharacterAvatarConfig {
   initials?: string | null;
@@ -54,6 +55,7 @@ export default function AvatarRenderer({
   const showCharacterLayer = layer !== "static";
   const renderBackground = showStaticLayer && showBackground;
   const renderFrame = showStaticLayer && showFrame;
+  const hairTranslateY = avatarHairTranslateY(avatar.avatar_hair_style);
 
   return (
     <View
@@ -63,7 +65,7 @@ export default function AvatarRenderer({
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: renderBackground ? bg : "transparent",
+          backgroundColor: "transparent",
         },
       ]}
     >
@@ -71,7 +73,6 @@ export default function AvatarRenderer({
         {renderBackground ? <Circle cx="50" cy="50" r="50" fill={bg} /> : null}
         {renderBackground ? <Circle cx="68" cy="18" r="20" fill={CREAM} opacity="0.08" /> : null}
 
-        {showCharacterLayer ? <Path d="M14 100 C19 75 33 64 50 64 C67 64 81 75 86 100 Z" fill="#000000" opacity="0.14" /> : null}
         {showCharacterLayer ? <Path d="M17 100 C22 76 35 66 50 66 C65 66 78 76 83 100 Z" fill={top} /> : null}
         {showCharacterLayer ? <Path d="M28 86 C37 79 63 79 72 86 L78 100 L22 100 Z" fill="#000000" opacity="0.1" /> : null}
         {showCharacterLayer && avatar.avatar_top_style === "hoodie" ? (
@@ -94,7 +95,12 @@ export default function AvatarRenderer({
           </>
         ) : null}
 
-        {showCharacterLayer ? <Ellipse cx="50" cy="45" rx="23" ry="25" fill="#000000" opacity="0.16" /> : null}
+        {showCharacterLayer && avatar.avatar_hair_style === "long" ? (
+          <G transform={`translate(0 ${hairTranslateY})`}>
+            <Path d="M22 40 C24 20 36 15 50 15 C64 15 76 20 78 40 L75 72 C68 66 65 54 66 43 C59 36 41 36 34 43 C35 54 32 66 25 72 Z" fill={hair} />
+          </G>
+        ) : null}
+
         {showCharacterLayer ? <Ellipse cx="50" cy="42" rx="23" ry="24" fill={skin} /> : null}
         {showCharacterLayer ? <Ellipse cx="28" cy="43" rx="5" ry="7" fill={skin} /> : null}
         {showCharacterLayer ? <Ellipse cx="72" cy="43" rx="5" ry="7" fill={skin} /> : null}
@@ -102,44 +108,43 @@ export default function AvatarRenderer({
         {showCharacterLayer ? <Ellipse cx="59" cy="51" rx="4" ry="2.4" fill="#FFFFFF" opacity="0.18" /> : null}
 
         {showCharacterLayer && avatar.avatar_hair_style === "buzz" ? (
-          <>
+          <G transform={`translate(0 ${hairTranslateY})`}>
             <Path d="M26 39 C25 24 36 16 50 16 C64 16 75 24 74 39 C68 34 60 32 50 32 C40 32 32 34 26 39 Z" fill={hair} />
             <Path d="M29 36 C37 31 63 31 71 36" stroke={INK} strokeWidth="1.5" opacity="0.16" strokeLinecap="round" fill="none" />
             <Path d="M31 31 C40 25 60 25 69 31" stroke={CREAM} strokeWidth="2" opacity="0.08" strokeLinecap="round" fill="none" />
-          </>
+          </G>
         ) : null}
         {showCharacterLayer && avatar.avatar_hair_style === "short" ? (
-          <>
+          <G transform={`translate(0 ${hairTranslateY})`}>
             <Path d="M24 39 C25 24 36 16 50 16 C65 16 76 25 76 41 C67 35 58 33 48 34 C40 34 32 37 24 43 Z" fill={hair} />
             <Path d="M27 40 C35 34 45 32 55 33 C63 33 70 36 75 41 L73 47 C64 39 38 38 28 47 Z" fill={hair} />
-          </>
+          </G>
         ) : null}
         {showCharacterLayer && avatar.avatar_hair_style === "side_part" ? (
-          <>
+          <G transform={`translate(0 ${hairTranslateY})`}>
             <Path d="M24 40 C28 22 42 16 55 18 C66 20 74 28 77 42 C64 34 51 34 39 41 C34 44 30 46 26 48 Z" fill={hair} />
             <Path d="M35 24 C45 30 60 31 76 39 C65 26 49 20 35 24 Z" fill={hair} />
             <Path d="M44 22 C42 30 35 38 27 45" stroke={CREAM} strokeWidth="2.2" opacity="0.18" strokeLinecap="round" />
-          </>
+          </G>
         ) : null}
         {showCharacterLayer && avatar.avatar_hair_style === "curly" ? (
-          <>
+          <G transform={`translate(0 ${hairTranslateY})`}>
             <Path d="M23 42 C25 27 37 18 50 18 C64 18 75 27 77 42 C66 36 34 36 23 42 Z" fill={hair} />
             {[28, 36, 44, 52, 60, 68, 74].map((cx, index) => <Circle key={cx} cx={cx} cy={31 + (index % 2) * 3} r="7.4" fill={hair} />)}
             <Path d="M27 42 C37 36 63 36 73 42 L72 48 C63 40 37 40 28 48 Z" fill={hair} />
-          </>
+          </G>
         ) : null}
         {showCharacterLayer && avatar.avatar_hair_style === "long" ? (
-          <>
-            <Path d="M22 40 C24 20 36 15 50 15 C64 15 76 20 78 40 L75 72 C68 66 65 54 66 43 C59 36 41 36 34 43 C35 54 32 66 25 72 Z" fill={hair} />
+          <G transform={`translate(0 ${hairTranslateY})`}>
             <Path d="M28 42 C38 33 62 33 72 42 C63 39 37 39 28 42 Z" fill={hair} />
-          </>
+          </G>
         ) : null}
         {showCharacterLayer && avatar.avatar_hair_style === "bun" ? (
-          <>
+          <G transform={`translate(0 ${hairTranslateY})`}>
             <Circle cx="50" cy="15" r="9.5" fill={hair} />
             <Path d="M25 39 C27 23 38 18 50 18 C62 18 73 23 75 39 C64 33 36 33 25 39 Z" fill={hair} />
             <Path d="M32 34 C40 28 60 28 68 34" stroke={CREAM} strokeWidth="2" opacity="0.1" strokeLinecap="round" fill="none" />
-          </>
+          </G>
         ) : null}
 
         {showCharacterLayer ? <ExpressionBrows expression={expression} /> : null}
@@ -165,11 +170,7 @@ export default function AvatarRenderer({
           </>
         ) : null}
         {renderFrame && frame ? (
-          <>
-            <Circle cx="50" cy="50" r="47" stroke="#000000" strokeWidth="7" opacity="0.16" fill="none" />
-            <Circle cx="50" cy="50" r="46" stroke={frame} strokeWidth={avatar.avatar_frame === "ranked_crown" || avatar.avatar_frame === "premium_crown" ? "6" : "5"} fill="none" />
-            <Circle cx="50" cy="50" r="39" stroke={frame} strokeWidth="1.4" opacity="0.5" fill="none" />
-          </>
+          <Circle cx="50" cy="50" r="46" stroke={frame} strokeWidth={avatar.avatar_frame === "ranked_crown" || avatar.avatar_frame === "premium_crown" ? "6" : "5"} fill="none" />
         ) : null}
         {renderFrame && (avatar.avatar_frame === "ranked_crown" || avatar.avatar_frame === "premium_crown")
           ? <Polygon points="37,13 45,18 50,8 55,18 63,13 60,26 40,26" fill="#C8A45D" stroke={INK} strokeWidth="1.2" />
