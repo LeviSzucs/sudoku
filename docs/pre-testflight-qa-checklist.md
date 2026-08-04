@@ -1112,6 +1112,25 @@ limit 20;
 - [ ] Avatar sizing remains correct on iPhone and iPad.
 - [ ] Identity avatars have one useful accessibility label; decorative previews and internal layers are not announced.
 
+## Avatar customisation
+
+- [ ] Tapping the own Profile avatar opens the editor; public profiles remain read-only.
+- [ ] The latest saved avatar populates Appearance, Hair, Outfit, Accessories, Background, and Frame.
+- [ ] The large preview updates immediately and remains neutral, static, and decorative.
+- [ ] Option thumbnails remain static and do not affect avatar animation elsewhere.
+- [ ] Cancel discards local changes; a dirty back/dismiss action asks before discarding.
+- [ ] Save is disabled when unchanged and while saving; rapid taps issue only one save.
+- [ ] A successful save updates Profile without restart; a failed save keeps the editor and draft open.
+- [ ] Existing initials, legacy values, and current layer IDs remain intact unless explicitly changed.
+- [ ] Unknown or retired remote values render a safe fallback and do not blank or destructively rewrite the avatar.
+- [ ] Accessory None and Frame None can be selected and saved.
+- [ ] Initials accept one to three letters/numbers and the keyboard does not cover Save or Cancel.
+- [ ] Category tabs and options announce useful labels and selected state; colour options never announce raw hex values.
+- [ ] The editor remains usable on narrow, standard, and large iPhone layouts.
+- [ ] The editor is centred and capped with side-by-side preview/controls on iPad portrait and landscape.
+- [ ] Guest avatar changes retain existing local behavior and signed-in saves use the profile update path.
+- [ ] Profile idle motion and all result/Versus avatar behavior remain unchanged outside the static editor.
+
 ## Avatar motion and result reactions
 
 - [ ] Own Profile breathing is subtle, stops when leaving the tab, resumes once on return, and never moves the frame/background.
