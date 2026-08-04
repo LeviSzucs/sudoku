@@ -4,10 +4,13 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { cancelAnimation, Easing, Extrapolation, interpolate, runOnJS, useAnimatedReaction, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming, type SharedValue } from "react-native-reanimated";
 
 import AnimatedUnlockSurface from "@/components/AnimatedUnlockSurface";
+import Avatar from "@/components/Avatar";
 import ResultContinuationAction from "@/components/ResultContinuationAction";
 import { C } from "@/constants/colors";
 import { typography } from "@/constants/typography";
 import { success as hapticSuccess, tapMedium } from "@/lib/haptics";
+import type { CharacterAvatarConfig } from "@/lib/avatar";
+import { getAvatarReactionForMatchState, getAvatarReactionForOutcome } from "@/lib/avatarFoundation";
 import type { RankPromotionSummary } from "@/lib/playerProfile";
 import type { ResultContinuation } from "@/lib/resultContinuation";
 import type { ScoreBreakdown } from "@/lib/scoring";
@@ -37,6 +40,12 @@ interface Props {
   celebrationKey?: string | null;
   continuation?: ResultContinuation | null;
   showLeaderboardEligibility?: boolean;
+  avatar?: CharacterAvatarConfig & {
+    initials?: string | null;
+    avatar_color?: string | null;
+    avatar_symbol?: string | null;
+    displayName?: string | null;
+  };
   onContinue: () => void | Promise<void>;
   onShare: () => void;
   onHome: () => void;
@@ -67,6 +76,7 @@ export default function CompletionModal({
   celebrationKey = null,
   continuation = null,
   showLeaderboardEligibility = true,
+  avatar,
   onContinue,
   onShare,
   onHome,
@@ -130,6 +140,22 @@ export default function CompletionModal({
     unlockedBadges.length,
   ].join("|");
   const isWaitingForCompetitiveOutcome = isCompetitiveMode && !celebrationReady;
+  const avatarReaction = isWaitingForCompetitiveOutcome
+    ? getAvatarReactionForMatchState("waiting")
+    : getAvatarReactionForOutcome(
+      celebrationTier === "victory"
+        ? "win"
+        : celebrationTier === "loss"
+        ? "loss"
+        : celebrationTier === "draw"
+        ? "draw"
+        : "completed",
+      {
+        authoritative: celebrationReady,
+        resultSaveStatus: officialStatus,
+        soloCompletion: !isCompetitiveMode,
+      },
+    );
   const displayTitle = isWaitingForCompetitiveOutcome ? outcomeTitle ?? "Finalising result..." : outcomeTitle ?? "Puzzle complete";
   const completionCopy = isWaitingForCompetitiveOutcome
     ? outcomeSubtitle ?? "Checking the final duel outcome."
@@ -421,9 +447,27 @@ export default function CompletionModal({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <View style={styles.iconWrap}>
-            <Text style={{ fontSize: 30 }}>★</Text>
-          </View>
+          {avatar ? (
+            <View style={styles.avatarWrap}>
+              <Avatar
+                {...avatar}
+                initials={avatar.initials}
+                color={avatar.avatar_color}
+                symbol={avatar.avatar_symbol}
+                size={60}
+                context={isWaitingForCompetitiveOutcome ? "matchmaking" : "result"}
+                expression={avatarReaction.expression}
+                motion={avatarReaction.motion}
+                reactionKey={celebrationKey ? `${celebrationKey}:completion-player` : null}
+                active={visible}
+                accessibilityLabel={`${avatar.displayName ?? "Player"}'s avatar`}
+              />
+            </View>
+          ) : (
+            <View style={styles.iconWrap}>
+              <Text style={{ fontSize: 30 }}>★</Text>
+            </View>
+          )}
           <Text style={styles.kicker}>{mode.toUpperCase()} · COMPLETE</Text>
           <View style={styles.titleWrap}>
             {celebrationTier === "victory" ? <Animated.View pointerEvents="none" style={[styles.titleGlow, titleGlowAnimatedStyle]} /> : null}
@@ -624,6 +668,9 @@ const styles = StyleSheet.create({
     backgroundColor: C.goldSoft,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 12,
+  },
+  avatarWrap: {
     marginBottom: 12,
   },
   kicker: { fontSize: 11, color: C.gold, fontWeight: "800", letterSpacing: 1.6 },
