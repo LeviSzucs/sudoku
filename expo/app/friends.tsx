@@ -271,7 +271,7 @@ export default function FriendsScreen() {
         {!isChallengeMode ? (
         <Card style={styles.guideCard}>
           <Text style={styles.guideTitle}>Find friends, then start a challenge.</Text>
-          <Text style={styles.guideText}>Search for a friend's username to send a request. Once they accept, open Friend Challenge to pick a difficulty and start your own run.</Text>
+          <Text style={styles.guideText}>Search for a friend&apos;s username to send a request. Once they accept, open Friend Challenge to pick a difficulty and start your own run.</Text>
           <View style={styles.guideActions}>
             <Pressable style={styles.guidePrimaryButton} onPress={shareInvite}>
               <Text style={styles.guidePrimaryButtonText}>Invite a tester</Text>
@@ -323,6 +323,7 @@ export default function FriendsScreen() {
                 working={workingId === user.user_id}
                 onPress={user.relationship_status === "none" ? () => addFriend(user) : undefined}
                 onProfile={() => openPlayerProfile(user.user_id, "search")}
+                avatarContext="search"
               />
               ))}
             </Card>
@@ -510,11 +511,11 @@ function EmptyRow({
   );
 }
 
-function UserRow({ user, last, action, working, challengeWorking, onPress, onChallenge, onHistory, onProfile }: { user: FriendUser; last: boolean; action?: string | null; working?: boolean; challengeWorking?: boolean; onPress?: () => void; onChallenge?: () => void; onHistory?: () => void; onProfile?: () => void }) {
+function UserRow({ user, last, action, working, challengeWorking, onPress, onChallenge, onHistory, onProfile, avatarContext = "friends" }: { user: FriendUser; last: boolean; action?: string | null; working?: boolean; challengeWorking?: boolean; onPress?: () => void; onChallenge?: () => void; onHistory?: () => void; onProfile?: () => void; avatarContext?: "friends" | "search" }) {
   return (
     <View style={[styles.userRow, !last && styles.rowBorder]}>
       <Pressable style={styles.identityBlock} onPress={onProfile} disabled={!onProfile}>
-        <Avatar {...user} initials={user.initials} color={user.avatar_color} symbol={user.avatar_symbol} variant={onChallenge ? "lg" : "md"} />
+        <Avatar {...user} initials={user.initials} color={user.avatar_color} symbol={user.avatar_symbol} variant={onChallenge ? "lg" : "md"} context={avatarContext} source="remote" accessibilityLabel={`${user.display_name}'s avatar`} />
         <View style={styles.userInfo}>
           <Text style={styles.rowTitle}>{user.display_name}</Text>
           <Text style={styles.rowSub}>@{user.username_handle}</Text>
@@ -547,7 +548,7 @@ function RequestRow({ request, last, working, onAccept, onDecline, onProfile }: 
   return (
     <View style={[styles.userRow, !last && styles.rowBorder]}>
       <Pressable style={styles.identityBlock} onPress={onProfile} disabled={!onProfile}>
-        <Avatar {...request} initials={request.initials} color={request.avatar_color} symbol={request.avatar_symbol} variant="md" />
+        <Avatar {...request} initials={request.initials} color={request.avatar_color} symbol={request.avatar_symbol} variant="md" context="friends" source="remote" accessibilityLabel={`${request.display_name}'s avatar`} />
         <View style={{ flex: 1 }}>
           <Text style={styles.rowTitle}>{request.display_name}</Text>
           <Text style={styles.rowSub}>@{request.username_handle}</Text>
@@ -622,6 +623,9 @@ function ChallengeRow({ challenge, currentUserId, last, working, onAccept, onDec
             avatar_accessory={challenge.friend_avatar_accessory}
             avatar_frame={challenge.friend_avatar_frame}
             variant="lg"
+            context="friends"
+            source="remote"
+            accessibilityLabel={`${challenge.friend_display_name}'s avatar`}
           />
           <View style={{ flex: 1 }}>
             <Text style={styles.rowTitle}>{challenge.friend_display_name}</Text>

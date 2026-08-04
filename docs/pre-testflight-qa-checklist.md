@@ -1098,3 +1098,16 @@ limit 20;
 - [ ] Splash screen is acceptable.
 - [ ] App Store screenshots are planned or ready.
 - [ ] Known blockers are documented in the blocker table.
+# Avatar rendering foundation
+
+- [ ] Existing signed-in users retain their current avatar colours, initials, hair, top, accessory, and frame.
+- [ ] Guest, loading-profile, unknown remote, and removed/invalid avatar values render the stable default rather than blank space.
+- [ ] Home avatar renders at its existing size and remains static.
+- [ ] Own Profile avatar animates only while Profile is focused; leaving and returning does not build duplicate loops.
+- [ ] Versus and matchmaking avatars use the shared context policy and stop when the screen loses focus.
+- [ ] Public profile, leaderboard, friend-list, search-result, notification, and other dense-list avatars remain static.
+- [ ] Result, promotion, or season placements that adopt avatars use the shared `result` context rather than local animation rules.
+- [ ] Reduced Motion removes idle, thinking, celebration, and defeated movement while retaining the requested expression.
+- [ ] No avatar animation continues after unmount and dense-list scrolling has no regression.
+- [ ] Avatar sizing remains correct on iPhone and iPad.
+- [ ] Identity avatars have one useful accessibility label; decorative previews and internal layers are not announced.

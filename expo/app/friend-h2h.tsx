@@ -110,6 +110,9 @@ export default function FriendHeadToHeadScreen() {
                   avatar_accessory={summary.friend_avatar_accessory}
                   avatar_frame={summary.friend_avatar_frame}
                   variant="xl"
+                  context="friends"
+                  source="remote"
+                  accessibilityLabel={`${summary.friend_display_name}'s avatar`}
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.friendName}>{summary.friend_display_name}</Text>

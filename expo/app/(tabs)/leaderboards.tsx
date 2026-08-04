@@ -331,6 +331,9 @@ export default function LeaderboardsScreen() {
                         color={entry.user.avatarColor}
                         symbol={entry.user.avatar_symbol}
                         variant={place === 1 ? "xl" : "lg"}
+                        context="leaderboard"
+                        source="remote"
+                        accessibilityLabel={`${entry.user.username}'s avatar`}
                       />
                       <Text style={styles.podiumName} numberOfLines={1}>
                         {entry.user.username}
@@ -392,6 +395,9 @@ export default function LeaderboardsScreen() {
                       color={entry.user.avatarColor}
                       symbol={entry.user.avatar_symbol}
                       variant="md"
+                      context="leaderboard"
+                      source="remote"
+                      accessibilityLabel={`${entry.user.username}'s avatar`}
                     />
                     <View style={{ flex: 1, marginLeft: 12 }}>
                       <Text style={styles.name}>{entry.user.username}</Text>

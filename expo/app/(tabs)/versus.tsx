@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { ChevronRight, Clock, Swords, UserPlus, Zap } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
@@ -211,6 +211,7 @@ function getRankedDuelCopyV2(duel: RankedDuelEntry | null, currentUserId: string
 }
 
 export default function VersusScreen() {
+  const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const router = useRouter();
@@ -462,6 +463,9 @@ export default function VersusScreen() {
                       color={profile.avatar_color}
                       symbol={profile.avatar_symbol}
                       variant="xl"
+                      context="versus"
+                      active={isFocused}
+                      accessibilityLabel={`${profile.display_name ?? profile.username}'s avatar`}
                     />
                   </View>
                   <Text style={styles.vsName} numberOfLines={1}>{profile.display_name ?? profile.username}</Text>
@@ -487,6 +491,10 @@ export default function VersusScreen() {
                       avatar_accessory={dailyDuel?.opponent_avatar_accessory}
                       avatar_frame={dailyDuel?.opponent_avatar_frame}
                       variant="xl"
+                      context={dailyDuel?.opponent_user_id ? "versus" : "matchmaking"}
+                      active={isFocused}
+                      source="remote"
+                      accessibilityLabel="Opponent avatar"
                     />
                   </View>
                   <Text style={styles.vsName} numberOfLines={1}>{dailyDuel?.opponent_display_name ?? "Opponent"}</Text>
@@ -560,6 +568,9 @@ export default function VersusScreen() {
                     color={profile.avatar_color}
                     symbol={profile.avatar_symbol}
                     variant="lg"
+                    context={rankedDuel?.status === "waiting_for_opponent" ? "matchmaking" : "versus"}
+                    active={isFocused}
+                    accessibilityLabel={`${profile.display_name ?? profile.username}'s avatar`}
                   />
                 </View>
                 <Text style={styles.rankedFaceoffName} numberOfLines={1}>
@@ -589,6 +600,10 @@ export default function VersusScreen() {
                     avatar_accessory={rankedDuel?.opponent_avatar_accessory}
                     avatar_frame={rankedDuel?.opponent_avatar_frame}
                     variant="lg"
+                    context={rankedDuel?.opponent_user_id ? "versus" : "matchmaking"}
+                    active={isFocused}
+                    source="remote"
+                    accessibilityLabel="Opponent avatar"
                   />
                 </View>
                 <Text style={styles.rankedFaceoffName} numberOfLines={1}>
