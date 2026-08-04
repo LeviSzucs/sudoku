@@ -3,7 +3,8 @@ import { StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Ellipse, Line, Path, Polygon, Rect } from "react-native-svg";
 
 import { C } from "@/constants/colors";
-import { normalizeAvatarConfig, type CharacterAvatarConfig } from "@/lib/avatar";
+import { resolveAvatarRenderModel, type AvatarProfileSource, type CharacterAvatarConfig } from "@/lib/avatar";
+import type { AvatarAppearance, AvatarExpression } from "@/lib/avatarFoundation";
 
 interface AvatarRendererProps extends CharacterAvatarConfig {
   initials?: string | null;
@@ -11,6 +12,11 @@ interface AvatarRendererProps extends CharacterAvatarConfig {
   legacySymbol?: string | null;
   size?: number;
   layer?: "full" | "static" | "character";
+  appearance?: Partial<AvatarAppearance> | null;
+  expression?: AvatarExpression;
+  showBackground?: boolean;
+  showFrame?: boolean;
+  source?: AvatarProfileSource;
 }
 
 const INK = "#15171C";
@@ -29,17 +35,25 @@ export default function AvatarRenderer({
   legacySymbol,
   size = 40,
   layer = "full",
+  appearance,
+  expression = "neutral",
+  showBackground = true,
+  showFrame = true,
+  source = "profile",
   ...config
 }: AvatarRendererProps) {
-  const avatar = normalizeAvatarConfig(config, { initials, color: legacyColor, symbol: legacySymbol });
+  const resolved = resolveAvatarRenderModel(config, { initials, color: legacyColor, symbol: legacySymbol }, appearance, source);
+  const avatar = resolved.config;
   const bg = avatar.avatar_bg_color || "#1E1B4B";
   const skin = avatar.avatar_skin_tone || "#D19A6E";
   const hair = avatar.avatar_hair_color || "#6E432D";
   const top = avatar.avatar_top_color || "#1E1B4B";
   const frame = frameColor(avatar.avatar_frame);
-  const showInitialFallback = Boolean(legacySymbol) && avatar.avatar_style_version !== "character_v1";
+  const showInitialFallback = resolved.useLegacyFallback;
   const showStaticLayer = layer !== "character";
   const showCharacterLayer = layer !== "static";
+  const renderBackground = showStaticLayer && showBackground;
+  const renderFrame = showStaticLayer && showFrame;
 
   return (
     <View
@@ -49,13 +63,13 @@ export default function AvatarRenderer({
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: showStaticLayer ? bg : "transparent",
+          backgroundColor: renderBackground ? bg : "transparent",
         },
       ]}
     >
       <Svg width={size} height={size} viewBox="0 0 100 100">
-        {showStaticLayer ? <Circle cx="50" cy="50" r="50" fill={bg} /> : null}
-        {showStaticLayer ? <Circle cx="68" cy="18" r="20" fill={CREAM} opacity="0.08" /> : null}
+        {renderBackground ? <Circle cx="50" cy="50" r="50" fill={bg} /> : null}
+        {renderBackground ? <Circle cx="68" cy="18" r="20" fill={CREAM} opacity="0.08" /> : null}
 
         {showCharacterLayer ? <Path d="M14 100 C19 75 33 64 50 64 C67 64 81 75 86 100 Z" fill="#000000" opacity="0.14" /> : null}
         {showCharacterLayer ? <Path d="M17 100 C22 76 35 66 50 66 C65 66 78 76 83 100 Z" fill={top} /> : null}
@@ -128,13 +142,12 @@ export default function AvatarRenderer({
           </>
         ) : null}
 
-        {showCharacterLayer ? <Path d="M36 40 C39 38 43 38 46 40" stroke={INK} strokeWidth="2" strokeLinecap="round" opacity="0.35" /> : null}
-        {showCharacterLayer ? <Path d="M54 40 C57 38 61 38 64 40" stroke={INK} strokeWidth="2" strokeLinecap="round" opacity="0.35" /> : null}
+        {showCharacterLayer ? <ExpressionBrows expression={expression} /> : null}
         {showCharacterLayer ? <Ellipse cx="42" cy="45" rx="2.6" ry="3" fill={INK} /> : null}
         {showCharacterLayer ? <Ellipse cx="58" cy="45" rx="2.6" ry="3" fill={INK} /> : null}
         {showCharacterLayer ? <Circle cx="43" cy="44" r="0.8" fill={CREAM} opacity="0.9" /> : null}
         {showCharacterLayer ? <Circle cx="59" cy="44" r="0.8" fill={CREAM} opacity="0.9" /> : null}
-        {showCharacterLayer ? <Path d="M43 57 C47 61 53 61 57 57" stroke={INK} strokeWidth="2.6" strokeLinecap="round" fill="none" opacity="0.58" /> : null}
+        {showCharacterLayer ? <ExpressionMouth expression={expression} /> : null}
 
         {showCharacterLayer && avatar.avatar_accessory === "glasses" ? (
           <>
@@ -151,20 +164,40 @@ export default function AvatarRenderer({
             <Rect x="70" y="38" width="9" height="16" rx="4.5" fill={INK} />
           </>
         ) : null}
-        {showStaticLayer && frame ? (
+        {renderFrame && frame ? (
           <>
             <Circle cx="50" cy="50" r="47" stroke="#000000" strokeWidth="7" opacity="0.16" fill="none" />
             <Circle cx="50" cy="50" r="46" stroke={frame} strokeWidth={avatar.avatar_frame === "ranked_crown" || avatar.avatar_frame === "premium_crown" ? "6" : "5"} fill="none" />
             <Circle cx="50" cy="50" r="39" stroke={frame} strokeWidth="1.4" opacity="0.5" fill="none" />
           </>
         ) : null}
-        {showStaticLayer && (avatar.avatar_frame === "ranked_crown" || avatar.avatar_frame === "premium_crown")
+        {renderFrame && (avatar.avatar_frame === "ranked_crown" || avatar.avatar_frame === "premium_crown")
           ? <Polygon points="37,13 45,18 50,8 55,18 63,13 60,26 40,26" fill="#C8A45D" stroke={INK} strokeWidth="1.2" />
           : null}
       </Svg>
       {showCharacterLayer && showInitialFallback ? <Text style={[styles.fallbackText, { fontSize: size * 0.34 }]}>{legacySymbol || avatar.avatar_initials}</Text> : null}
     </View>
   );
+}
+
+function ExpressionBrows({ expression }: { expression: AvatarExpression }) {
+  if (expression === "focused") {
+    return <><Path d="M36 39 L46 41" stroke={INK} strokeWidth="2.3" strokeLinecap="round" opacity="0.5" /><Path d="M54 41 L64 39" stroke={INK} strokeWidth="2.3" strokeLinecap="round" opacity="0.5" /></>;
+  }
+  if (expression === "sad") {
+    return <><Path d="M36 42 C39 38 43 38 46 39" stroke={INK} strokeWidth="2" strokeLinecap="round" opacity="0.45" /><Path d="M54 39 C57 38 61 38 64 42" stroke={INK} strokeWidth="2" strokeLinecap="round" opacity="0.45" /></>;
+  }
+  if (expression === "happy") {
+    return <><Path d="M36 39 C39 36 43 36 46 39" stroke={INK} strokeWidth="2" strokeLinecap="round" opacity="0.32" /><Path d="M54 39 C57 36 61 36 64 39" stroke={INK} strokeWidth="2" strokeLinecap="round" opacity="0.32" /></>;
+  }
+  return <><Path d="M36 40 C39 38 43 38 46 40" stroke={INK} strokeWidth="2" strokeLinecap="round" opacity="0.35" /><Path d="M54 40 C57 38 61 38 64 40" stroke={INK} strokeWidth="2" strokeLinecap="round" opacity="0.35" /></>;
+}
+
+function ExpressionMouth({ expression }: { expression: AvatarExpression }) {
+  if (expression === "happy") return <Path d="M40 55 C44 63 56 63 60 55" stroke={INK} strokeWidth="2.8" strokeLinecap="round" fill="none" opacity="0.68" />;
+  if (expression === "sad") return <Path d="M42 61 C46 56 54 56 58 61" stroke={INK} strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.58" />;
+  if (expression === "focused") return <Path d="M43 58 L57 58" stroke={INK} strokeWidth="2.4" strokeLinecap="round" fill="none" opacity="0.58" />;
+  return <Path d="M43 57 C47 61 53 61 57 57" stroke={INK} strokeWidth="2.6" strokeLinecap="round" fill="none" opacity="0.58" />;
 }
 
 const styles = StyleSheet.create({
