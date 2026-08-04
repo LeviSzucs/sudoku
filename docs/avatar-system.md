@@ -70,6 +70,16 @@ The main preview and option thumbnails use the canonical `Avatar` with neutral e
 
 The current catalogue still uses the existing inline character and several visually similar colour/style choices. User-facing labels may improve without changing stable IDs. Professional art can replace registry-backed previews later. Unlock ownership, rewards, shops, currencies, and inventory remain deliberately outside the editor and require a separate product and persistence design.
 
+## Rendering polish and layer ownership
+
+The canonical renderer owns the avatar's single circular background and selected frame. Parent screens may position the avatar, but must not add another circular fill, border, shadow, or frame. The editor preview uses a neutral layout stage with no competing ring, and the completion modal wrapper provides spacing only. Frames use one crisp colour stroke; they do not add an inner concentric detail or a separate black shadow ring.
+
+Static and animated avatars share the same visible layer ownership. The static renderer contains background and frame only. The animated renderer contains character artwork only, so motion cannot expose a stationary duplicate face, body, hair, or accessory beneath it. Character silhouettes do not use offset outer shadows; internal outfit highlights and shading remain available where they do not create a second outline.
+
+The current inline layer order is background, body, hair back, face, hair front, facial features, accessories, then frame. Long hair is the only current style with a separate back layer. Glasses, headbands, and headphones render above facial features and hair, while the frame remains the final crisp boundary.
+
+`expo/lib/avatarGeometry.ts` records the bounded vertical offset and effective fringe edge for every persisted hairstyle. Buzz, Short, Side part, Curly, Long, and Bun all stop above the eye region; None applies no transform or unexplained hair shadow. New professional hair must provide explicit back/front layers where required, preserve the shared face/eye safe region, and include verified anchors for glasses, headbands, and headphones.
+
 ## Professional art delivery
 
 Future layered art should share one coordinate system and anchor points. Recommended delivery:
@@ -78,6 +88,7 @@ Future layered art should share one coordinate system and anchor points. Recomme
 - Transparent canvas with roughly 10-12% safe padding around the widest pose/accessory.
 - Identical head, face, shoulder, and baseline anchors across expressions and outfits.
 - Separate face/expression, body/outfit, accessory, background, frame, and effect layers.
+- Separate hair-back and hair-front layers, with the front fringe ending above the documented eye-safe region.
 - No baked-in backgrounds, shadows, or frames in character files.
 - Stable lowercase snake-case IDs that do not encode a path or unlock rule.
 - Consistent local SVG or lossless transparent raster exports after memory/decode testing.

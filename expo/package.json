@@ -18,6 +18,7 @@
     "test:avatar-foundation": "node scripts/test-avatar-foundation.js",
     "test:avatar-reactions": "node scripts/test-avatar-reactions.js",
     "test:avatar-editor": "node scripts/test-avatar-editor.js",
+    "test:avatar-rendering-polish": "node scripts/test-avatar-rendering-polish.js",
     "test:result-continuation": "node scripts/test-result-continuation.js",
     "validate:scoring": "node scripts/validate-scoring.js",
     "audit:difficulty": "node scripts/audit-difficulty.js",
