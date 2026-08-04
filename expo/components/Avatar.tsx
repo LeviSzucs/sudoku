@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
@@ -13,6 +13,7 @@ import Animated, {
 
 import AvatarRenderer from "@/components/AvatarRenderer";
 import type { AvatarProfileSource, CharacterAvatarConfig } from "@/lib/avatar";
+import { claimAvatarReactionPlayback } from "@/lib/avatarReactionPlayback";
 import {
   AVATAR_SIZE_PIXELS,
   getAvatarPresentationForContext,
@@ -45,6 +46,7 @@ interface AvatarProps extends CharacterAvatarConfig {
   source?: AvatarProfileSource;
   decorative?: boolean;
   accessibilityLabel?: string;
+  reactionKey?: string | null;
 }
 
 interface RenderAvatarProps extends AvatarProps {
@@ -154,6 +156,8 @@ function AnimatedAvatar(props: RenderAvatarProps) {
   const scale = useSharedValue(1);
   const rotate = useSharedValue(0);
   const shouldAnimate = props.active !== false && !props.reduceMotion && !systemReducedMotion;
+  const isOneShotReaction = props.resolvedMotion === "celebrate" || props.resolvedMotion === "defeated";
+  const localReactionTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
     cancelAnimation(translateY);
@@ -163,21 +167,33 @@ function AnimatedAvatar(props: RenderAvatarProps) {
     scale.value = 1;
     rotate.value = 0;
 
-    if (shouldAnimate) {
+    const reactionKey = props.reactionKey?.trim() || null;
+    const reactionToken = reactionKey ? `${reactionKey}:${props.resolvedMotion}` : null;
+    const canPlayOneShot = !isOneShotReaction
+      || Boolean(reactionToken && (
+        localReactionTokenRef.current === reactionToken
+        || claimAvatarReactionPlayback(reactionKey)
+      ));
+    if (isOneShotReaction && reactionToken && canPlayOneShot) {
+      localReactionTokenRef.current = reactionToken;
+    }
+    const canPlay = shouldAnimate && canPlayOneShot;
+
+    if (canPlay) {
       if (props.resolvedMotion === "idle") {
         translateY.value = withRepeat(
           withSequence(
-            withTiming(-0.5, { duration: 900, easing: Easing.inOut(Easing.quad) }),
-            withTiming(0.8, { duration: 1200, easing: Easing.inOut(Easing.quad) }),
-            withTiming(0, { duration: 900, easing: Easing.inOut(Easing.quad) }),
+            withTiming(-0.35, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+            withTiming(0.45, { duration: 1650, easing: Easing.inOut(Easing.sin) }),
+            withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
           ),
           -1,
           false,
         );
         scale.value = withRepeat(
           withSequence(
-            withTiming(1.012, { duration: 1400, easing: Easing.inOut(Easing.quad) }),
-            withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.quad) }),
+            withTiming(1.006, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+            withTiming(1, { duration: 1650, easing: Easing.inOut(Easing.sin) }),
           ),
           -1,
           false,
@@ -185,31 +201,30 @@ function AnimatedAvatar(props: RenderAvatarProps) {
       } else if (props.resolvedMotion === "thinking") {
         rotate.value = withRepeat(
           withSequence(
-            withTiming(-1.5, { duration: 1300, easing: Easing.inOut(Easing.quad) }),
-            withTiming(1.5, { duration: 1500, easing: Easing.inOut(Easing.quad) }),
-            withTiming(0, { duration: 1300, easing: Easing.inOut(Easing.quad) }),
+            withTiming(-1.1, { duration: 1800, easing: Easing.inOut(Easing.sin) }),
+            withTiming(1.1, { duration: 2100, easing: Easing.inOut(Easing.sin) }),
+            withTiming(0, { duration: 1800, easing: Easing.inOut(Easing.sin) }),
           ),
           -1,
           false,
         );
       } else if (props.resolvedMotion === "celebrate") {
         translateY.value = withSequence(
-          withTiming(-3, { duration: 180, easing: Easing.out(Easing.quad) }),
-          withTiming(0, { duration: 280, easing: Easing.inOut(Easing.quad) }),
+          withTiming(-2.5, { duration: 240, easing: Easing.out(Easing.cubic) }),
+          withTiming(0, { duration: 420, easing: Easing.inOut(Easing.quad) }),
         );
         scale.value = withSequence(
-          withTiming(1.06, { duration: 180, easing: Easing.out(Easing.quad) }),
-          withTiming(0.99, { duration: 100, easing: Easing.inOut(Easing.quad) }),
-          withTiming(1, { duration: 180, easing: Easing.inOut(Easing.quad) }),
+          withTiming(1.045, { duration: 240, easing: Easing.out(Easing.cubic) }),
+          withTiming(1, { duration: 420, easing: Easing.inOut(Easing.quad) }),
         );
       } else if (props.resolvedMotion === "defeated") {
         translateY.value = withSequence(
-          withTiming(3, { duration: 240, easing: Easing.inOut(Easing.quad) }),
-          withTiming(0, { duration: 360, easing: Easing.inOut(Easing.quad) }),
+          withTiming(2.5, { duration: 280, easing: Easing.inOut(Easing.quad) }),
+          withTiming(0, { duration: 420, easing: Easing.inOut(Easing.quad) }),
         );
         rotate.value = withSequence(
-          withTiming(1.8, { duration: 240, easing: Easing.inOut(Easing.quad) }),
-          withTiming(0, { duration: 360, easing: Easing.inOut(Easing.quad) }),
+          withTiming(1.4, { duration: 280, easing: Easing.inOut(Easing.quad) }),
+          withTiming(0, { duration: 420, easing: Easing.inOut(Easing.quad) }),
         );
       }
     }
@@ -222,7 +237,7 @@ function AnimatedAvatar(props: RenderAvatarProps) {
       scale.value = 1;
       rotate.value = 0;
     };
-  }, [props.resolvedMotion, rotate, scale, shouldAnimate, translateY]);
+  }, [isOneShotReaction, props.reactionKey, props.resolvedMotion, rotate, scale, shouldAnimate, translateY]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
