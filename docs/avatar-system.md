@@ -17,7 +17,7 @@ SudoDuel has one canonical public component, `expo/components/Avatar.tsx`, and o
 | Search results | 44 px | `search` | Static | Remote search result |
 | Friend challenges / H2H | 56 / 84 px | `friends` | Static | Remote profile |
 | Username setup preview | 56 px | `home` | Static, decorative | Local draft |
-| Avatar editor preview | 108 px | `profile` | Forced static, decorative | Local draft |
+| Avatar editor preview | 122 / 160 px | `share` | Static, decorative | Local draft |
 
 Notifications, share cards, `CompletionModal`, and `DuelResultReveal` do not currently render avatars. The `notification`, `share`, and `result` contexts exist so future consumers use the central policy instead of introducing another renderer.
 
@@ -51,6 +51,25 @@ Missing, loading, guest, stale remote, unknown character, unknown layer, unsuppo
 
 Avatar accessibility is one identity-level image label where identity matters, such as "Opponent avatar". Decorative previews are removed from the accessibility tree. Layers, internal IDs, and motion names are never announced.
 
+## Avatar editor
+
+The own Profile avatar is the primary edit entry point; Settings > Account > Avatar remains available as a secondary settings route. Public profiles remain read-only. Guests keep the existing local-profile save behavior, while signed-in users use the existing authoritative profile update.
+
+The editor is organised into Appearance, Hair, Outfit, Accessories, Background, and Frame. These categories expose only the currently persisted fields:
+
+- Appearance: initials fallback and skin tone.
+- Hair: style and colour.
+- Outfit: top style and colour.
+- Accessories: accessory, including None.
+- Background: avatar background colour.
+- Frame: frame, including None.
+
+`expo/lib/avatarEditor.ts` owns the category order, option groups, draft creation, initials sanitisation, field updates, accessibility labels, and explicit dirty-state comparison. Opening the editor copies the current persisted avatar into a local draft. Option changes never write to the profile. Cancel restores the persisted snapshot; dismissing a dirty editor asks before discarding. Save writes the complete supported configuration once through `updateAvatar`, remains disabled when unchanged or already saving, preserves the draft after failure, and closes only after success.
+
+The main preview and option thumbnails use the canonical `Avatar` with neutral expression, static motion, and decorative accessibility. Unknown or retired persisted values remain in the draft and render through the normal safe fallback until the player explicitly selects a replacement. Legacy initials, colour, and symbol values are not silently cleared.
+
+The current catalogue still uses the existing inline character and several visually similar colour/style choices. User-facing labels may improve without changing stable IDs. Professional art can replace registry-backed previews later. Unlock ownership, rewards, shops, currencies, and inventory remain deliberately outside the editor and require a separate product and persistence design.
+
 ## Professional art delivery
 
 Future layered art should share one coordinate system and anchor points. Recommended delivery:
@@ -78,7 +97,7 @@ Existing inline artwork should move only when real production art is imported an
 
 ## Future work
 
-The next focused step is to import one professionally delivered layered character, validate alignment at all five sizes, and map expression assets without changing screen APIs. A later customisation project can define persistence for stable layer IDs, availability, unlock ownership, and migration from current value fields. Shops, currencies, inventories, and unlock rules do not belong in the renderer.
+The next focused step is to import one professionally delivered layered character, validate alignment at all five sizes, and map expression assets without changing editor or screen APIs. A later catalogue project can define persistence for additional stable layer IDs. Availability, unlock ownership, rewards, shops, currencies, and inventories remain separate from rendering and editing.
 
 ## Motion and reactions
 
