@@ -14,7 +14,7 @@
     "puzzles:audit": "node scripts/audit-puzzle-inventory.js",
     "puzzles:validate-batch": "node scripts/validate-puzzle-batch.js",
     "puzzles:test-tooling": "node scripts/test-puzzle-inventory.js",
-    "test:weekly-daily-summary": "node scripts/test-weekly-daily-summary.js",
+    "test:home-daily-simplification": "node scripts/test-home-daily-simplification.js",
     "test:result-continuation": "node scripts/test-result-continuation.js",
     "validate:scoring": "node scripts/validate-scoring.js",
     "audit:difficulty": "node scripts/audit-difficulty.js",
