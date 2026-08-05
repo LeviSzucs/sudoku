@@ -300,7 +300,370 @@ Use this checklist before TestFlight builds and before adding another major feat
 - [ ] Username handle renders.
 - [ ] Avatar renders.
 - [ ] Signed-in Profile avatar has a subtle idle float while the Profile screen is focused.
-- [ ] Profile avatar background circle and frame rem…5721 tokens truncated…pabase QA SQL Appendix
+- [ ] Profile avatar background circle and frame remain visually still while only the character artwork breathes.
+- [ ] Profile idle motion feels like breathing rather than the whole badge bouncing.
+- [ ] Leaving Profile stops the idle avatar animation cleanly.
+- [ ] Returning to Profile restarts one idle loop without stacking duplicate animations.
+- [ ] Repeating Home -> Profile -> Home navigation does not reach the global runtime error boundary.
+- [ ] Reduced-motion devices show the Profile avatar statically.
+- [ ] Avatars remain static on leaderboards, friends, search, inbox, public profiles, game, versus, and modals.
+- [ ] Mastery XP renders.
+- [ ] Competitive Rank renders current-season RP.
+- [ ] Progress to next rank is correct.
+- [ ] Stats cards render.
+- [ ] Solved-only stats are correct.
+- [ ] Failed attempts do not count as solved puzzles.
+- [ ] Failed attempts do not count as best times.
+- [ ] Result History opens.
+- [ ] Settings opens.
+- [ ] Settings includes an Accessibility section with Sudoku board size options.
+- [ ] Sudoku board size helper copy explains that it adjusts the puzzle board size during play.
+- [ ] Settings privacy includes the global leaderboard opt-in toggle and supporting privacy copy.
+- [ ] Profile subpage back buttons return to Profile.
+- [ ] Public player profile route opens with a large framed avatar hero.
+- [ ] Public profile shows rank/stats only when the player's privacy settings allow them.
+- [ ] Public profile hides recent results when the player has disabled public recent results.
+- [ ] Public profile shows a calm private-state message when `public_profile` is off.
+- [ ] Public profile shows Report user and Block user actions for other players.
+- [ ] Reporting a player succeeds and shows a calm confirmation message.
+- [ ] Blocking a player changes the profile state to User blocked.
+- [ ] Unblocking a player restores the normal profile state.
+
+## I2. Social Safety
+
+- [ ] User can report another user from their public profile.
+- [ ] User can block another user from their public profile.
+- [ ] A blocked user no longer appears in friend search results.
+- [ ] A blocked user cannot send a friend request.
+- [ ] A blocked user cannot receive a friend request from the blocker.
+- [ ] A blocked user cannot send a Friend Challenge.
+- [ ] A blocked user cannot receive a Friend Challenge from the blocker.
+- [ ] A blocked public profile does not show public stats or recent results.
+- [ ] A blocked user no longer appears in Friend Challenge lists or friend head-to-head history.
+- [ ] Blocking removes or hides existing friendship and active Friend Challenge state after refresh.
+- [ ] Unblocking restores the ability to send friend requests and Friend Challenges.
+- [ ] Offensive display names are rejected during profile setup.
+- [ ] Offensive display names are rejected during profile edits.
+- [ ] Existing notifications, Solo, and Ranked flows still work after block/report testing.
+
+## J. Avatar Builder
+
+- [ ] Avatar screen opens.
+- [ ] Skin tone saves.
+- [ ] Background saves.
+- [ ] Hair style saves.
+- [ ] Hair color saves.
+- [ ] Top style saves.
+- [ ] Top color saves.
+- [ ] Accessory saves.
+- [ ] Frame saves.
+- [ ] Preview updates immediately.
+- [ ] Save persists after restart.
+- [ ] Avatar renders across Profile, Ranks, Friends, Duels, and Results.
+- [ ] Opponent avatars use saved character customisation in Daily Duel, Ranked Duel, Friend Challenge, H2H, and leaderboards.
+- [ ] User A changes avatar to an obvious style, colour, accessory, or frame.
+- [ ] User B force closes and reopens the app.
+- [ ] User B starts a new Friend Challenge with User A and sees User A's exact saved avatar.
+- [ ] User A sees User B's exact saved avatar in the same social surfaces.
+- [ ] User A changes avatar again, and User B sees the updated avatar after refresh or a new challenge.
+- [ ] Legacy initials fallback still works.
+- [ ] Chip rows do not clip at screen edges.
+
+## K. Settings
+
+- [ ] Account section opens.
+- [ ] Profile settings open.
+- [ ] Avatar settings open.
+- [ ] Notification toggles do not error.
+- [ ] Privacy toggles do not error.
+- [ ] App settings/toggles persist as expected.
+- [ ] Sound setting is hidden until bundled sound effects ship.
+
+## K2. iPad / Tablet Polish
+
+- [ ] `ios.supportsTablet` is enabled for the build being tested.
+- [ ] iPhone layout still looks normal after the tablet pass.
+- [ ] iPad portrait looks intentional rather than like a stretched phone layout.
+- [ ] iPad landscape does not break Home, Solo, Versus, Profile, Leaderboards, Friends, or Settings.
+- [ ] Home uses a readable centered layout on iPad and does not leave giant stretched cards.
+- [ ] Solo / Play hub uses the extra width cleanly and classic difficulty cards remain easy to scan.
+- [ ] Game screen keeps the Sudoku board centered with a sensible maximum size on iPad portrait.
+- [ ] Game screen keeps the Sudoku board playable in iPad landscape without oversized gaps or cramped controls.
+- [ ] Number pad and action buttons remain comfortable to tap on iPad portrait and landscape.
+- [ ] Ranked season recap / new-season modal scales cleanly on iPad and does not look tiny or awkwardly wide.
+- [ ] Competitive Rank still shows only current-season results after the tablet layout changes.
+- [ ] Record clean iPad footage for Home.
+- [ ] Record clean iPad footage for a Solo puzzle.
+- [ ] Record clean iPad footage for Ranked showing the current season banner.
+- [ ] Record clean iPad footage for the season recap or intro if available.
+- [ ] Record clean iPad footage for Profile / Competitive Rank.
+- [ ] Record clean iPad footage for a Friend Challenge flow if safe test data is available.
+- [ ] Haptics setting persists and controls number-entry, mistake, completion, and result haptics.
+- [ ] Appearance is not shown as fake placeholder functionality.
+- [ ] Delete account entry is present.
+- [ ] Delete account flow requires destructive confirmation.
+- [ ] Delete account flow performs real in-app deletion or anonymisation, not just a request form.
+- [ ] Delete account copy explains what will be deleted or anonymised.
+- [ ] The `delete-account` Edge Function is deployed before TestFlight verification.
+- [ ] Deleting an account signs the user out cleanly.
+- [ ] Deleted accounts no longer appear in friend search, public profiles, or active challenge cards.
+- [ ] A freshly deleted email can create a new account again afterward.
+- [ ] Confirm on the live Supabase project that `auth.admin.updateUserById` frees the original email immediately enough for same-session recreation.
+- [ ] Contact Support opens.
+- [ ] Contact Support shows `sudoduel@gmail.com`.
+- [ ] Contact Support can open the device mail app or shows a safe fallback message.
+- [ ] Message support opens.
+- [ ] Sending a support message creates a Supabase row.
+- [ ] Support message form prevents empty submissions.
+- [ ] Support message UI does not mention beta testing, TestFlight, feedback collection, or bug-report tooling.
+- [ ] A reproduced signed-in runtime crash or React render failure creates an automatic `bug_report` feedback row.
+- [ ] Help & FAQ opens.
+- [ ] Support opens.
+- [ ] Premium is hidden from normal production navigation.
+- [ ] Terms of Use opens.
+- [ ] Privacy Policy opens.
+- [ ] Logout works.
+
+## K1. Public Social Profiles
+
+- [ ] Tapping a friend avatar/name opens that player's public profile.
+- [ ] Tapping a Friend Challenge avatar/name opens that player's public profile.
+- [ ] Tapping a Daily Duel or Ranked Duel opponent avatar/name opens that player's public profile when a real opponent exists.
+- [ ] Public profile does not expose email, auth metadata, or private settings fields.
+- [ ] Public profile recent results only appear when `show_recent_results_publicly` is enabled.
+- [ ] Public profile stats only appear when `show_stats_publicly` is enabled.
+
+## K2. Notifications
+
+- [ ] Notifications opens from Settings.
+- [ ] Notification permission prompt appears only after tapping the enable action.
+- [ ] Denying push notifications does not break the app.
+- [ ] The denied-permission message explains that SudoDuel still works normally.
+- [ ] EAS/Expo project ID is present through `extra.eas.projectId`, `Constants.easConfig.projectId`, or UUID-shaped `EXPO_PUBLIC_EAS_PROJECT_ID`.
+- [ ] `EXPO_PUBLIC_PROJECT_ID` may be a Rork slug and must not be treated as a valid EAS UUID unless UUID-shaped.
+- [ ] Phone push requires `EXPO_PUBLIC_EAS_PROJECT_ID` or another real UUID-shaped project ID source.
+- [ ] If Expo/EAS/APNs push is unavailable in a given build, TestFlight shows a calm unavailable message, not a raw Expo error.
+- [ ] In that unavailable state, Inbox notifications still load and remain fully usable.
+- [ ] Push token registers after permission is granted.
+- [ ] TestFlight device creates an active `push_tokens` row after opening Notifications with permission granted.
+- [ ] Push token upsert does not create duplicate active token rows for the same user/token.
+- [ ] Registering a token deactivates that same exact Expo token for any other stale user rows from older installs or projects.
+- [ ] Notification preferences save and reload.
+- [ ] Marketing/news/offers defaults off.
+- [ ] `push_enabled = false` prevents future push delivery while leaving the in-app inbox usable.
+- [ ] Friend request received creates an in-app notification for the recipient.
+- [ ] Friend request accepted creates an in-app notification for the sender.
+- [ ] Friend Challenge created creates an in-app notification for the challenged player.
+- [ ] Friend Challenge accepted creates an in-app notification for the challenger.
+- [ ] Friend Challenge completed creates result-ready notifications for both players.
+- [ ] Daily Duel matched creates match-ready notifications for both players.
+- [ ] Ranked Duel matched creates match-ready notifications for both players.
+- [ ] The currently live automated notification types are limited to friend requests, friend challenges, challenge results, Daily Duel matched, and Ranked Duel matched.
+- [ ] `reminder`, `duel_ready`, and `marketing` are treated as reserved/manual test types unless a specific release task adds live event creation for them.
+- [ ] Each in-app notification that should push immediately creates `pending` `push_notification_deliveries` rows for the user's active devices.
+- [ ] Disabled preferences suppress matching in-app notification types.
+- [ ] No duplicate spam notifications appear for the same event.
+- [ ] In-app notification read state works.
+- [ ] While the app is foregrounded, a new in-app notification shows one compact toast with the correct title and body.
+- [ ] Tapping the foreground toast follows the same safe navigation rules as Inbox notifications.
+- [ ] Foreground toast subscription and Settings > Notifications inbox subscription can both be mounted at the same time without a realtime channel crash.
+- [ ] Notification deep links open the relevant Friends/Duel screen where safe.
+- [ ] Tapping a valid notification deep link marks it read and navigates safely without crashing.
+- [ ] Tapping a null, malformed, unsupported, external, or current-screen notification deep link does not crash and safely stays on Notifications.
+- [ ] App still works without push permission.
+
+## K3. Streak Motion
+
+- [ ] Streak stats screen shows the same subtle flame treatment as Home where appropriate.
+- [ ] Reduced-motion devices still show the streak clearly without broken or busy animation.
+- [ ] Streak count remains accurate while the ambient flame animation runs.
+- [ ] `send-push-notifications` Edge Function is deployed and invoked automatically by the scheduled backend job, with manual invocation available for debugging.
+- [ ] For near-instant push, a Supabase Database Webhook is configured on `public.app_notifications` inserts and invokes `send-push-notifications` with the shared `PUSH_DELIVERY_SECRET`.
+- [ ] Push deployment setup follows `docs/deploy-push-notifications.md`.
+- [ ] Instant webhook setup follows `docs/instant-push-webhook.md`.
+- [ ] Edge Function uses `SUPABASE_SERVICE_ROLE_KEY` only in the server runtime.
+- [ ] `PUSH_DELIVERY_SECRET` is configured if invoking the function over HTTP.
+- [ ] Creating a Friend Challenge sends a phone push to the challenged player when push is enabled.
+- [ ] Accepting a Friend Challenge sends a phone push to the challenger when push is enabled.
+- [ ] Friend request send/accept sends phone pushes when push is enabled.
+- [ ] Daily Duel and Ranked Duel match-found events send phone pushes when push is enabled.
+- [ ] Disabled preferences suppress matching phone pushes.
+- [ ] Invalid/dead Expo tokens are marked inactive.
+- [ ] Mixed Expo project tokens do not cause one bad token to block unrelated push deliveries in the same send pass.
+- [ ] Push delivery failures do not remove in-app notifications.
+- [ ] Client code does not send push notifications to other users.
+- [ ] After creating a new notification, matching `push_notification_deliveries` rows appear as `pending`.
+- [ ] With the instant webhook enabled, queued rows move from `pending`/`sending` to `sent` within seconds and the device receives push promptly.
+- [ ] Within the automation window, pending rows move to `sent`, `failed`, or `skipped` without manual PowerShell commands.
+- [ ] If the immediate webhook is disabled or fails, the 5-minute GitHub Actions runner still delivers queued rows as fallback.
+- [ ] If automatic push delivery is enabled, GitHub Actions `Run Push Notifications` is active and `PUSH_DELIVERY_SECRET` matches the deployed Edge Function secret.
+
+## L. Premium Foundation
+
+- [ ] Premium screen shows Current plan: Free.
+- [ ] The production build does not expose a Premium screen from normal navigation while monetisation is inactive.
+- [ ] Premium screen uses clean placeholder copy and does not push users into an inactive purchase flow.
+- [ ] Fairness note is visible.
+- [ ] All Classic difficulties, including Expert and Master, are free.
+- [ ] Premium screen clearly explains the current free-first launch approach.
+- [ ] Premium is framed as future/supporter/cosmetic-focused rather than a core gameplay paywall.
+- [ ] Premium does not affect RP, leaderboard scores, matchmaking, or duel outcomes.
+- [ ] Premium does not imply Expert/Master are paywalled.
+- [ ] Daily Sudoku is not paywalled.
+- [ ] Daily Duel is not paywalled.
+- [ ] Ranked Duel is not paywalled.
+- [ ] Friend Challenge is not paywalled.
+- [ ] Leaderboards are not paywalled.
+- [ ] Free-first launch mode leaves current result history, advanced stats, head-to-head views, and current avatar options accessible without a Premium blocker.
+- [ ] Premium/payment architecture remains intact even though current launch gating is relaxed.
+- [ ] Restore purchases still behaves safely and refreshes Premium status.
+- [ ] Free users can create up to 10 Friend Challenges in the current limit window.
+- [ ] Premium users have the higher/unlimited Friend Challenge creation path.
+- [ ] No real ad SDK is integrated.
+- [ ] No tracking or App Tracking Transparency prompt is present.
+- [ ] Ad policy allows future ads only at natural result-screen breaks.
+- [ ] Future ads are disallowed during active puzzles, before result save, matchmaking, leaderboards, profile, settings, and Premium screen.
+- [ ] Premium plan is treated as ad-free by policy.
+- [ ] `user_entitlements` RLS is enabled.
+- [ ] Current user has no active Premium entitlement unless intentionally configured for QA.
+- [ ] Free users can create up to 10 Friend Challenges in the current limit window.
+- [ ] Free users see no Premium clutter in the Friend Challenge modal before hitting the limit.
+- [ ] Free users only see Friend Challenge limit copy after hitting the 10-challenge free allowance.
+- [ ] Premium users see no `Premium active` clutter in the Friend Challenge modal.
+- [ ] Premium users can create Friend Challenges beyond the Free limit.
+- [ ] Friend Challenge accept, complete, and result flows still work after limit checks.
+- [ ] Friend Challenge difficulty selection still works for Easy, Medium, Hard, Expert, and Master.
+- [ ] Any future Premium gating plan for history, stats, avatar cosmetics, and supporter perks is documented for post-launch review rather than hard-blocking launch players.
+- [ ] Friend Challenge limits and ad-free behaviour can still be retested later if monetisation rules change after launch learning.
+- [ ] Solo screen does not show an overflowing or cramped Premium promo card at the bottom.
+- [ ] Premium promo copy does not imply paid gameplay advantages or paywalled Classic difficulties.
+- [ ] Premium architecture remains easy to re-enable later without affecting current release players.
+
+## M. Results / History / Stats
+
+- [ ] Solved result appears correctly.
+- [ ] Failed result appears correctly.
+- [ ] Empty results/history states explain how to generate the first entries and offer a useful action.
+- [ ] Best times use solved-only results.
+- [ ] Streaks use solved-only Daily completions.
+- [ ] Result detail opens.
+- [ ] Recent results do not duplicate.
+- [ ] Ranked Duel rows show RP change when available.
+- [ ] Ranked leaderboards only include valid server-eligible ranked results.
+- [ ] Daily Duel rows show duel outcome from `daily_duels`, not `game_results.won`.
+- [ ] Friend Challenge history/H2H shows correct outcomes.
+
+### Post-Game Continuity
+
+- [ ] Completed Easy, Medium, Hard, and Expert Classic results recommend the next difficulty in order.
+- [ ] A completed Master result recommends another Master puzzle and never points beyond Master.
+- [ ] Starting the recommended Classic puzzle uses the existing session path and does not reuse the completed puzzle.
+- [ ] A completed Daily Sudoku recommends Daily Duel and cannot replay today's Daily Sudoku.
+- [ ] A completed Daily Duel recommends Ranked Duel for a signed-in player, without allowing a second Daily Duel attempt.
+- [ ] A guest or otherwise ranked-unavailable Daily Duel result falls back to Classic puzzle selection.
+- [ ] Ranked wins, losses, and draws recommend another Ranked Duel and only open the existing Versus flow after a deliberate tap.
+- [ ] Friend Challenge results return to Friends/challenges; no rematch or duplicate challenge is created automatically.
+- [ ] Pending opponent outcomes, unresolved games, abandoned sessions, and failed result submissions do not show a new-session action.
+- [ ] Repeated taps while a continuation is opening cause at most one navigation or session action.
+- [ ] Share result remains available and its payload/card are unchanged.
+- [ ] Back home and close navigation remain available.
+- [ ] Continuation labels and supporting copy fit on narrow iPhone and iPad layouts.
+- [ ] VoiceOver announces the destination, disabled state, and loading state of the continuation button.
+
+## N. Puzzle Bank
+
+- [ ] Classic uses active technique-calibrated puzzles.
+- [ ] Daily Sudoku puzzle loading works.
+- [ ] Daily Duel puzzle loading works.
+- [ ] Friend Challenge puzzle loading works.
+- [ ] Ranked Duel puzzle loading works.
+- [ ] Existing old sessions/results still load inactive referenced puzzles.
+- [ ] No invalid puzzle errors.
+- [ ] No duplicate active givens.
+- [ ] Expert result saving works.
+- [ ] Master result saving works.
+- [ ] Difficulty labels make sense during manual play.
+
+## O. Visual / Layout QA
+
+- [ ] Empty-state cards, helper text, and action buttons fit small iPhones without clipping.
+- [ ] No status bar overlap at rest.
+- [ ] Bottom nav labels fit: Home, Solo, Duel, Ranks, Profile.
+- [ ] Cards do not clip.
+- [ ] Buttons do not clip.
+- [ ] Modals fit smaller iPhones.
+- [ ] Keyboard does not block key forms.
+- [ ] Dark cards/buttons are readable.
+- [ ] Settings and legal screens read as complete production surfaces with no beta, preview, or coming-soon wording.
+- [ ] Settings has no hardcoded or decorative footer copy such as build markers or "Made with care".
+- [ ] App version display is dynamic or hidden from normal users.
+- [ ] Terms of Use has no version, build, or developer subheader text.
+- [ ] Privacy Policy has no version, build, or developer subheader text.
+- [ ] Contact Support, Help & FAQ, Privacy Policy, and Terms of Use read as user-facing screens rather than placeholder copy.
+- [ ] Daily Sudoku card CTA stays inside the card.
+- [ ] Ranked Duel card text does not wrap awkwardly.
+- [ ] Home buttons/cards have consistent readable depth.
+
+## P. Error / Loading States
+
+- [ ] Loading states appear clean.
+- [ ] Offline/slow network does not crash where possible.
+- [ ] Supabase errors show safe messages.
+- [ ] Empty states are readable.
+- [ ] Empty states for Friends, Notifications, Leaderboards, Versus, and Results all explain what to do next.
+- [ ] No raw database errors are shown to users.
+- [ ] Autosave failures do not kick the user out of a valid game.
+- [ ] Forced navigation logs are available if the game exits unexpectedly.
+
+## Q. Security / Privacy Sanity
+
+- [ ] RLS is enabled on user-owned tables.
+- [ ] Feedback table does not expose other users' feedback to the client.
+- [ ] `user_entitlements` cannot be client-inserted to grant Premium.
+- [ ] Profiles expose only intended public fields where applicable.
+- [ ] No service role key exists in app code.
+- [ ] No secrets are committed.
+- [ ] Supabase anon key is the only client key present.
+- [ ] Internal QA/debug routes are not accessible in release builds.
+- [ ] Long-press or hidden diagnostics do not open from Premium or legal screens in release builds.
+- [ ] Terms screen has no placeholder copy.
+- [ ] Privacy screen has no placeholder copy.
+- [ ] Support/contact route works.
+- [ ] Support email is centralised and currently points to `sudoduel@gmail.com`.
+- [ ] App privacy disclosures match actual data collection.
+- [ ] Account deletion/request route is explained.
+- [ ] Account deletion is handled as a verified request flow unless a full self-service delete has been explicitly implemented and tested.
+- [ ] Premium copy does not imply active payments.
+- [ ] Premium copy does not imply Expert/Master are paywalled.
+- [ ] App privacy disclosures must be updated before enabling a real ad SDK or tracking.
+- [ ] TestFlight review notes mention Premium/payments only once the purchase flow exists.
+- [ ] Demo/test account details are prepared before external TestFlight review.
+
+## R. Release Blockers
+
+| Blocker | Severity | Owner | Status | Notes |
+| --- | --- | --- | --- | --- |
+|  |  |  |  |  |
+|  |  |  |  |  |
+|  |  |  |  |  |
+
+## Recommended 30-Minute Smoke Test
+
+1. Launch/sign in.
+2. Home.
+3. Solo Medium completion.
+4. Continue Puzzle.
+5. Daily Sudoku completion or duplicate attempt handling if already completed.
+6. Daily Duel.
+7. Ranked queue/cancel.
+8. Ranked full match if two accounts are available.
+9. Profile/stats/results.
+10. Avatar save.
+11. Support message submission.
+12. Contact Support / legal screens.
+13. Logout/login.
+
+## Supabase QA SQL Appendix
 
 Replace `:user_id` with the QA user id. Levi test user example:
 `6c90ea5a-ac2b-4660-accd-b03c2a35ebf0`.
@@ -814,4 +1177,3 @@ limit 20;
 - [ ] Completion avatars do not cover result copy on narrow iPhone, large iPhone, iPad portrait, or iPad landscape.
 - [ ] Home, public profiles, leaderboards, friend/search/notification rows, compact cards, and editor previews remain static.
 - [ ] Leaving Versus/Profile or unmounting a result cancels active avatar animation.
-
