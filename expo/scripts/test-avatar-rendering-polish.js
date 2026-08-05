@@ -34,15 +34,19 @@ const versusSource = fs.readFileSync(path.join(projectRoot, "app", "(tabs)", "ve
 const hairItems = avatarCatalogue.avatarItemsFor("hairStyle");
 assert.deepEqual(hairItems.map((item) => item.value), [null, "buzz", "short", "side_part", "curly", "long", "bun"]);
 for (const style of hairItems.map((item) => item.value).filter(Boolean)) {
-  assert.equal(geometry.avatarHairKeepsEyesClear(style), true, `${style} must stop above the eye region`);
-  assert.ok(geometry.AVATAR_HAIR_GEOMETRY[style].frontMaxY < geometry.AVATAR_EYE_REGION.top);
+  assert.equal(geometry.avatarHairKeepsPupilsClear(style), true, `${style} must preserve the pupil corridor`);
+  assert.equal(geometry.avatarHairIsAttached(style), true, `${style} must remain attached to the forehead`);
 }
-assert.equal(geometry.AVATAR_HAIR_GEOMETRY.curly.frontMaxY, 41);
-assert.equal(geometry.AVATAR_HAIR_GEOMETRY.long.frontMaxY, 40);
-assert.equal(geometry.AVATAR_HAIR_GEOMETRY.side_part.frontMaxY, 41);
+assert.equal(geometry.AVATAR_HAIR_GEOMETRY.short.translateY, -2);
+assert.equal(geometry.AVATAR_HAIR_GEOMETRY.side_part.translateY, -2);
+assert.equal(geometry.AVATAR_HAIR_GEOMETRY.curly.translateY, -2);
+assert.equal(geometry.AVATAR_HAIR_GEOMETRY.long.translateY, 0);
+assert.equal(geometry.AVATAR_HAIR_GEOMETRY.curly.foreheadAnchorY, 40);
+assert.equal(geometry.AVATAR_HAIR_GEOMETRY.long.foreheadAnchorY, 42);
+assert.equal(geometry.AVATAR_HAIR_GEOMETRY.side_part.foreheadAnchorY, 40);
 assert.equal(geometry.AVATAR_HAIR_GEOMETRY.long.hasBackLayer, true);
-assert.equal(geometry.avatarHairTranslateY(null), 0, "None hair remains a clean head shape");
-assert.equal(geometry.avatarHairTranslateY("unknown_future_hair"), 0);
+assert.equal(geometry.avatarHairTransform(null), null, "None hair mounts no transformed group");
+assert.equal(geometry.avatarHairTransform("unknown_future_hair"), null);
 
 assert.equal((rendererSource.match(/<Circle cx="50" cy="50" r="50" fill=\{bg\}/g) || []).length, 1, "background circle renders once");
 assert.doesNotMatch(rendererSource, /backgroundColor: renderBackground/, "the wrapper must not repaint the background");
@@ -50,6 +54,8 @@ assert.doesNotMatch(rendererSource, /r="47" stroke="#000000"/, "frames must not 
 assert.doesNotMatch(rendererSource, /r="39" stroke=\{frame\}/, "frames must not have a second inner ring");
 assert.doesNotMatch(rendererSource, /cx="50" cy="45" rx="23" ry="25"/, "the offset face silhouette must not create a grey halo");
 assert.equal((rendererSource.match(/<Circle cx="50" cy="50" r="46" stroke=\{frame\}/g) || []).length, 1, "selected frame renders once");
+assert.match(rendererSource, /<ClipPath id=\{clipPathId\}>[\s\S]*r=\{characterClipRadius\}/);
+assert.match(rendererSource, /<G clipPath=\{`url\(#\$\{clipPathId\}\)`\}>[\s\S]*M17 100/);
 
 const longBackIndex = rendererSource.indexOf('avatar.avatar_hair_style === "long"');
 const faceIndex = rendererSource.indexOf('<Ellipse cx="50" cy="42"');
@@ -69,6 +75,7 @@ for (const [name, index] of [["glasses", glassesIndex], ["headband", headbandInd
 assert.equal((avatarSource.match(/layer="static"/g) || []).length, 1);
 assert.equal((avatarSource.match(/layer="character"/g) || []).length, 1);
 assert.match(avatarSource, /layer="static"[\s\S]*Animated\.View[\s\S]*layer="character"/);
+assert.match(avatarSource, /characterClip[\s\S]*overflow: "hidden"/);
 assert.match(avatarSource, /cancelAnimation\(translateY\)/, "motion cleanup remains intact");
 
 assert.doesNotMatch(editorSource, /previewHalo/);

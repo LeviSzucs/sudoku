@@ -76,9 +76,11 @@ The canonical renderer owns the avatar's single circular background and selected
 
 Static and animated avatars share the same visible layer ownership. The static renderer contains background and frame only. The animated renderer contains character artwork only, so motion cannot expose a stationary duplicate face, body, hair, or accessory beneath it. Character silhouettes do not use offset outer shadows; internal outfit highlights and shading remain available where they do not create a second outline.
 
+The canonical renderer owns one circular character clip. Unframed characters use the full circular canvas; Bronze, Silver, Gold, premium-crown, and ranked-crown avatars use the frame's inner edge so body, hair, and accessories cannot appear beneath the stroke. Background renders before the clipped character, and frame/crown decoration renders afterward. Animated avatars add a stationary native clip shell derived from the same radius so the clip does not travel with the moving character. Clip IDs are unique per renderer instance.
+
 The current inline layer order is background, body, hair back, face, hair front, facial features, accessories, then frame. Long hair is the only current style with a separate back layer. Glasses, headbands, and headphones render above facial features and hair, while the frame remains the final crisp boundary.
 
-`expo/lib/avatarGeometry.ts` records the bounded vertical offset and effective fringe edge for every persisted hairstyle. Buzz, Short, Side part, Curly, Long, and Bun all stop above the eye region; None applies no transform or unexplained hair shadow. New professional hair must provide explicit back/front layers where required, preserve the shared face/eye safe region, and include verified anchors for glasses, headbands, and headphones.
+`expo/lib/avatarGeometry.ts` records bounded x/y transforms, optional scale, a forehead attachment anchor, a pupil-safe fringe edge, and back-layer ownership for every persisted hairstyle. Hair may overlap the forehead or approach the brows; it does not need to end above the full eye box. The required invariants are a natural head/forehead attachment and readable pupils/primary eye shapes. None applies no transformed group or unexplained hair shadow. New professional hair must provide explicit back/front layers where required and verified anchors for the forehead, pupils, glasses, headbands, and headphones.
 
 ## Professional art delivery
 
@@ -88,7 +90,7 @@ Future layered art should share one coordinate system and anchor points. Recomme
 - Transparent canvas with roughly 10-12% safe padding around the widest pose/accessory.
 - Identical head, face, shoulder, and baseline anchors across expressions and outfits.
 - Separate face/expression, body/outfit, accessory, background, frame, and effect layers.
-- Separate hair-back and hair-front layers, with the front fringe ending above the documented eye-safe region.
+- Separate hair-back and hair-front layers, with attachment and pupil-safe geometry documented independently.
 - No baked-in backgrounds, shadows, or frames in character files.
 - Stable lowercase snake-case IDs that do not encode a path or unlock rule.
 - Consistent local SVG or lossless transparent raster exports after memory/decode testing.
@@ -114,7 +116,7 @@ The next focused step is to import one professionally delivered layered characte
 
 The character layer alone moves; backgrounds and frames remain fixed.
 
-- Idle uses neutral expression, sub-pixel vertical movement, and a maximum 0.6% scale change over a slow eased cycle.
+- Idle uses neutral expression, roughly 0.55 px upward / 0.65 px downward travel, and a maximum 0.8% scale change over a slow eased cycle. Own Profile passes `active={isFocused}` and is the only Profile placement allowed to breathe; public profiles and editor previews remain static. Focus loss cancels and resets the loop, and returning starts one clean loop.
 - Matchmaking and unresolved opponent waits use focused expression and a slow 1.1-degree thinking tilt.
 - Authoritative wins and successful solo completions use happy expression and one 660 ms lift/scale celebration.
 - Authoritative losses use sad expression and one 700 ms downward settle/tilt.
@@ -128,4 +130,7 @@ System Reduced Motion keeps happy, sad, focused, and neutral expressions but for
 
 Current emotional placements are own Profile, Daily/Ranked Versus and matchmaking, and the game completion modal for Classic, Daily, Daily Duel, Ranked, and Friend Challenge flows. Home, public profiles, leaderboards, friends/search rows, notifications, compact cards, and editor previews remain static.
 
+Versus uses neutral + idle before matchmaking, focused + thinking while searching/waiting, and neutral + idle after an opponent is found and settled. Authoritative completed results continue to use the existing outcome reaction and stable one-shot key. Reduced Motion forces all of these placements static without changing their resolved expression.
+
 The inline renderer can make restrained brow and mouth changes for all four expressions. Professional art should later provide aligned eye, brow, and mouth layers for each expression, plus consistent character anchors, so stronger expression fidelity does not require changing screen APIs or animation policy.
+

@@ -1150,6 +1150,19 @@ limit 20;
 - [ ] Reduced Motion remains static while preserving the selected result expression.
 - [ ] Avatar editor Save and Cancel behavior remains unchanged after rendering corrections.
 - [ ] Rendering remains crisp on narrow/large iPhones and iPad portrait/landscape.
+- [ ] Short hair touches the forehead naturally without covering either pupil.
+- [ ] Side-part hair follows the forehead contour and its sweep/highlight remains attached.
+- [ ] Curly hair reads as integrated hair rather than a floating cap.
+- [ ] Long hair front and back layers remain aligned and keep central facial features readable.
+- [ ] Every persisted hairstyle keeps both pupils visible while retaining a natural forehead/head anchor.
+- [ ] Gold and all other selected frames contain the complete body/outfit with no lower-edge protrusion.
+- [ ] Bronze, Silver, Gold, premium crown, and ranked crown remain crisp and aligned after clipping.
+- [ ] Idle, thinking, win, and loss motion never moves artwork outside the circular clip.
+- [ ] Own Profile breathing is perceptible but restrained at 84 px and stops off-screen.
+- [ ] Avatar editor preview and option thumbnails remain static after the Profile motion correction.
+- [ ] Matchmaking/waiting remains focused + thinking rather than switching to breathing.
+- [ ] Reduced Motion keeps Profile and competitive avatars static.
+- [ ] Avatar editor Save, Cancel, and unsaved-change handling remain unchanged.
 
 ## Avatar motion and result reactions
 
