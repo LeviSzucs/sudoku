@@ -12,7 +12,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import AvatarRenderer from "@/components/AvatarRenderer";
-import type { AvatarProfileSource, CharacterAvatarConfig } from "@/lib/avatar";
+import { resolveAvatarRenderModel, type AvatarProfileSource, type CharacterAvatarConfig } from "@/lib/avatar";
 import { createAvatarReactionPlaybackGate, type AvatarReactionPlaybackGate } from "@/lib/avatarReactionPlayback";
 import {
   AVATAR_SIZE_PIXELS,
@@ -25,6 +25,7 @@ import {
   type AvatarMotion,
   type AvatarSize,
 } from "@/lib/avatarFoundation";
+import { avatarCharacterClipInset } from "@/lib/avatarGeometry";
 
 export type AvatarSizeVariant = AvatarSize;
 export type { AvatarContext, AvatarExpression, AvatarMotion };
@@ -54,6 +55,7 @@ interface RenderAvatarProps extends AvatarProps {
   resolvedExpression: AvatarExpression;
   resolvedMotion: AvatarMotion;
   requestedMotion?: AvatarMotion;
+  resolvedFrame: string | null;
   showBackground: boolean;
   showFrame: boolean;
 }
@@ -88,6 +90,12 @@ export default function Avatar({
     decorative,
   });
   const character = resolveAvatarCharacter(appearance?.characterId ?? avatarProps.avatar_style_version);
+  const resolvedFrame = resolveAvatarRenderModel(
+    avatarProps,
+    { initials: avatarProps.initials, color: avatarProps.color, symbol: avatarProps.symbol },
+    appearance,
+    source,
+  ).config.avatar_frame;
   const capabilities = resolveAvatarCapabilities(character, presentation);
   const resolvedSize = resolveAvatarSize(variant ?? presentation.size, size);
   const accessible = presentation.accessibilityMode === "identity" && Boolean(accessibilityLabel);
@@ -108,6 +116,7 @@ export default function Avatar({
     resolvedExpression: capabilities.expression,
     resolvedMotion: capabilities.motion,
     requestedMotion,
+    resolvedFrame,
     showBackground: presentation.showBackground,
     showFrame: presentation.showFrame,
   };
@@ -138,10 +147,12 @@ function StaticAvatar({
   source,
   resolvedSize,
   resolvedExpression,
+  resolvedFrame: _resolvedFrame,
   showBackground,
   showFrame,
   ...avatarConfig
 }: RenderAvatarProps) {
+  void _resolvedFrame;
   return (
     <AvatarRenderer
       {...avatarConfig}
@@ -221,8 +232,8 @@ function AnimatedAvatar(props: RenderAvatarProps) {
       if (props.resolvedMotion === "idle") {
         translateY.value = withRepeat(
           withSequence(
-            withTiming(-0.35, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
-            withTiming(0.45, { duration: 1650, easing: Easing.inOut(Easing.sin) }),
+            withTiming(-0.55, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+            withTiming(0.65, { duration: 1650, easing: Easing.inOut(Easing.sin) }),
             withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
           ),
           -1,
@@ -230,7 +241,7 @@ function AnimatedAvatar(props: RenderAvatarProps) {
         );
         scale.value = withRepeat(
           withSequence(
-            withTiming(1.006, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+            withTiming(1.008, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
             withTiming(1, { duration: 1650, easing: Easing.inOut(Easing.sin) }),
           ),
           -1,
@@ -268,14 +279,17 @@ function AnimatedAvatar(props: RenderAvatarProps) {
     ],
   }));
 
+  const { resolvedFrame, ...rendererAvatarProps } = props;
   const rendererProps = {
-    ...props,
+    ...rendererAvatarProps,
     expression: props.resolvedExpression,
     size: props.resolvedSize,
   };
+  const characterClipInset = avatarCharacterClipInset(props.resolvedSize, resolvedFrame);
+  const characterClipSize = props.resolvedSize - characterClipInset * 2;
 
   return (
-    <View style={[styles.layerWrap, { width: props.resolvedSize, height: props.resolvedSize }]}>
+    <View style={[styles.layerWrap, { width: props.resolvedSize, height: props.resolvedSize, borderRadius: props.resolvedSize / 2 }]}>
       <AvatarRenderer
         {...rendererProps}
         initials={props.initials}
@@ -283,15 +297,40 @@ function AnimatedAvatar(props: RenderAvatarProps) {
         legacySymbol={props.symbol}
         layer="static"
       />
-      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.characterLayer, animatedStyle]}>
-        <AvatarRenderer
-          {...rendererProps}
-          initials={props.initials}
-          legacyColor={props.color}
-          legacySymbol={props.symbol}
-          layer="character"
-        />
-      </Animated.View>
+      <View
+        pointerEvents="none"
+        style={[
+          styles.characterClip,
+          {
+            top: characterClipInset,
+            left: characterClipInset,
+            width: characterClipSize,
+            height: characterClipSize,
+            borderRadius: characterClipSize / 2,
+          },
+        ]}
+      >
+        <Animated.View
+          style={[
+            styles.characterLayer,
+            {
+              top: -characterClipInset,
+              left: -characterClipInset,
+              width: props.resolvedSize,
+              height: props.resolvedSize,
+            },
+            animatedStyle,
+          ]}
+        >
+          <AvatarRenderer
+            {...rendererProps}
+            initials={props.initials}
+            legacyColor={props.color}
+            legacySymbol={props.symbol}
+            layer="character"
+          />
+        </Animated.View>
+      </View>
     </View>
   );
 }
@@ -299,9 +338,16 @@ function AnimatedAvatar(props: RenderAvatarProps) {
 const styles = StyleSheet.create({
   layerWrap: {
     position: "relative",
+    overflow: "hidden",
+  },
+  characterClip: {
+    position: "absolute",
+    overflow: "hidden",
   },
   characterLayer: {
+    position: "absolute",
     alignItems: "center",
     justifyContent: "center",
   },
 });
+
