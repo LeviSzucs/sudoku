@@ -82,6 +82,8 @@ The current inline layer order is background, body, hair back, face, hair front,
 
 `expo/lib/avatarGeometry.ts` records bounded x/y transforms, optional scale, a forehead attachment anchor, a pupil-safe fringe edge, and back-layer ownership for every persisted hairstyle. Hair may overlap the forehead or approach the brows; it does not need to end above the full eye box. The required invariants are a natural head/forehead attachment and readable pupils/primary eye shapes. None applies no transformed group or unexplained hair shadow. New professional hair must provide explicit back/front layers where required and verified anchors for the forehead, pupils, glasses, headbands, and headphones.
 
+Long hair owns two complete paths in the shared geometry module. Its rear layer sits behind the face and ears, joins both temples, and tapers beside the cheeks toward the shoulders. Its front layer covers the upper scalp from the left temple to the right temple with a curved, softly parted hairline; it is not a thin fringe or horizontal band. Facial features and glasses render after the front layer, while headbands and headphones remain accessory layers above the hair. Future professional Long assets must ship matching front/rear layers with shared temple anchors, full scalp coverage, and accessory-safe side contours.
+
 ## Professional art delivery
 
 Future layered art should share one coordinate system and anchor points. Recommended delivery:
