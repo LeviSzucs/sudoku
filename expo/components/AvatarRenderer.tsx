@@ -5,7 +5,7 @@ import Svg, { Circle, ClipPath, Defs, Ellipse, G, Line, Path, Polygon, Rect } fr
 import { C } from "@/constants/colors";
 import { resolveAvatarRenderModel, type AvatarProfileSource, type CharacterAvatarConfig } from "@/lib/avatar";
 import type { AvatarAppearance, AvatarExpression } from "@/lib/avatarFoundation";
-import { avatarCharacterClipRadius, avatarClipPathId, avatarHairTransform } from "@/lib/avatarGeometry";
+import { AVATAR_LONG_HAIR_PATHS, avatarCharacterClipRadius, avatarClipPathId, avatarHairTransform } from "@/lib/avatarGeometry";
 
 interface AvatarRendererProps extends CharacterAvatarConfig {
   initials?: string | null;
@@ -106,7 +106,7 @@ export default function AvatarRenderer({
 
         {showCharacterLayer && avatar.avatar_hair_style === "long" ? (
           <G transform={hairTransform ?? undefined}>
-            <Path d="M22 40 C24 20 36 15 50 15 C64 15 76 20 78 40 L75 72 C68 66 65 54 66 43 C59 36 41 36 34 43 C35 54 32 66 25 72 Z" fill={hair} />
+            <Path d={AVATAR_LONG_HAIR_PATHS.back} fill={hair} />
           </G>
         ) : null}
 
@@ -145,7 +145,7 @@ export default function AvatarRenderer({
         ) : null}
         {showCharacterLayer && avatar.avatar_hair_style === "long" ? (
           <G transform={hairTransform ?? undefined}>
-            <Path d="M28 42 C38 33 62 33 72 42 C63 39 37 39 28 42 Z" fill={hair} />
+            <Path d={AVATAR_LONG_HAIR_PATHS.front} fill={hair} />
           </G>
         ) : null}
         {showCharacterLayer && avatar.avatar_hair_style === "bun" ? (
@@ -225,4 +225,3 @@ const styles = StyleSheet.create({
     position: "absolute",
   },
 });
-
