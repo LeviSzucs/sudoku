@@ -1154,6 +1154,13 @@ limit 20;
 - [ ] Side-part hair follows the forehead contour and its sweep/highlight remains attached.
 - [ ] Curly hair reads as integrated hair rather than a floating cap.
 - [ ] Long hair front and back layers remain aligned and keep central facial features readable.
+- [ ] Long hair covers the upper scalp naturally and never reads as a bald head with side hair.
+- [ ] Long front hair has a curved, parted hairline rather than a narrow headband-like strip.
+- [ ] Long front and rear layers connect cleanly at both temples and taper softly beside the cheeks.
+- [ ] Long hair keeps pupils and brows readable with None, Glasses, Headband, and Headphones.
+- [ ] Long hair remains connected during Profile breathing and win/loss reactions.
+- [ ] Long hair stays contained with Bronze, Silver, Gold, premium-crown, and ranked-crown frames.
+- [ ] The Long editor thumbnail and large static preview show the same complete hairstyle.
 - [ ] Every persisted hairstyle keeps both pupils visible while retaining a natural forehead/head anchor.
 - [ ] Gold and all other selected frames contain the complete body/outfit with no lower-edge protrusion.
 - [ ] Bronze, Silver, Gold, premium crown, and ranked crown remain crisp and aligned after clipping.
