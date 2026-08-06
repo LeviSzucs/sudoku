@@ -20,6 +20,7 @@
     "test:avatar-editor": "node scripts/test-avatar-editor.js",
     "test:avatar-rendering-polish": "node scripts/test-avatar-rendering-polish.js",
     "test:avatar-geometry-clipping": "node scripts/test-avatar-geometry-clipping.js",
+    "test:avatar-long-hair": "node scripts/test-avatar-long-hair.js",
     "test:result-continuation": "node scripts/test-result-continuation.js",
     "validate:scoring": "node scripts/validate-scoring.js",
     "audit:difficulty": "node scripts/audit-difficulty.js",
