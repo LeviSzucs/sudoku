@@ -93,3 +93,4 @@ export function avatarCharacterClipRadius(frame: string | null | undefined): num
 export function avatarCharacterClipInset(size: number, frame: string | null | undefined): number {
   return size * (50 - avatarCharacterClipRadius(frame)) / 100;
 }
+
