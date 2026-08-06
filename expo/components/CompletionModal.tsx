@@ -15,6 +15,8 @@ import type { RankPromotionSummary } from "@/lib/playerProfile";
 import type { ResultContinuation } from "@/lib/resultContinuation";
 import type { ScoreBreakdown } from "@/lib/scoring";
 import { formatTime } from "@/lib/sudoku";
+import { attemptStoreReview } from "@/lib/storeReview";
+import { scheduleReviewRequest, type ReviewRequestContext } from "@/lib/storeReviewPolicy";
 
 interface Props {
   visible: boolean;
@@ -46,6 +48,7 @@ interface Props {
     avatar_symbol?: string | null;
     displayName?: string | null;
   };
+  reviewRequestContext?: ReviewRequestContext | null;
   onContinue: () => void | Promise<void>;
   onShare: () => void;
   onHome: () => void;
@@ -77,6 +80,7 @@ export default function CompletionModal({
   continuation = null,
   showLeaderboardEligibility = true,
   avatar,
+  reviewRequestContext = null,
   onContinue,
   onShare,
   onHome,
@@ -172,6 +176,13 @@ export default function CompletionModal({
   const promotionAnimationKey = visible && celebrationReady && rankPromotion
     ? [celebrationKey ?? resolvedCelebrationKey, rankPromotion.newRankLabel].join("|")
     : null;
+
+  useEffect(() => {
+    if (!reviewRequestContext || !visible || !celebrationReady || officialStatus !== "saved") return;
+    return scheduleReviewRequest(() => {
+      void attemptStoreReview(reviewRequestContext);
+    });
+  }, [celebrationReady, officialStatus, reviewRequestContext, visible]);
 
   useAnimatedReaction(
     () => Math.round(interpolate(scoreProgress.value, [0, 1], [0, score], Extrapolation.CLAMP)),

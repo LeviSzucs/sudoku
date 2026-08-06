@@ -1184,3 +1184,14 @@ limit 20;
 - [ ] Completion avatars do not cover result copy on narrow iPhone, large iPhone, iPad portrait, or iPad landscape.
 - [ ] Home, public profiles, leaderboards, friend/search/notification rows, compact cards, and editor previews remain static.
 - [ ] Leaving Versus/Profile or unmounting a result cancels active avatar animation.
+
+# Store review eligibility
+
+- [ ] No automatic review attempt occurs on the first puzzle or during guest play.
+- [ ] Losses, draws, unresolved outcomes, and failed result saves never schedule a request.
+- [ ] An eligible saved result schedules one attempt after the settled two-second delay.
+- [ ] Closing the result modal or leaving the screen cancels a pending attempt.
+- [ ] Revisiting the same result does not attempt again; the current-version and 30-day cooldowns survive restart.
+- [ ] Share, Continue, Home, and close remain immediately usable while an attempt is pending.
+- [ ] TestFlight remains stable when StoreReview is unavailable; the native rating sheet is not expected to display in TestFlight.
+- [ ] No custom star selector, satisfaction gate, or negative-feedback diversion is present.

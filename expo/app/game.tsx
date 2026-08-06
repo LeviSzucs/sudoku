@@ -13,6 +13,7 @@ import PauseModal from "@/components/PauseModal";
 import ShareCardCaptureHost from "@/components/share/ShareCardCaptureHost";
 import SudokuGrid from "@/components/SudokuGrid";
 import { C } from "@/constants/colors";
+import { APP_VERSION } from "@/constants/appInfo";
 import { getCenteredContentMaxWidth, isTabletWidth } from "@/constants/layout";
 import type { Difficulty } from "@/constants/mockData";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,6 +25,7 @@ import { getDailyDateKey } from "@/lib/daily";
 import { logDevDiagnostic, measureAsync } from "@/lib/performanceDiagnostics";
 import { getResultContinuation, type ResultContinuationOutcome } from "@/lib/resultContinuation";
 import { shareSudoDuelCard, type SudoDuelShareCardPayload } from "@/lib/shareCards";
+import { getReviewRequestEventForMode, type ReviewRequestContext, type ReviewResultOutcome } from "@/lib/storeReviewPolicy";
 import type { ProfileUpdateSummary } from "@/lib/playerProfile";
 import type { ScoreBreakdown } from "@/lib/scoring";
 import { fetchClassicPuzzle, fetchDailyPuzzle, fetchPuzzleById, formatTime, makeEmptyNotes, type RawPuzzleData } from "@/lib/sudoku";
@@ -480,6 +482,7 @@ export default function GameScreen() {
   const [challengeOutcome, setChallengeOutcome] = useState<ChallengeOutcomeCopy | null>(null);
   const [officialOutcomeSessionId, setOfficialOutcomeSessionId] = useState<string | null>(null);
   const [processedResultId, setProcessedResultId] = useState<string | null>(null);
+  const [reviewFreshResultKey, setReviewFreshResultKey] = useState<string | null>(null);
   const [processedFailedSessionId, setProcessedFailedSessionId] = useState<string | null>(null);
   const [isSubmittingResult, setIsSubmittingResult] = useState<boolean>(false);
   const [isSubmittingFailedResult, setIsSubmittingFailedResult] = useState<boolean>(false);
@@ -968,6 +971,39 @@ export default function GameScreen() {
         game.result.session_id ?? "",
       ].join("|")
     : null;
+  const reviewRequestContext = useMemo<ReviewRequestContext | null>(() => {
+    const event = getReviewRequestEventForMode(effectiveMode);
+    if (!event || !completionSummary || !completionCelebrationKey) return null;
+    const officialResultOutcome = completionSummary.updatedProfile.recent_results[0]?.result_outcome;
+    const hasAuthoritativeDuelOutcome = officialResultOutcome === "win" || officialResultOutcome === "loss" || officialResultOutcome === "draw";
+    const isDuelReviewEvent = event === "daily_duel_win" || event === "ranked_duel_win" || event === "friend_challenge_win";
+    const outcome = (hasAuthoritativeDuelOutcome
+      ? officialResultOutcome
+      : completionOutcomeForContinuation(completionNeedsResolvedOutcome, challengeOutcome)) as ReviewResultOutcome;
+    const dailyResultKeys = new Set(
+      completionSummary.updatedProfile.recent_results
+        .filter((result) => result.mode === "daily" && result.completed)
+        .map((result) => result.result_id ?? result.session_id ?? `${result.puzzle_id}:${result.completed_at}`),
+    );
+    return {
+      event,
+      signedIn: auth.isSignedIn,
+      appVersion: APP_VERSION,
+      puzzlesCompleted: completionSummary.updatedProfile.puzzles_completed,
+      dailyCompletions: dailyResultKeys.size,
+      authoritativeDuelWins: completionSummary.updatedProfile.duels_won,
+      resultSaved: completionOfficialStatus === "saved",
+      resultAuthoritative: isDuelReviewEvent
+        ? hasAuthoritativeDuelOutcome && (!completionNeedsResolvedOutcome || Boolean(challengeOutcome?.isResolved))
+        : true,
+      resultOutcome: outcome,
+      resultKey: completionCelebrationKey,
+      resultIsFresh: reviewFreshResultKey === completionCelebrationKey,
+      modalVisible: isFocused && game.completed,
+      modalSettled: completionCelebrationReady && completionOfficialStatus === "saved",
+      blockingUiActive: leaveOpen || !isFocused || !navIsFocused,
+    };
+  }, [auth.isSignedIn, challengeOutcome, completionCelebrationKey, completionCelebrationReady, completionNeedsResolvedOutcome, completionOfficialStatus, completionSummary, effectiveMode, game.completed, isFocused, leaveOpen, navIsFocused, reviewFreshResultKey]);
 
   useEffect(() => {
     if (!game.result || processedResultId?.startsWith(`${game.result.puzzle_id}:`) || isSubmittingResult) return;
@@ -976,6 +1012,7 @@ export default function GameScreen() {
     setOfficialScoreBreakdown(null);
     setOfficialLeaderboardEligible(null);
     setOfficialSubmitError(null);
+    setReviewFreshResultKey(null);
     setChallengeOutcome(null);
     setOfficialOutcomeSessionId(null);
     const outcome = effectiveMode === "duel" || effectiveMode === "ranked" || effectiveMode === "ranked_duel" ? "win" : undefined;
@@ -1012,6 +1049,7 @@ export default function GameScreen() {
         })
         .then(async (summary) => {
           setCompletionSummary(summary);
+          setReviewFreshResultKey(completionCelebrationKey);
           setOfficialOutcomeSessionId(completedSessionId ?? null);
           const officialResult = summary.updatedProfile.recent_results[0];
           setOfficialScore(officialResult?.final_score ?? null);
@@ -1056,7 +1094,7 @@ export default function GameScreen() {
       setHasSavedOnce(false);
       setIsSubmittingResult(false);
     });
-  }, [auth.isSignedIn, auth.user?.id, cancelPendingSave, closeSessionForPuzzle, effectiveMode, fetchFriendChallenges, fetchRankedDuel, game.board, game.result, isSubmittingResult, processedResultId, recordPuzzleResult, saveSession, submitOfficialPuzzleResult]);
+  }, [auth.isSignedIn, auth.user?.id, cancelPendingSave, closeSessionForPuzzle, completionCelebrationKey, effectiveMode, fetchFriendChallenges, fetchRankedDuel, game.board, game.result, isSubmittingResult, processedResultId, recordPuzzleResult, saveSession, submitOfficialPuzzleResult]);
 
   useEffect(() => {
     const finalizesFailedAttempt = auth.isSignedIn && supportsOfficialFailedFinalisation(effectiveMode);
@@ -1283,6 +1321,7 @@ export default function GameScreen() {
     setChallengeOutcome(null);
     setOfficialOutcomeSessionId(null);
     setProcessedResultId(null);
+    setReviewFreshResultKey(null);
     setProcessedFailedSessionId(null);
     if (resultContinuation.actionKind === "start_classic" && resultContinuation.targetDifficulty) {
       const targetDifficulty = resultContinuation.targetDifficulty;
@@ -1581,6 +1620,7 @@ export default function GameScreen() {
         rankPromotion={completionSummary?.rankPromotion ?? null}
         unlockedBadges={completionSummary?.unlockedBadges.map((badge) => ({ badge_id: badge.badge_id, name: badge.name, icon: badge.icon })) ?? []}
         celebrationKey={completionCelebrationKey}
+        reviewRequestContext={reviewRequestContext}
         continuation={resultContinuation}
         showLeaderboardEligibility={effectiveMode !== "ranked_duel"}
         avatar={{ ...profile, displayName: profile.display_name ?? profile.username }}
